@@ -1,0 +1,29 @@
+### create-user
+POST http://localhost:8080/
+Content-Type: application/json
+
+{
+  "name": "Jurjen",
+  "email": "jurjen@vorhauer.nl",
+  "password": "Welkom123!"
+}
+
+### invalid-name
+POST http://localhost:8080/
+Content-Type: application/json
+
+{
+  "name": "welkom123",
+  "email": "weet@niet.het",
+  "password": "welkom0123!"
+}
+
+### invalid-email
+POST http://localhost:8080/
+Content-Type: application/json
+
+{
+  "name": "welkom123",
+  "email": "weet@niet.het",
+  "password": "welkom0123!"
+}

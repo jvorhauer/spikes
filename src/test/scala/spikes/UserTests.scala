@@ -1,8 +1,10 @@
-package inherit
+package spikes
 
+import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.wix.accord._
 import io.scalaland.chimney.dsl.TransformerOps
 import org.scalatest.flatspec.AnyFlatSpec
+import spikes.model.{CreateUser, RequestCreateUser, RequestDeleteUser, RequestUpdateUser, UserCreated}
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
@@ -12,7 +14,7 @@ import java.util.UUID
  * occur in the core of a system: its domain model.
  */
 
-class UserTests extends AnyFlatSpec with ResultBuilders {
+class UserTests extends AnyFlatSpec with ResultBuilders with ScalatestRouteTest {
 
   private val uuid = UUID.randomUUID()
   private val name = "Tester"
@@ -85,11 +87,14 @@ class UserTests extends AnyFlatSpec with ResultBuilders {
 
   "a CreateUserCommand" should "transform to a UserCreated event" in {
     val now = LocalDateTime.now()
-    val cmd = CreateUser(UUID.randomUUID(), name, email, password)
+    val born = LocalDate.now().minusYears(42)
+    val cmd = CreateUser(UUID.randomUUID(), name, email, born, password)
     val evt = cmd.into[UserCreated].withFieldComputed(_.joined, _ => now).transform
     assert(evt.name == cmd.name)
     assert(evt.id == cmd.id)
     assert(evt.email == cmd.email)
     assert(evt.joined == now)
+    assert(evt.born == cmd.born && evt.born == born)
+    assert(evt.password == cmd.password)
   }
 }

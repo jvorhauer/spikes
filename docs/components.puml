@@ -1,0 +1,35 @@
+@startuml
+'https://plantuml.com/component-diagram
+
+package "Write Side" {
+  HTTPc - [Command Handler]
+  [Event Handler]
+  [Recovery Handler]
+}
+
+database "Event Store" {
+    [Journal]
+    [Snapshots]
+}
+
+database "State" {
+    [Model]
+}
+
+package "Read Side" {
+    HTTPq - [Query Handler]
+    [Repositories]
+}
+
+[Command Handler] <-- [Model] : check
+[Command Handler] --> [Event Handler]
+[Command Handler] --> [Journal] : persist
+[Event Handler] --> [Model] : update
+
+[Journal] --> [Recovery Handler]
+[Recovery Handler] --> [Event Handler]
+
+[Query Handler] --> [Repositories]
+[Model] --> [Repositories]
+
+@enduml

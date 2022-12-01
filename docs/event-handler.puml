@@ -1,0 +1,9 @@
+@startuml
+'https://plantuml.com/activity-diagram-beta
+
+start
+:Receive Event;
+:Update State;
+stop
+
+@enduml

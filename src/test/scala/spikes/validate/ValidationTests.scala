@@ -39,7 +39,7 @@ class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest 
     }
   }
 
-  "Validation Test" should "reject" in {
+  "Invalid Book" should "return model validation rejection set" in {
     Post("/books", Book("", "", 5)) ~> routes ~> check {
       assert(rejection === ModelValidationRejection(Set(
         FieldErrorInfo("title", "title cannot be empty"),
@@ -49,7 +49,7 @@ class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest 
     }
   }
 
-  "Invalid Test" should "not complete" in {
+  "Valid Book with invalid rule" should "reject validation" in {
     Put("/books", Book("Nice book", "Scott Tiger", 42)) ~> routes ~> check {
       assert(rejection === ValidationRejection("No such field for validation: thingy"))
     }

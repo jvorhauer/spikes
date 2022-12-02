@@ -1,21 +1,16 @@
 package spikes.validate
 
-import akka.http.scaladsl.model.ContentTypes.`application/json`
-import akka.http.scaladsl.model.StatusCodes.BadRequest
-import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server._
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.wix.accord.ResultBuilders
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
-import io.circe.syntax.EncoderOps
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.validate.ModelValidation.validateModel
+import spikes.validate.ModelValidation.validated
 
 
-class ValidationTests extends AnyFlatSpec with ResultBuilders with Matchers with ScalatestRouteTest {
+class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
   case class Book(title: String, author: String, pages: Int)
 
   val titleRule = FieldRule("title", (_: String).nonEmpty, "title cannot be empty")
@@ -24,28 +19,18 @@ class ValidationTests extends AnyFlatSpec with ResultBuilders with Matchers with
   val failRule = FieldRule("thingy", (_: String) == "oink", "fail")
   val rules = Set(titleRule, authorRule, pagesRule)
 
-  private def responser(msg: String) =
-    HttpResponse(BadRequest, entity = HttpEntity(msg).withContentType(`application/json`))
-
-  def rejectionHandler = RejectionHandler.newBuilder()
-    .handle { case mvr @ ModelValidationRejection(_) =>
-      complete(responser(mvr.fields.asJson.toString()))
-    }.handle { case vr: ValidationRejection =>
-      complete(responser(vr.message))
-    }.result()
-
   val routes =  {
     pathPrefix("books") {
       post {
         entity(as[Book]) { book =>
-          validateModel(book, rules) { _ =>
+          validated(book, rules) { _ =>
             complete("ok")
           }
         }
       } ~ {
         put {
           entity(as[Book]) { book =>
-            validateModel(book, Set(failRule)) { _ =>
+            validated(book, Set(failRule)) { _ =>
               complete("ok")
             }
           }

@@ -1,37 +1,54 @@
 package spikes.validate
 
-import akka.http.scaladsl.server.Directives.{provide, reject}
-import akka.http.scaladsl.server.{Directive1, Rejection, ValidationRejection}
+import akka.http.scaladsl.model.ContentTypes._
+import akka.http.scaladsl.model.StatusCodes.BadRequest
+import akka.http.scaladsl.model.{HttpEntity, HttpResponse}
+import akka.http.scaladsl.server.Directives.{complete, provide, reject}
+import akka.http.scaladsl.server.{Directive1, Rejection, RejectionHandler, ValidationRejection}
+import io.circe.generic.auto._
+import io.circe.syntax.EncoderOps
 
 import scala.util.{Failure, Success, Try}
 
-case class FieldRule[-T](field: String, isValid: T => Boolean, error: String)
-case class FieldErrorInfo(field: String, error: String)
-case class ModelValidationRejection(fields: Set[FieldErrorInfo]) extends Rejection
+
+final case class FieldRule[-T](field: String, isValid: T => Boolean, error: String)
+final case class FieldErrorInfo(field: String, error: String)
+final case class ModelValidationRejection(fields: Set[FieldErrorInfo]) extends Rejection
 
 object ModelValidation {
   private def caseClassFields[T <: Any](obj: AnyRef): Seq[(String, T)] = {
-    obj.getClass.getDeclaredFields.map { field =>
+    obj.getClass.getDeclaredFields.toIndexedSeq.map { field =>
       field.setAccessible(true)
       (field.getName, field.get(obj).asInstanceOf[T])
     }
   }
 
-  def validateModel[T, M <: Any](model: T, rules: Set[FieldRule[M]]): Directive1[T] = {
+  def validate[T, M <: Any](model: T, rules: Set[FieldRule[M]]): Set[FieldErrorInfo] = {
     val errorSet = scala.collection.mutable.Set[FieldErrorInfo]()
     val fields = caseClassFields(model.asInstanceOf[AnyRef])
-    Try {
-      rules.map { rule =>
-        fields.find(_._1 == rule.field) match {
-          case None => throw new IllegalArgumentException(s"No such field for validation: ${rule.field}")
-          case Some(pair) =>
-            if (!rule.isValid(pair._2)) errorSet += FieldErrorInfo(rule.field, rule.error)
-        }
+    rules.map { rule =>
+      fields.find(_._1 == rule.field) match {
+        case None => throw new IllegalArgumentException(s"No such field for validation: ${rule.field}")
+        case Some(pair) =>
+          if (!rule.isValid(pair._2)) errorSet += FieldErrorInfo(rule.field, rule.error)
       }
-      errorSet.toSet[FieldErrorInfo]
+    }
+    errorSet.toSet[FieldErrorInfo]
+  }
+
+  def validated[T, M <: Any](model: T, rules: Set[FieldRule[M]]): Directive1[T] = {
+    Try {
+      validate(model, rules)
     } match {
       case Success(set) => if (set.isEmpty) provide(model) else reject(ModelValidationRejection(set))
       case Failure(e) => reject(ValidationRejection(e.getMessage))
     }
   }
+
+  private def badreq(msg: String) = HttpResponse(BadRequest, entity = HttpEntity(`application/json`, msg))
+
+  def rejectionHandler: RejectionHandler = RejectionHandler.newBuilder()
+    .handle { case mvr@ModelValidationRejection(_) => complete(badreq(mvr.fields.asJson.toString())) }
+    .handle { case vr: ValidationRejection         => complete(badreq(vr.message)) }
+    .result()
 }

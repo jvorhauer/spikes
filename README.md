@@ -34,7 +34,6 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [Akka http Directives (ProgramCreek)](https://www.programcreek.com/scala/akka.http.scaladsl.server.Directive)
 * [Akka http json (Heiko)](https://github.com/hseeberger/akka-http-json)
 * [ScalaTest](https://www.scalatest.org/user_guide/selecting_a_style)
-* [Validation - Accord](https://github.com/wix/accord)
 * [Architecture Decision Records](https://adr.github.io/madr/) 
 * [SBT jib](https://github.com/schmitch/sbt-jib)
 * [Akka http tools (sbus labs)](https://github.com/sbuslab/akka-http-tools)

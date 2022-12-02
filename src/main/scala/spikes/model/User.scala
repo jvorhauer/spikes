@@ -1,20 +1,17 @@
 package spikes.model
 
-import com.wix.accord.dsl._
-import com.wix.accord.{Validator, validate}
 import io.scalaland.chimney.dsl.TransformerOps
-import spikes.validate.FieldRule
+import spikes.validate.{FieldRule, ModelValidation}
 import spikes.{Command, Entity, Event, Hasher, Request, Response}
 
 import java.time.LocalDateTime.now
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
-import java.util.regex.Pattern
 
 object Regexes {
-  val name  = "^[a-zA-Z ']+$"
-  val email = "^[a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\\.[a-zA-Z]+$"
-  val poco  = "^[0-9]{4} ?[A-Z]{2}$"
+  val name  = "^[a-zA-Z '-]+$"
+  val email = "^([\\w-]+(?:\\.[\\w-]+)*)@\\w[\\w.-]+\\.[a-zA-Z]+$"
+  val poco  = "^[1-9][0-9]{3} ?[a-zA-Z]{2}$"
   val passw = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()–[{}]:;',?/*~$^+=<>]).{8,42}$"
 }
 
@@ -24,6 +21,7 @@ trait UserRequest extends Request {
   def password: String
   def born: LocalDate
   def isValid: Boolean
+  def isInvalid: Boolean = !isValid
 }
 
 object UserRequest {
@@ -36,39 +34,22 @@ object UserRequest {
       "too old or young"
     )
   )
-  val validated: Validator[UserRequest] = validator[UserRequest] { req =>
-    req.name should matchRegex(Regexes.name)
-    req.email should matchRegex(Regexes.email)
-    req.password should matchRegex(Regexes.passw)
-    req.born should be <= LocalDate.now().minusYears(8)
-    req.born should be > LocalDate.now().minusYears(121)
-  }
 }
 
 case class RequestCreateUser(name: String, email: String, password: String, born: LocalDate) extends UserRequest {
-  lazy val isValid: Boolean = validate(this).isSuccess
+  lazy val isValid: Boolean = ModelValidation.validate(this, UserRequest.rules).isEmpty
   lazy val asCmd: CreateUser = this.into[CreateUser]
     .withFieldComputed(_.id, _ => UUID.randomUUID())
     .withFieldComputed(_.password, req => Hasher.hash(req.password))
     .transform
 }
 
-object RequestCreateUser {
-  implicit val validated: Validator[RequestCreateUser] = validator[RequestCreateUser] { req =>
-    req is valid(UserRequest.validated)
-  }
-}
-
 case class RequestUpdateUser(id: UUID, name: String, email: String, password: String, born: LocalDate) extends UserRequest {
-  lazy val isValid: Boolean = validate(this).isSuccess
+  lazy val isValid: Boolean = ModelValidation.validate(this, RequestUpdateUser.rules).isEmpty
   lazy val asCmd: UpdateUser = this.into[UpdateUser].transform
 }
-
 object RequestUpdateUser {
-  implicit val validated: Validator[RequestUpdateUser] = validator[RequestUpdateUser] { req =>
-    req is valid(UserRequest.validated)
-    req.id is notNull
-  }
+  val rules = UserRequest.rules ++ Set(FieldRule("id", (id: UUID) => id != null, "no id specified"))
 }
 
 case class RequestDeleteUser(id: UUID) extends Request {
@@ -88,7 +69,11 @@ case class DeleteUser(id: UUID) extends Command {
   lazy val asEvent: UserDeleted = this.into[UserDeleted].transform
 }
 
-case class UserCreated(id: UUID, name: String, email: String, password: String, joined: LocalDateTime, born: LocalDate) extends Event
+case class UserCreated(
+  id: UUID, name: String, email: String, password: String, joined: LocalDateTime, born: LocalDate
+) extends Event {
+  lazy val asEntity = this.into[User].withFieldComputed(_.entries, _ => Map[UUID, Entry]()).transform
+}
 
 case class UserUpdated(id: UUID, name: String, email: String, password: String, born: LocalDate) extends Event
 
@@ -103,7 +88,7 @@ case class User(
   born: LocalDate,
   entries: Map[UUID, Entry]
 ) extends Entity {
-  lazy val asReponse: UserResponse = this.into[UserResponse].transform
+  lazy val asResponse: UserResponse = this.into[UserResponse].transform
 }
 
 case class UserResponse(id: UUID, name: String, email: String, joined: LocalDateTime, born: LocalDate) extends Response

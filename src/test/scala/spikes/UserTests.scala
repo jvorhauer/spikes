@@ -1,10 +1,10 @@
 package spikes
 
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.wix.accord._
 import io.scalaland.chimney.dsl.TransformerOps
 import org.scalatest.flatspec.AnyFlatSpec
-import spikes.model.{CreateUser, RequestCreateUser, RequestDeleteUser, RequestUpdateUser, UserCreated}
+import spikes.model.{CreateUser, RequestCreateUser, RequestDeleteUser, RequestUpdateUser, UserCreated, UserRequest}
+import spikes.validate.ModelValidation.validate
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
@@ -14,7 +14,7 @@ import java.util.UUID
  * occur in the core of a system: its domain model.
  */
 
-class UserTests extends AnyFlatSpec with ResultBuilders with ScalatestRouteTest {
+class UserTests extends AnyFlatSpec with ScalatestRouteTest {
 
   private val uuid = UUID.randomUUID()
   private val name = "Tester"
@@ -24,36 +24,23 @@ class UserTests extends AnyFlatSpec with ResultBuilders with ScalatestRouteTest 
 
   "Validate RequestCreateUser" should "correctly check" in {
     val rcu = RequestCreateUser(name, email, password, born)
-    val result = validate(rcu)
-    assert(result.isSuccess)
-
-    assert(validate(rcu.copy(name = "")).isFailure)
-    assert(validate(rcu.copy(email = "")).isFailure)
     assert(rcu.isValid)
-    assert(!rcu.copy(email = "!!!@???.nl").isValid)
 
-    val emptyName = validate(RequestCreateUser("", "testerdetest", password, born))
-    assert(emptyName.isFailure)
+    assert(rcu.copy(name = "").isInvalid)
+    assert(rcu.copy(email = "").isInvalid)
+    assert(validate(rcu, UserRequest.rules).isEmpty)
+    assert(rcu.copy(email = "!!!@???.nl").isInvalid)
 
-    val invalidEmail = validate(RequestCreateUser(name, "invalid email address", password, born))
-    assert(invalidEmail.isFailure)
+    assert(RequestCreateUser("", "testerdetest", password, born).isInvalid)
 
-    val invalidPassword = validate(RequestCreateUser(name, email, "niet_welkom", born))
-    assert(invalidPassword.isFailure)
+    assert(RequestCreateUser(name, "invalid email address", password, born).isInvalid)
+
+    val invalidPassword = RequestCreateUser(name, email, "niet_welkom", born)
+    assert(invalidPassword.isInvalid)
 
     List("no-digits!", "sh0rt", "no-special-chars12").foreach(s =>
-      assert(validate(RequestCreateUser(name, email, s, born)).isFailure)
+      assert(RequestCreateUser(name, email, s, born).isInvalid)
     )
-
-    validate(RequestCreateUser("a!2", "email", "nope", LocalDate.now())) match {
-      case Success => println("invalidPassword is ok???")
-      case Failure(violations) =>
-        violations
-          .map(_.asInstanceOf[GroupViolation])
-          .map(_.children.flatMap(r => Set(r.asInstanceOf[RuleViolation])))
-          .map(_.map(rv => s"${rv.toString}").mkString(", "))
-        violations.map(_.toString.replaceFirst("value with value \"RequestCreateUser", "\"")).foreach(println)
-    }
   }
 
   "a RequestCreateUser" should "transform to a CreateUser Command" in {

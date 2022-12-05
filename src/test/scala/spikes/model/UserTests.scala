@@ -1,9 +1,10 @@
-package spikes
+package spikes.model
 
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.http.scaladsl.testkit.ScalatestRouteTest
+import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
 import org.scalatest.flatspec.AnyFlatSpec
-import spikes.model.{CreateUser, RequestCreateUser, RequestDeleteUser, RequestUpdateUser, UserCreated, UserRequest}
 import spikes.validate.ModelValidation.validate
 
 import java.time.{LocalDate, LocalDateTime}
@@ -15,6 +16,9 @@ import java.util.UUID
  */
 
 class UserTests extends AnyFlatSpec with ScalatestRouteTest {
+
+  private val testkit = ActorTestKit()
+  private val probe = testkit.createTestProbe[StatusReply[UserResponse]]().ref
 
   private val uuid = UUID.randomUUID()
   private val name = "Tester"
@@ -45,14 +49,14 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest {
 
   "a RequestCreateUser" should "transform to a CreateUser Command" in {
     val rcu = RequestCreateUser(name, email, password, born)
-    val cmd = rcu.asCmd
+    val cmd = rcu.asCmd(probe)
     assert(cmd.name == rcu.name)
     assert(cmd.email == rcu.email)
     assert(cmd.id != null)
     assert(cmd.password != rcu.password)
 
     val mod = rcu.copy(name = "Other")
-    val too = mod.asCmd
+    val too = mod.asCmd(probe)
     assert(too.name == mod.name)
     assert(too.email == mod.email)
     assert(too.id != null && too.id != cmd.id)
@@ -67,15 +71,15 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest {
   }
 
   "a RequestDeleteUser" should "transform to a DeleteUser command" in {
-    val rdu = RequestDeleteUser(uuid)
+    val rdu = RequestDeleteUser(email)
     val cmd = rdu.asCmd
-    assert(cmd.id == rdu.id)
+    assert(cmd.email == rdu.email)
   }
 
-  "a CreateUserCommand" should "transform to a UserCreated event" in {
+  "a CreateUser command" should "transform to a UserCreated event" in {
     val now = LocalDateTime.now()
     val born = LocalDate.now().minusYears(42)
-    val cmd = CreateUser(UUID.randomUUID(), name, email, born, password)
+    val cmd = CreateUser(UUID.randomUUID(), name, email, born, password, probe)
     val evt = cmd.into[UserCreated].withFieldComputed(_.joined, _ => now).transform
     assert(evt.name == cmd.name)
     assert(evt.id == cmd.id)

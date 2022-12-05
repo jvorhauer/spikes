@@ -9,12 +9,8 @@ import java.util.{Locale, UUID}
 
 trait CborSerializable
 
-trait Request {
-  val asCmd: Command
-}
-trait Command extends CborSerializable {
-  val asEvent: Event
-}
+trait Request
+trait Command extends CborSerializable
 trait Event extends CborSerializable
 trait Entity { val id: UUID }
 trait Response

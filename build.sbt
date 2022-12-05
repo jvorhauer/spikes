@@ -5,6 +5,7 @@ ThisBuild / scalaVersion := "2.13.10"
 lazy val AkkaVersion = "2.7.0"
 lazy val AkkaHttpVersion = "10.4.0"
 lazy val ScalaTestVersion = "3.2.14"
+lazy val Test = "test"
 
 lazy val root = (project in file("."))
   .settings(
@@ -33,12 +34,14 @@ lazy val root = (project in file("."))
       "de.heikoseeberger" %% "akka-http-circe"            % "1.39.2",
       "io.circe"          %% "circe-generic"              % "0.14.3"
     ) ++ Seq(
-      "org.scalactic"     %% "scalactic"           % ScalaTestVersion,
-      "org.scalatest"     %% "scalatest"           % ScalaTestVersion % "test",
-      "com.typesafe.akka" %% "akka-stream-testkit" % AkkaVersion      % "test",
-      "com.typesafe.akka" %% "akka-http-testkit"   % AkkaHttpVersion  % "test"
+      "org.scalactic"     %% "scalactic"                % ScalaTestVersion,
+      "org.scalatest"     %% "scalatest"                % ScalaTestVersion % Test,
+      "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion      % Test,
+      "com.typesafe.akka" %% "akka-stream-testkit"      % AkkaVersion      % Test,
+      "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion      % Test,
+      "com.typesafe.akka" %% "akka-http-testkit"        % AkkaHttpVersion  % Test
     ) ++ Seq(
       "io.scalaland" %% "chimney"      % "0.6.2",
-      "org.slf4j"    %  "slf4j-simple" % "2.0.4"
+      "org.slf4j"    %  "slf4j-simple" % "2.0.5"
     )
   )

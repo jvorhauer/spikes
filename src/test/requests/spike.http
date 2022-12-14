@@ -1,15 +1,19 @@
 ### create-user
-POST http://localhost:8080/
+POST http://localhost:8080/users
 Content-Type: application/json
 
 {
   "name": "Jurjen",
   "email": "jurjen@vorhauer.nl",
-  "password": "Welkom123!"
+  "password": "Welkom123!",
+  "born": "1967-04-01"
 }
 
+### get-user
+GET http://localhost:8080/users/9ee43b12-dc09-4788-b0f3-d4359152f474
+
 ### invalid-name
-POST http://localhost:8080/
+POST http://localhost:8080/users
 Content-Type: application/json
 
 {
@@ -19,7 +23,7 @@ Content-Type: application/json
 }
 
 ### invalid-email
-POST http://localhost:8080/
+POST http://localhost:8080/users
 Content-Type: application/json
 
 {

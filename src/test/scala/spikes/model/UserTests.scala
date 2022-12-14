@@ -4,27 +4,36 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
+import net.datafaker.Faker
 import org.scalatest.flatspec.AnyFlatSpec
 import spikes.validate.ModelValidation.validate
 
 import java.time.{LocalDate, LocalDateTime}
-import java.util.UUID
+import java.util.{Locale, UUID}
+
+trait TestUser {
+  val faker = new Faker(Locale.US)
+  val uuid = UUID.randomUUID()
+  val name = "Tester"
+  val email = "tester@test.er"
+  val password = "Welkom123!"
+  val born = LocalDate.now().minusYears(21)
+
+  def fakeName: String = faker.name().fullName()
+  def fakeEmail: String = faker.internet().emailAddress().replace("@", s"${System.nanoTime()}-@")
+  def fakePassword: String = faker.internet().password(8, 64, true, true, true)
+  def joined: LocalDateTime = LocalDateTime.now()
+}
 
 /*
  * These tests are not to assert that Chimney works but to guarantee no regressions can
  * occur in the core of a system: its domain model.
  */
 
-class UserTests extends AnyFlatSpec with ScalatestRouteTest {
+class UserTests extends AnyFlatSpec with ScalatestRouteTest with TestUser {
 
   private val testkit = ActorTestKit()
   private val probe = testkit.createTestProbe[StatusReply[UserResponse]]().ref
-
-  private val uuid = UUID.randomUUID()
-  private val name = "Tester"
-  private val email = "tester@test.er"
-  private val password = "Welkom123!"
-  private val born = LocalDate.now().minusYears(21)
 
   "Validate RequestCreateUser" should "correctly check" in {
     val rcu = RequestCreateUser(name, email, password, born)
@@ -64,7 +73,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest {
 
   "a RequestUpdateUser" should "transform to a UpdateUser command" in {
     val ruu = RequestUpdateUser(uuid, name, email, password, born)
-    val cmd = ruu.asCmd
+    val cmd = ruu.asCmd(probe)
     assert(cmd.name == ruu.name)
     assert(cmd.email == ruu.email)
     assert(cmd.id == ruu.id)
@@ -72,7 +81,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest {
 
   "a RequestDeleteUser" should "transform to a DeleteUser command" in {
     val rdu = RequestDeleteUser(email)
-    val cmd = rdu.asCmd
+    val cmd = rdu.asCmd(probe)
     assert(cmd.email == rdu.email)
   }
 

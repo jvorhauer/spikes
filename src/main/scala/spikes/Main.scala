@@ -4,7 +4,8 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior, PostStop}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import spikes.model.{UserBehavior, UserRoutes}
+import spikes.behavior.Handlers
+import spikes.model.{State, UserRoutes, Users}
 
 import scala.util.{Failure, Success}
 
@@ -21,8 +22,11 @@ object Main {
 
   def apply(host: String, port: Int): Behavior[Message] = Behaviors.setup { ctx =>
     implicit val system = ctx.system
-    val userBehavior = ctx.spawn(UserBehavior(), "user-behavior")
-    val routes = UserRoutes(userBehavior).route
+
+    val state = State(Users())
+    val handlers = ctx.spawn(Handlers(state), "handlers")
+    val routes = UserRoutes(handlers).route
+
     val serverBinding = Http().newServerAt(host, port).bind(routes)
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)
@@ -43,15 +47,13 @@ object Main {
     def starting(wasStopped: Boolean): Behaviors.Receive[Message] =
       Behaviors.receiveMessage[Message] {
         case StartFailed(t) => throw new RuntimeException("Server failed to start", t)
-        case Started(b) =>
-          ctx.log.info(s"Started: ${b.localAddress.getHostString}:${b.localAddress.getPort}")
+        case Started(binding) =>
+          ctx.log.info(s"Started: ${binding.localAddress.getHostString}:${binding.localAddress.getPort}")
           if (wasStopped) ctx.self ! Stop
-          running(b)
-        case Stop =>
-          starting(wasStopped = true)
+          running(binding)
+        case Stop => starting(wasStopped = true)
       }
 
     starting(wasStopped = false)
   }
-
 }

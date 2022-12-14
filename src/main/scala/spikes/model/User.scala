@@ -1,23 +1,22 @@
 package spikes.model
 
-import akka.actor.typed.{ActorRef, ActorSystem, Behavior}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.pattern.StatusReply
-import akka.persistence.typed.PersistenceId
-import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior}
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
 import io.scalaland.chimney.dsl.TransformerOps
+import spikes._
 import spikes.validate.ModelValidation.validated
 import spikes.validate.{FieldRule, ModelValidation}
-import spikes.{Command, Entity, Event, Hasher, Request, Response}
 
 import java.time.LocalDateTime.now
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
+import scala.collection.immutable.HashSet
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
@@ -62,7 +61,9 @@ case class UserInputError(message: String)
 
 case class RequestUpdateUser(id: UUID, name: String, email: String, password: String, born: LocalDate) extends UserRequest {
   lazy val isValid: Boolean = ModelValidation.validate(this, RequestUpdateUser.rules).isEmpty
-  lazy val asCmd: UpdateUser = this.into[UpdateUser].transform
+  def asCmd(replyTo: ActorRef[StatusReply[UserResponse]]): UpdateUser = this.into[UpdateUser]
+    .withFieldComputed(_.replyTo, _ => replyTo)
+    .transform
 }
 
 object RequestUpdateUser {
@@ -70,7 +71,24 @@ object RequestUpdateUser {
 }
 
 case class RequestDeleteUser(email: String) extends Request {
-  lazy val asCmd: DeleteUser = this.into[DeleteUser].transform
+  def asCmd(replyTo: ActorRef[StatusReply[UserResponse]]): DeleteUser = this.into[DeleteUser]
+    .withFieldComputed(_.replyTo, _ => replyTo)
+    .transform
+}
+
+object RequestDeleteUser {
+  val rules = Set(FieldRule("email", (email: String) => email.matches(Regexes.email), "invalid email address"))
+}
+
+case class RequestLogin(email: String, password: String) extends Request {
+  def asCmd(replyTo: ActorRef[StatusReply[String]]): Login = Login(email, Hasher.hash(password), replyTo)
+}
+
+object RequestLogin {
+  val rules = Set(
+    FieldRule("email", (email: String) => email.matches(Regexes.email), "invalid email address"),
+    FieldRule("password", (password: String) => password.matches(Regexes.passw), "invalid password")
+  )
 }
 
 
@@ -85,13 +103,31 @@ case class CreateUser(
   lazy val asEvent: UserCreated = this.into[UserCreated].withFieldComputed(_.joined, _ => now()).transform
 }
 
-case class UpdateUser(id: UUID, name: String, email: String, born: LocalDate, password: String) extends Command {
+case class UpdateUser(
+  id: UUID,
+  name: String,
+  email: String,
+  born: LocalDate,
+  password: String,
+  replyTo: ActorRef[StatusReply[UserResponse]]
+) extends Command {
   lazy val asEvent: UserUpdated = this.into[UserUpdated].transform
 }
 
-case class DeleteUser(email: String) extends Command {
+case class DeleteUser(email: String, replyTo: ActorRef[StatusReply[UserResponse]]) extends Command {
   lazy val asEvent: UserDeleted = this.into[UserDeleted].transform
 }
+
+case class Login(email: String, password: String, replyTo: ActorRef[StatusReply[String]]) extends Command {
+  lazy val asEvent: LoggedIn = LoggedIn(email)
+}
+
+case class FindUserById(id: UUID, replyTo: ActorRef[StatusReply[UserResponse]]) extends Command
+
+case class FindUserByEmail(email: String, replyTo: ActorRef[StatusReply[UserResponse]]) extends Command
+
+case class CleanOutExpiredSessions(replyTo: ActorRef[StatusReply[Unit]]) extends Command
+
 
 case class UserCreated(
   id: UUID, name: String, email: String, password: String, joined: LocalDateTime, born: LocalDate
@@ -103,6 +139,11 @@ case class UserUpdated(id: UUID, name: String, email: String, password: String, 
 
 case class UserDeleted(email: String) extends Event
 
+case class LoggedIn(email: String, expires: LocalDateTime = LocalDateTime.now().plusHours(2)) extends Event
+
+case class CleanedExpiredSessions(performed: LocalDateTime = LocalDateTime.now()) extends Event
+
+
 case class User(
   id: UUID,
   name: String,
@@ -110,54 +151,43 @@ case class User(
   password: String,
   joined: LocalDateTime,
   born: LocalDate,
-  entries: Map[UUID, Entry]
+  entries: Map[UUID, Entry] = Map.empty
 ) extends Entity {
   lazy val asResponse: UserResponse = this.into[UserResponse].transform
+  def asSession(expires: LocalDateTime): UserSession = UserSession(Hasher.hash(UUID.randomUUID().toString), id, expires, this)
+}
+
+case class Users(ids: Map[UUID, User] = Map.empty, emails: Map[String, User] = Map.empty) extends CborSerializable {
+  def add(u: User): Users = Users(ids + (u.id -> u), emails + (u.email -> u))
+  def find(id: UUID): Option[User] = ids.get(id)
+  def find(email: String): Option[User] = emails.get(email)
+  def exists(id: UUID): Boolean = find(id).isDefined
+  def exists(email: String): Boolean = find(email).isDefined
+  def remove(id: UUID): Users = find(id).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
+  def remove(email: String): Users = find(email).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
+  def concat(other: Users): Users = Users(ids ++ other.ids, emails ++ other.emails)
+  def ++(other: Users): Users = concat(other)
+
+  lazy val size: Int = ids.size
+  lazy val valid: Boolean = ids.size == emails.size
 }
 
 case class UserResponse(id: UUID, name: String, email: String, joined: LocalDateTime, born: LocalDate) extends Response
 
-// IDEA: store User twice, once by email and once by id.toString. this way we can search for id or email
-//       implication: do everything twice, think of something smart to make this less ugly...
-case class State(users: Map[String, User] = Map.empty) {
-  def has(email: String): Boolean = users.exists(_._1 == email)
-  def get(email: String): Option[User] = users.get(email)
-  def add(u: User): State = this.copy(users = users + (u.email -> u))
-  def rem(email: String): State = this.copy(users = users.removed(email))
+case class UserSession(token: String, id: UUID, expires: LocalDateTime = LocalDateTime.now().plusHours(2), user: User)
+
+case class State(users: Users = Users(), sessions: Set[UserSession] = HashSet.empty) extends CborSerializable {
+  def now: LocalDateTime = LocalDateTime.now()
+  def get(email: String): Option[User] = users.find(email)
+  def get(id: UUID): Option[User] = users.find(id)
+  def put(u: User): State = State(users.add(u), sessions)
+  def rem(id: UUID): State = State(users.remove(id), sessions)
+  def rem(email: String): State = State(users.remove(email), sessions)
+  def authenticate(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires))
+  def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now))
+  def authorize(id: UUID): Option[UserSession] = sessions.find(us => us.id == id && us.expires.isAfter(now))
 }
 
-
-object UserBehavior {
-  def apply(): Behavior[Command] = EventSourcedBehavior[Command, Event, State](
-    persistenceId = PersistenceId.ofUniqueId("user"),
-    emptyState = State(),
-    commandHandler = commandHandler,
-    eventHandler = eventHandler
-  )
-
-  private val commandHandler: (State, Command) => Effect[Event, State] = { (state, command) =>
-    command match {
-      case cu: CreateUser => if (state.has(cu.email)) {
-        cu.replyTo ! StatusReply.error("email already in use")
-        Effect.none
-      } else {
-        Effect.persist(cu.asEvent).thenRun(_ => cu.replyTo ! StatusReply.success(cu.asEvent.asEntity.asResponse))
-      }
-      case uu: UpdateUser => Effect.persist(uu.asEvent)
-      case du: DeleteUser => Effect.persist(du.asEvent)
-      case _ => Effect.unhandled
-    }
-  }
-
-  private val eventHandler: (State, Event) => State = { (state, event) =>
-    event match {
-      case uc: UserCreated => state.add(uc.asEntity)
-      case uu: UserUpdated =>
-        state.get(uu.email).map(u => state.add(u.copy(name = uu.name, email = uu.email, born = uu.born))).getOrElse(state)
-      case ud: UserDeleted => state.rem(ud.email)
-    }
-  }
-}
 
 case class UserRoutes(ub: ActorRef[Command])(implicit system: ActorSystem[_]) {
 
@@ -165,33 +195,46 @@ case class UserRoutes(ub: ActorRef[Command])(implicit system: ActorSystem[_]) {
 
   implicit val timeout: Timeout = 3.seconds
 
+  private def respond(sc: StatusCode, body: String) =
+    complete(HttpResponse(sc, entity = HttpEntity(ContentTypes.`application/json`, body)))
+
+  private val badRequest = complete(HttpResponse(StatusCodes.BadRequest))
+
+  private def replier(fut: Future[StatusReply[UserResponse]], sc: StatusCode) =
+    onSuccess(fut) {
+      case sur: StatusReply[UserResponse] if sur.isSuccess => respond(sc, sur.getValue.asJson.toString())
+      case sur: StatusReply[UserResponse] => respond(StatusCodes.Conflict, UserInputError(sur.getError.getMessage).asJson.toString())
+      case _ => badRequest
+    }
+
   val route = handleRejections(ModelValidation.rejectionHandler) {
     pathPrefix("users") {
-      post {
-        entity(as[RequestCreateUser]) { rcu =>
-          validated(rcu, UserRequest.rules) { valid =>
-            val result: Future[StatusReply[UserResponse]] = ub.ask(ref => valid.asCmd(ref))
-            onSuccess(result) {
-              case sur: StatusReply[UserResponse] if sur.isSuccess =>
-                complete(
-                  HttpResponse(
-                    StatusCodes.Created,
-                    entity = HttpEntity(ContentTypes.`application/json`, sur.getValue.asJson.toString())
-                  )
-                )
-              case sur: StatusReply[UserResponse] =>
-                complete(
-                  HttpResponse(
-                    StatusCodes.Conflict,
-                    entity = HttpEntity(ContentTypes.`application/json`, UserInputError(sur.getError.getMessage).asJson.toString())
-                  )
-                )
-              case _ =>
-                complete(HttpResponse(StatusCodes.BadRequest))
+      concat(
+        post {
+          entity(as[RequestCreateUser]) { rcu =>
+            validated(rcu, UserRequest.rules) { valid =>
+              replier(ub.ask(valid.asCmd), StatusCodes.Created)
             }
           }
+        },
+        put {
+          entity(as[RequestUpdateUser]) { ruu =>
+            validated(ruu, RequestUpdateUser.rules) { valid =>
+              replier(ub.ask(valid.asCmd), StatusCodes.OK)
+            }
+          }
+        },
+        delete {
+          entity(as[RequestDeleteUser]) { rdu =>
+            validated(rdu, RequestDeleteUser.rules) { valid =>
+              replier(ub.ask(valid.asCmd), StatusCodes.Accepted)
+            }
+          }
+        },
+        (get & path(JavaUUID)) { id =>
+          replier(ub.ask(FindUserById(id, _)), StatusCodes.OK)
         }
-      }
+      )
     }
   }
 }

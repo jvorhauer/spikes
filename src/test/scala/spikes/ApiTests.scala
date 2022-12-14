@@ -13,16 +13,12 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.model.{RequestCreateUser, UserBehavior, UserInputError, UserResponse, UserRoutes}
+import spikes.behavior.Handlers
+import spikes.model._
 
 import java.time.LocalDate
 
-class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll {
-
-  val name = "Tester"
-  val email = "test@test.er"
-  val password = "Welkom123!"
-  val born = LocalDate.now().minusYears(21)
+class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
 
   implicit val ts = system.toTyped
   val testKit = ActorTestKit(
@@ -36,7 +32,7 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
     )
   )
 
-  val ub: ActorRef[Command] = testKit.spawn(UserBehavior())
+  val ub: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = UserRoutes(ub).route
 
   "Post without User request" should "return bad request" in {
@@ -61,6 +57,40 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
     Post("/users", rcu) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.Conflict
       responseAs[UserInputError] shouldEqual UserInputError("email already in use")
+    }
+  }
+
+  "Create and Update User" should "return updated User" in {
+    val rcu = RequestCreateUser("CreateAndUpdate", fakeEmail, password, born)
+    var resp: Option[UserResponse] = None
+    Post("/users", rcu) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Created
+      resp = Some(responseAs[UserResponse])
+    }
+    resp.isDefined shouldBe true
+    val ruu = RequestUpdateUser(resp.get.id, "Flipje", "flipje@test.er", password, born)
+    Put("/users", ruu) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[UserResponse].name shouldEqual "Flipje"
+    }
+
+    Get(s"/users/${resp.get.id}") ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[UserResponse].name shouldEqual "Flipje"
+    }
+  }
+
+  "Create and Delete User" should "return the deleted User" in {
+    val eeeemail = "create.delete@test.er"
+    val rcu = RequestCreateUser("CreateAndDelete", eeeemail, password, born)
+    Post("/users", rcu) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Created
+      responseAs[UserResponse].name shouldEqual rcu.name
+    }
+    val rdu = RequestDeleteUser(eeeemail)
+    Delete("/users", rdu) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Accepted
+      responseAs[UserResponse].email shouldEqual rcu.email
     }
   }
 

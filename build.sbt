@@ -15,8 +15,11 @@ lazy val root = (project in file("."))
       "-deprecation",
       "-feature",
       "-unchecked",
+      "-explaintypes",
       "-language:implicitConversions",
       "-language:existentials",
+      "-language:higherKinds",
+      "-language:postfixOps",
       "-Xlint:infer-any",
       "-Xlint:inaccessible",
       "-Xlint:missing-interpolator",
@@ -32,16 +35,17 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-serialization-jackson" % AkkaVersion,
       "com.typesafe.akka" %% "akka-persistence-cassandra" % "1.1.0",
       "de.heikoseeberger" %% "akka-http-circe"            % "1.39.2",
-      "io.circe"          %% "circe-generic"              % "0.14.3"
+      "io.circe"          %% "circe-generic"              % "0.14.3",
+      "org.scalactic"     %% "scalactic"                  % ScalaTestVersion,
     ) ++ Seq(
-      "org.scalactic"     %% "scalactic"                % ScalaTestVersion,
-      "org.scalatest"     %% "scalatest"                % ScalaTestVersion % Test,
-      "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion      % Test,
-      "com.typesafe.akka" %% "akka-stream-testkit"      % AkkaVersion      % Test,
-      "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion      % Test,
-      "com.typesafe.akka" %% "akka-http-testkit"        % AkkaHttpVersion  % Test
-    ) ++ Seq(
-      "io.scalaland" %% "chimney"      % "0.6.2",
-      "org.slf4j"    %  "slf4j-simple" % "2.0.5"
+      "org.scalatest"     %% "scalatest"                % ScalaTestVersion,
+      "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion,
+      "com.typesafe.akka" %% "akka-stream-testkit"      % AkkaVersion,
+      "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion,
+      "com.typesafe.akka" %% "akka-http-testkit"        % AkkaHttpVersion,
+      "net.datafaker"     %  "datafaker"                % "1.7.0",
+    ).map(_ % Test) ++ Seq(
+      "io.scalaland"   %% "chimney"         % "0.6.2",
+      "ch.qos.logback" %  "logback-classic" % "1.4.5"
     )
   )

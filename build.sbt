@@ -1,4 +1,4 @@
-ThisBuild / version := "1.0.0-SNAPSHOT"
+import ReleaseTransformations._
 
 ThisBuild / scalaVersion := "2.13.10"
 
@@ -48,5 +48,17 @@ lazy val root = (project in file("."))
       "ch.qos.logback" %  "logback-classic" % "1.4.5",
       "io.circe"       %% "circe-generic"   % "0.14.3",
       "org.scalactic"  %% "scalactic"       % ScalaTestVersion,
+    ),
+    releaseProcess := Seq[ReleaseStep](
+      checkSnapshotDependencies,
+      inquireVersions,
+      runClean,
+      runTest,
+      setReleaseVersion,
+      commitReleaseVersion,
+      tagRelease,
+      setNextVersion,
+      commitNextVersion,
+      pushChanges
     )
   )

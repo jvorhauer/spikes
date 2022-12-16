@@ -13,7 +13,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.behavior.Handlers
+import spikes.behavior.{Handlers, Query, Reader}
 import spikes.model._
 
 import java.time.LocalDate
@@ -32,8 +32,9 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
     )
   )
 
-  val ub: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
-  val route: Route = UserRoutes(ub).route
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
+  val reader: ActorRef[Query] = testKit.spawn(Reader.query(), "query-handler")
+  val route: Route = UserRoutes(handlers, reader).route
 
   "Post without User request" should "return bad request" in {
     Post("/users") ~> Route.seal(route) ~> check {

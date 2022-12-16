@@ -9,17 +9,30 @@ Content-Type: application/json
   "born": "1967-04-01"
 }
 
-### get-user
+### get-jurjen
 GET http://localhost:8080/users/9ee43b12-dc09-4788-b0f3-d4359152f474
 
-### invalid-name
+### get-all-users
+GET http://localhost:8080/users
+
+### login-jurjen
+POST http://localhost:8080/users/login
+Content-Type: application/json
+
+{
+  "email": "jurjen@vorhauer.nl",
+  "password": "Welkom123!"
+}
+
+### invalid-name-and-password
 POST http://localhost:8080/users
 Content-Type: application/json
 
 {
   "name": "welkom123",
   "email": "weet@niet.het",
-  "password": "welkom0123!"
+  "password": "welkom0123!",
+  "born": "2001-11-09"
 }
 
 ### invalid-email
@@ -27,7 +40,31 @@ POST http://localhost:8080/users
 Content-Type: application/json
 
 {
-  "name": "welkom123",
-  "email": "weet@niet.het",
-  "password": "welkom0123!"
+  "name": "Tester",
+  "email": "weet-niet.het",
+  "password": "Welkom0123!",
+  "born": "2001-11-09"
+}
+
+
+### create-temp-user
+POST http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "name": "The Temp",
+  "email": "temp@test.er",
+  "password": "Welkom123!",
+  "born": "2001-11-09"
+}
+
+### get-temp-user
+GET http://localhost:8080/users/1fea6d11-262e-4a17-967d-4cfe6e5e945b
+
+### delete-temp-user
+DELETE http://localhost:8080/users
+Content-Type: application/json
+
+{
+  "email": "temp@test.er"
 }

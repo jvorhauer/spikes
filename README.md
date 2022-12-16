@@ -38,6 +38,7 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [SBT jib](https://github.com/schmitch/sbt-jib)
 * [Akka http tools (sbus labs)](https://github.com/sbuslab/akka-http-tools)
 * [Akka http validation](https://github.com/Fruzenshtein/akka-http-validation)
+* [Akka http metrics](https://index.scala-lang.org/rustedbones/akka-http-metrics)
 
 ### Inspiration
 

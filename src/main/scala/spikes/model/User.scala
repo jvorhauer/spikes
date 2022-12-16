@@ -4,12 +4,14 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.pattern.StatusReply
+import akka.persistence.typed.PublishedEvent
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
 import io.scalaland.chimney.dsl.TransformerOps
 import spikes._
+import spikes.behavior.{AllUsers, Query}
 import spikes.validate.ModelValidation.validated
 import spikes.validate.{FieldRule, ModelValidation}
 
@@ -65,7 +67,6 @@ case class RequestUpdateUser(id: UUID, name: String, email: String, password: St
     .withFieldComputed(_.replyTo, _ => replyTo)
     .transform
 }
-
 object RequestUpdateUser {
   val rules = UserRequest.rules ++ Set(FieldRule("id", (id: UUID) => id != null, "no id specified"))
 }
@@ -75,7 +76,6 @@ case class RequestDeleteUser(email: String) extends Request {
     .withFieldComputed(_.replyTo, _ => replyTo)
     .transform
 }
-
 object RequestDeleteUser {
   val rules = Set(FieldRule("email", (email: String) => email.matches(Regexes.email), "invalid email address"))
 }
@@ -83,7 +83,6 @@ object RequestDeleteUser {
 case class RequestLogin(email: String, password: String) extends Request {
   def asCmd(replyTo: ActorRef[StatusReply[String]]): Login = Login(email, Hasher.hash(password), replyTo)
 }
-
 object RequestLogin {
   val rules = Set(
     FieldRule("email", (email: String) => email.matches(Regexes.email), "invalid email address"),
@@ -124,9 +123,11 @@ case class Login(email: String, password: String, replyTo: ActorRef[StatusReply[
 
 case class FindUserById(id: UUID, replyTo: ActorRef[StatusReply[UserResponse]]) extends Command
 
+case class FindAllUser(replyTo: ActorRef[StatusReply[List[UserResponse]]]) extends Command
+
 case class FindUserByEmail(email: String, replyTo: ActorRef[StatusReply[UserResponse]]) extends Command
 
-case class CleanOutExpiredSessions(replyTo: ActorRef[StatusReply[Unit]]) extends Command
+case class Reap(replyTo: ActorRef[Command]) extends Command
 
 
 case class UserCreated(
@@ -141,7 +142,7 @@ case class UserDeleted(email: String) extends Event
 
 case class LoggedIn(email: String, expires: LocalDateTime = LocalDateTime.now().plusHours(2)) extends Event
 
-case class CleanedExpiredSessions(performed: LocalDateTime = LocalDateTime.now()) extends Event
+case class Reaped(eligible: Int, performed: LocalDateTime = LocalDateTime.now()) extends Event
 
 
 case class User(
@@ -174,7 +175,11 @@ case class Users(ids: Map[UUID, User] = Map.empty, emails: Map[String, User] = M
 
 case class UserResponse(id: UUID, name: String, email: String, joined: LocalDateTime, born: LocalDate) extends Response
 
-case class UserSession(token: String, id: UUID, expires: LocalDateTime = LocalDateTime.now().plusHours(2), user: User)
+case class OAuthToken(access_token: String, token_type: String = "bearer", expires_in: Int = 7200) extends CborSerializable
+
+case class UserSession(token: String, id: UUID, expires: LocalDateTime = LocalDateTime.now().plusHours(2), user: User) {
+  lazy val asOAuthToken = OAuthToken(token).asJson.toString()
+}
 
 case class State(users: Users = Users(), sessions: Set[UserSession] = HashSet.empty) extends CborSerializable {
   def now: LocalDateTime = LocalDateTime.now()
@@ -189,7 +194,7 @@ case class State(users: Users = Users(), sessions: Set[UserSession] = HashSet.em
 }
 
 
-case class UserRoutes(ub: ActorRef[Command])(implicit system: ActorSystem[_]) {
+case class UserRoutes(handlers: ActorRef[Command], reader: ActorRef[Query])(implicit system: ActorSystem[_]) {
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
@@ -213,26 +218,45 @@ case class UserRoutes(ub: ActorRef[Command])(implicit system: ActorSystem[_]) {
         post {
           entity(as[RequestCreateUser]) { rcu =>
             validated(rcu, UserRequest.rules) { valid =>
-              replier(ub.ask(valid.asCmd), StatusCodes.Created)
+              replier(handlers.ask(valid.asCmd), StatusCodes.Created)
             }
           }
         },
         put {
           entity(as[RequestUpdateUser]) { ruu =>
             validated(ruu, RequestUpdateUser.rules) { valid =>
-              replier(ub.ask(valid.asCmd), StatusCodes.OK)
+              replier(handlers.ask(valid.asCmd), StatusCodes.OK)
             }
           }
         },
         delete {
           entity(as[RequestDeleteUser]) { rdu =>
             validated(rdu, RequestDeleteUser.rules) { valid =>
-              replier(ub.ask(valid.asCmd), StatusCodes.Accepted)
+              replier(handlers.ask(valid.asCmd), StatusCodes.Accepted)
             }
           }
         },
         (get & path(JavaUUID)) { id =>
-          replier(ub.ask(FindUserById(id, _)), StatusCodes.OK)
+          replier(handlers.ask(FindUserById(id, _)), StatusCodes.OK)
+        },
+        get {
+          onSuccess(reader.ask(AllUsers)) {
+            case lur: List[UserResponse] => respond(StatusCodes.OK, lur.asJson.toString())
+            case _ => badRequest
+          }
+        },
+        path("login") {
+          post {
+            entity(as[RequestLogin]) { rl =>
+              validated(rl, RequestLogin.rules) { valid =>
+                onSuccess(handlers.ask(valid.asCmd)) {
+                  case ss: StatusReply[String] if ss.isSuccess => respond(StatusCodes.OK, ss.getValue)
+                  case ss: StatusReply[_] => respond(StatusCodes.BadRequest, UserInputError(ss.getError.getMessage).asJson.toString())
+                  case _ => badRequest
+                }
+              }
+            }
+          }
         }
       )
     }

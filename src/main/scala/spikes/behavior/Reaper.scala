@@ -2,8 +2,8 @@ package spikes.behavior
 
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
-import spikes.Command
-import spikes.model.Reap
+import spikes.model.Command
+import spikes.model.Command.Reap
 
 import scala.concurrent.duration.FiniteDuration
 

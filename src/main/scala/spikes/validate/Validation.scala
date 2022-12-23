@@ -52,3 +52,10 @@ object ModelValidation {
     .handle { case vr: ValidationRejection         => complete(badreq(vr.message)) }
     .result()
 }
+
+object Regexes {
+  val name = "^[a-zA-Z '-]+$"
+  val email = "^([\\w-]+(?:\\.[\\w-]+)*)@\\w[\\w.-]+\\.[a-zA-Z]+$"
+  val poco = "^[1-9][0-9]{3} ?[a-zA-Z]{2}$"
+  val passw = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()–[{}]:;',?/*~$^+=<>]).{8,42}$"
+}

@@ -3,8 +3,9 @@ package spikes.behavior
 import akka.persistence.testkit.scaladsl.UnpersistentBehavior
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import spikes.model.Command.FindUserById
+import spikes.model.Event.LoggedIn
 import spikes.model._
-import spikes.{Command, Event}
 
 import java.time.LocalDate
 import java.util.UUID
@@ -22,20 +23,20 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Create a new User" should "persist" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val reply = testkit.runAskWithStatus(CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(UserCreated(id, name, email, password, reply.joined, born))
+      val reply = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, reply.joined, born))
       snapshotProbe.hasEffects shouldBe false
     }
   }
 
   "Update a new User" should "persist updated information" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val reply = testkit.runAskWithStatus(CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(UserCreated(id, name, email, password, reply.joined, born))
+      val reply = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, reply.joined, born))
       snapshotProbe.hasEffects shouldBe false
 
-      val updated = testkit.runAskWithStatus(UpdateUser(id, "Breaker", "breaker@test.er", born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(UserUpdated(id, "Breaker", "breaker@test.er", password, born))
+      val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply().getValue
+      eventProbe.expectPersisted(Event.UserUpdated(id, "Breaker", password, born))
       snapshotProbe.hasEffects shouldBe false
       updated.name shouldEqual "Breaker"
     }
@@ -43,7 +44,7 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Update non existent User" should "return an error" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val updated = testkit.runAskWithStatus(UpdateUser(id, "Breaker", "breaker@test.er", born, password, _)).receiveStatusReply()
+      val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply()
       eventProbe.hasEffects shouldBe false
       snapshotProbe.hasEffects shouldBe false
       updated.isError shouldBe true
@@ -52,11 +53,11 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Login" should "return a session token" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val reply = testkit.runAskWithStatus(CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(UserCreated(id, name, email, password, reply.joined, born))
+      val reply = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, reply.joined, born))
       snapshotProbe.hasEffects shouldBe false
 
-      val token = testkit.runAskWithStatus(Login(email, password, _)).receiveStatusReply().getValue
+      val token = testkit.runAskWithStatus(Command.Login(email, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersistedType[LoggedIn]()    // can't guess the time
       token should not be null
     }
@@ -64,8 +65,8 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Create and Find" should "return the previously added User" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val reply = testkit.runAskWithStatus(CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(UserCreated(id, name, email, password, reply.joined, born))
+      val reply = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, reply.joined, born))
       snapshotProbe.hasEffects shouldBe false
 
       val user = testkit.runAskWithStatus(FindUserById(id, _)).receiveStatusReply().getValue

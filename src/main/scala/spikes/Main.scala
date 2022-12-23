@@ -5,11 +5,18 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior, PostStop}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.persistence.cassandra.query.javadsl.CassandraReadJournal
+import akka.persistence.typed.PersistenceId
+import akka.projection.eventsourced.scaladsl.EventSourcedProvider
+import akka.projection.slick.SlickProjection
+import akka.projection.{ProjectionBehavior, ProjectionId}
+import slick.basic.DatabaseConfig
+import slick.jdbc.H2Profile
 import spikes.behavior.{Handlers, Reader, Reaper}
-import spikes.model.{State, UserRoutes, Users}
+import spikes.model.{Event, State, UserRoutes, Users}
+import spikes.projection.{UsersRepository, UsersRepositoryHandler}
 
-import java.util.concurrent.TimeUnit
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
 
 object Main {
@@ -20,6 +27,8 @@ object Main {
   private final case class Started(binding: ServerBinding) extends Message
   private case object Stop extends Message
 
+  val persistenceId = PersistenceId.ofUniqueId("spikes-handlers")
+  val projectionId: ProjectionId = ProjectionId("users", "user")
 
   def main(args: Array[String]): Unit = {
     ActorSystem[Message](Main("127.0.0.1", 8080), "spikes")
@@ -27,6 +36,7 @@ object Main {
 
   def apply(host: String, port: Int): Behavior[Message] = Behaviors.setup { ctx =>
     implicit val system = ctx.system
+    implicit val ec = system.executionContext
 
     val state = State(Users())
 
@@ -34,9 +44,24 @@ object Main {
     ctx.system.eventStream.tell(Subscribe(reader))
     val handlers = ctx.spawn(Handlers(state), "handlers")
 
-    ctx.spawn(Reaper(handlers, FiniteDuration.apply(1, TimeUnit.MINUTES)), "reaper")
+    ctx.spawn(Reaper(handlers, 1.hour), "reaper")
     val query = ctx.spawn(Reader.query(), "query")
 
+    val dbConfig: DatabaseConfig[H2Profile] = DatabaseConfig.forConfig("h2projection")
+    val repo = new UsersRepository(dbConfig)
+    repo.create()
+
+    val sourceProvider = EventSourcedProvider.eventsByTag[Event](
+        system              = system,
+        readJournalPluginId = CassandraReadJournal.Identifier,
+        tag                 = "user")
+    val projection = SlickProjection.exactlyOnce(
+      projectionId   = projectionId,
+      sourceProvider = sourceProvider,
+      databaseConfig = dbConfig,
+      handler        = () => new UsersRepositoryHandler(repo)
+    )
+    ctx.spawn(ProjectionBehavior(projection), projection.projectionId.id)
 
     val routes = UserRoutes(handlers, query).route
     val serverBinding = Http().newServerAt(host, port).bind(routes)

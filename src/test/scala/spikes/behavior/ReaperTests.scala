@@ -3,15 +3,15 @@ package spikes.behavior
 import akka.actor.testkit.typed.scaladsl.{ManualTime, ScalaTestWithActorTestKit, TestProbe}
 import org.scalatest.flatspec.AnyFlatSpecLike
 import org.scalatest.matchers.should.Matchers
-import spikes.Command
-import spikes.model.Reap
+import spikes.model.Command
+import spikes.model.Command.Reap
 
 import scala.concurrent.duration._
 
 
 class ReaperTests extends ScalaTestWithActorTestKit(ManualTime.config) with AnyFlatSpecLike with Matchers {
 
-  val probe = TestProbe[Command]
+  val probe = TestProbe[Command]()
   val manualTime = ManualTime()
 
   "Reaper" should "reap" in {

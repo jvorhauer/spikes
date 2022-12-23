@@ -1,7 +1,5 @@
 package spikes.model
 
-import spikes.Entity
-
 import java.time.LocalDateTime
 import java.util.UUID
 

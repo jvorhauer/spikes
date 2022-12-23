@@ -39,11 +39,25 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [Akka http tools (sbus labs)](https://github.com/sbuslab/akka-http-tools)
 * [Akka http validation](https://github.com/Fruzenshtein/akka-http-validation)
 * [Akka http metrics](https://index.scala-lang.org/rustedbones/akka-http-metrics)
+* [Akka http OAuth2](https://www.jannikarndt.de/blog/2018/10/oauth2-akka-http/)
+
+### Infrastructure
+
+* [DataStax Astra](https://astra.datastax.com/bbf920a2-9480-43f0-bdfb-ae682405943d)
+* [MicroK8s](https://microk8s.io/)
 
 ### Inspiration
 
 * [etm](https://dagraham.github.io/etm-dgraham/)
 * [UpBase](https://upbase.io/)
+
+### Development
+
+* [GitHub project](https://github.com/jvorhauer/spikes)
+* [sbt release](https://github.com/sbt/sbt-release)
+
+Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
+focus and cleaner process. Also update this document when applicable.
 
 ## Model
 

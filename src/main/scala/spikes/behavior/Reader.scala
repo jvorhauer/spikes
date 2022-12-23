@@ -3,13 +3,13 @@ package spikes.behavior
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.persistence.typed.PublishedEvent
-import spikes.model.{LoggedIn, Reaped, User, UserCreated, UserDeleted, UserResponse}
+import spikes.model._
 
 import scala.collection.mutable
 
 sealed trait Query
 
-case class AllUsers(replyTo: ActorRef[List[UserResponse]]) extends Query
+case class AllUsers(replyTo: ActorRef[List[Response.User]]) extends Query
 
 object Reader {
 
@@ -20,15 +20,15 @@ object Reader {
     Behaviors.receive {
       case (ctx, pe) =>
         pe.event match {
-          case li: LoggedIn =>
+          case li: Event.LoggedIn =>
             ctx.log.info("reader: logged in: {}", li)
             loggedIn += 1
-          case uc: UserCreated =>
+          case uc: Event.UserCreated =>
             ctx.log.info("reader: created user: {}", uc.email)
             users += uc.asEntity
-          case ud: UserDeleted =>
+          case ud: Event.UserDeleted =>
             ctx.log.info("reader: deleted user: {}", ud.email)
-          case r: Reaped =>
+          case r: Event.Reaped =>
             ctx.log.info("reader: reaped {} sessions", r.eligible)
             loggedIn -= r.eligible
           case _ => ctx.log.info("reader: match _")

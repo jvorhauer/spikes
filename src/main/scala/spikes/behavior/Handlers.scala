@@ -54,11 +54,10 @@ object Handlers {
             Effect.persist(Event.LoggedIn(email)).thenReply(replyTo) { state =>
               state.authorize(user.id) match {
                 case Some(au) => StatusReply.success(au.asOAuthToken)
-                case None => StatusReply.error(s"!!: user[${user.email}] is authenticated but no session found")
+                case None => StatusReply.error(s"!!!: user[${user.email}] is authenticated but no session found")
               }
             }
-          case Some(_) => Effect.none.thenReply(replyTo) { _ => StatusReply.error("invalid credentials") }
-          case None => Effect.none.thenReply(replyTo) { _ => StatusReply.error(s"user with email $email not found") }
+          case _ => Effect.none.thenReply(replyTo) { _ => StatusReply.error("invalid credentials") }
         }
       case Command.Authenticate(token, replyTo) => Effect.none.thenReply(replyTo) { state => state.authorize(token) }
       case Command.Reap(replyTo) =>
@@ -79,13 +78,14 @@ object Handlers {
     }
   }
 
+
   private val eventHandler: (State, Event) => State = { (state, event) =>
     event match {
       case uc: Event.UserCreated => state.save(uc.asEntity)
       case uu: Event.UserUpdated => state.find(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get
       case ud: Event.UserDeleted => state.delete(ud.email)
       case li: Event.LoggedIn => state.find(li.email).map(user => state.authenticate(user, li.expires)).getOrElse(state)
-      case _ : Event.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(LocalDateTime.now())))
+      case _: Event.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(LocalDateTime.now())))
     }
   }
 }

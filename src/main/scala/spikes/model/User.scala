@@ -8,9 +8,9 @@ import akka.pattern.StatusReply
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
-import io.circe.syntax.EncoderOps
+import io.circe.syntax._
 import io.scalaland.chimney.dsl.TransformerOps
-import spikes.behavior.{AllUsers, Query}
+import spikes.behavior.Query
 import spikes.model.Command.FindUserById
 import spikes.validate.ModelValidation
 import spikes.validate.ModelValidation.validated
@@ -118,9 +118,9 @@ final case class UserRoutes(handlers: ActorRef[Command], reader: ActorRef[Query]
         (get & path(JavaUUID)) { id =>
           replier(handlers.ask(FindUserById(id, _)), StatusCodes.OK)
         },
-        get {
-          onSuccess(reader.ask(AllUsers)) {
-            case lur: List[Response.User] => respond(StatusCodes.OK, lur.asJson.toString())
+        (get & pathEndOrSingleSlash) {
+          onSuccess(handlers.ask(Command.FindAllUser)) {
+            case lru: StatusReply[List[Response.User]] => respond(StatusCodes.OK, lru.getValue.asJson.toString())
             case _ => badRequest
           }
         },

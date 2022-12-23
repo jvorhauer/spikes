@@ -49,7 +49,7 @@ lazy val root = (project in file("."))
       "ch.qos.logback"     %  "logback-classic" % "1.4.5",
       "io.circe"           %% "circe-generic"   % "0.14.3",
       "org.scalactic"      %% "scalactic"       % ScalaTestVersion,
-      "org.wvlet.airframe" %% "airframe-ulid"   % "22.12.5"
+      "org.wvlet.airframe" %% "airframe-ulid"   % "22.12.6"
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,

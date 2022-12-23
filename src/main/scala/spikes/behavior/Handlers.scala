@@ -1,6 +1,6 @@
 package spikes.behavior
 
-import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
+import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{Behavior, PreRestart, SupervisorStrategy}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect}
@@ -17,7 +17,7 @@ object Handlers {
     EventSourcedBehavior.withEnforcedReplies[Command, Event, State](
       persistenceId = persistenceId,
       emptyState = state,
-      commandHandler = commandHandler(ctx),
+      commandHandler = commandHandler,
       eventHandler = eventHandler
     ).withEventPublishing(true)
       .withTagger(_ => Set("user"))
@@ -29,7 +29,7 @@ object Handlers {
       }
   }
 
-  private def commandHandler(ctx: ActorContext[Command]): (State, Command) => ReplyEffect[Event, State] = { (state, cmd) =>
+  private val commandHandler: (State, Command) => ReplyEffect[Event, State] = { (state, cmd) =>
     cmd match {
       case cu: Command.CreateUser =>
         state.find(cu.email) match {

@@ -5,14 +5,11 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.Credentials
 import akka.pattern.StatusReply
-import akka.projection.slick.SlickProjection
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
 import io.scalaland.chimney.dsl.TransformerOps
-import slick.basic.DatabaseConfig
-import slick.jdbc.H2Profile
 import spikes.behavior.{AllUsers, Query}
 import spikes.model.Command.FindUserById
 import spikes.validate.ModelValidation
@@ -21,7 +18,7 @@ import spikes.validate.ModelValidation.validated
 import java.time.{LocalDate, LocalDateTime}
 import java.util.UUID
 import scala.collection.immutable.HashSet
-import scala.concurrent.{Await, Future}
+import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 
@@ -37,40 +34,6 @@ final case class User(
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(UUID.randomUUID().toString), id, expires, this)
 }
 
-
-final case class UserState(dbConfig: DatabaseConfig[H2Profile] = DatabaseConfig.forConfig("h2state")) {
-  private lazy val db = dbConfig.db
-
-  import dbConfig.profile.api._
-
-  private class UserTable(tag: Tag) extends Table[User](tag, "USERS") {
-    def id = column[UUID]("USER_ID", O.PrimaryKey)
-    def name = column[String]("NAME")
-    def email = column[String]("EMAIL")
-    def password = column[String]("PASSWORD")
-    def joined = column[LocalDateTime]("JOINED")
-    def born = column[LocalDate]("BORN")
-    def * = (id, name, email, password, joined, born).mapTo[User]
-    def idxEmail = index("idx_email", email, unique = true)
-  }
-  private lazy val users = TableQuery[UserTable]
-
-  def create()(implicit system: ActorSystem[_]): Future[Unit] = {
-    SlickProjection.createTablesIfNotExists(dbConfig)
-    db.run(users.schema.createIfNotExists)
-  }
-
-  def save(u: User): Future[Int] = db.run(users.insertOrUpdate(u))
-  def find(email: String): Future[Option[User]] = db.run(users.filter(u => u.email === email).distinct.result.headOption)
-  def find(id: UUID): Future[Option[User]] = db.run(users.filter(u => u.id === id).distinct.result.headOption)
-  def count(): Future[Int] = db.run(users.size.result)
-  def delete(email: String): Future[Int] = db.run(users.filter(_.email === email).delete)
-  def all(): Future[Seq[User]] = db.run(users.result)
-  def update(uu: Event.UserUpdated): Future[Int] = db.run(users.filter(_.id === uu.id).map(u => (u.name, u.born)).update((uu.name, uu.born)))
-}
-
-
-
 final case class Users(ids: Map[UUID, User] = Map.empty, emails: Map[String, User] = Map.empty) extends CborSerializable {
   def save(u: User): Users = Users(ids + (u.id -> u), emails + (u.email -> u))
   def find(id: UUID): Option[User] = ids.get(id)
@@ -84,7 +47,6 @@ final case class Users(ids: Map[UUID, User] = Map.empty, emails: Map[String, Use
   lazy val valid: Boolean = ids.size == emails.size
 }
 
-
 final case class OAuthToken(access_token: String, token_type: String = "bearer", expires_in: Int = 7200) extends CborSerializable
 
 final case class UserSession(token: String, id: UUID, expires: LocalDateTime = LocalDateTime.now().plusHours(2), user: User) {
@@ -93,23 +55,12 @@ final case class UserSession(token: String, id: UUID, expires: LocalDateTime = L
 
 final case class State(
   users: Users = Users(),
-  sessions: Set[UserSession] = HashSet.empty,
-  table: UserState = UserState()
+  sessions: Set[UserSession] = HashSet.empty
 ) extends CborSerializable {
-  def find(email: String): Option[User] = {
-    users.find(email)
-    // table.find(email)   // returns a Future to an Option of User and that is not workable with persistent actors!
-    // see https://medium.com/codestar-blog/event-sourcing-with-akka-persistence-6a3f4b167852
-  }
+  def find(email: String): Option[User] = users.find(email)
   def find(id: UUID): Option[User] = users.find(id)
-  def save(u: User): State = {
-    table.save(u)
-    State(users.save(u), sessions, table)
-  }
-  def delete(email: String): State = {
-    table.delete(email)
-    State(users.remove(email), sessions)
-  }
+  def save(u: User): State = State(users.save(u), sessions)
+  def delete(email: String): State = State(users.remove(email), sessions)
 
   def authenticate(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires))
   def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now()))

@@ -1,21 +1,16 @@
 package spikes.model
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.ActorSystem
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
 import net.datafaker.Faker
 import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.must.Matchers.{be, not}
-import org.scalatest.matchers.should
 import org.scalatest.matchers.should.Matchers
 import spikes.validate.ModelValidation.validate
 
 import java.time.{LocalDate, LocalDateTime}
 import java.util.{Locale, UUID}
-import scala.concurrent.Await
-import scala.concurrent.duration.DurationInt
 
 trait TestUser {
   val faker = new Faker(Locale.US)
@@ -106,20 +101,5 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
     assert(evt.joined == now)
     assert(evt.born == cmd.born && evt.born == born)
     assert(evt.password == cmd.password)
-  }
-
-  "a UserState" should "creatable more than once" in {
-
-    implicit val system: ActorSystem[_] = testkit.system
-
-    val db1 = UserState()
-    val db2 = UserState()
-    Await.result(db1.create(), 500.millis)
-    db1 should not be null
-    db2 should not be null
-
-    Await.result(db1.save(User(UUID.randomUUID(), "Tester", "test@test.er", "testerdetest", now(), LocalDate.now().minusYears(21))), 500.millis) should be (1)
-    db1.count() map { c => assert(c == 1) }
-    db2.count() map { c => assert(c == 1) }
   }
 }

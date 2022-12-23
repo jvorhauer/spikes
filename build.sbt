@@ -6,7 +6,6 @@ ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 lazy val AkkaVersion = "2.7.0"
 lazy val AkkaHttpVersion = "10.4.0"
 lazy val ScalaTestVersion = "3.2.14"
-lazy val ProjectionsVersion = "1.3.1"
 lazy val Test = "test"
 
 lazy val root = (project in file("."))
@@ -37,9 +36,6 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"  %% "akka-persistence-typed"       % AkkaVersion,
       "com.typesafe.akka"  %% "akka-serialization-jackson"   % AkkaVersion,
       "com.typesafe.akka"  %% "akka-persistence-cassandra"   % "1.1.0",
-      "com.lightbend.akka" %% "akka-projection-core"         % ProjectionsVersion,
-      "com.lightbend.akka" %% "akka-projection-eventsourced" % ProjectionsVersion,
-      "com.lightbend.akka" %% "akka-projection-slick"        % ProjectionsVersion,
       "de.heikoseeberger"  %% "akka-http-circe"              % "1.39.2",
     ) ++ Seq(
       "org.scalatest"     %% "scalatest"                % ScalaTestVersion,
@@ -53,7 +49,6 @@ lazy val root = (project in file("."))
       "ch.qos.logback"     %  "logback-classic" % "1.4.5",
       "io.circe"           %% "circe-generic"   % "0.14.3",
       "org.scalactic"      %% "scalactic"       % ScalaTestVersion,
-      "com.h2database"     %  "h2"              % "2.1.214",
       "org.wvlet.airframe" %% "airframe-ulid"   % "22.12.5"
     ),
     releaseProcess := Seq[ReleaseStep](

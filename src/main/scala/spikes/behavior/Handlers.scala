@@ -74,6 +74,8 @@ object Handlers {
       case Command.FindUserByEmail(email, replyTo) =>
         Effect.none.thenReply(replyTo)(_.find(email)
           .map(u => StatusReply.success(u.asResponse)).getOrElse(StatusReply.error(s"user ${email} not found")))
+      case Command.FindAllUser(replyTo) =>
+        Effect.none.thenReply(replyTo)(state => StatusReply.success(state.users.ids.values.toList.map(_.asResponse)))
     }
   }
 

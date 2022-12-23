@@ -22,14 +22,7 @@ import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 
 
-final case class User(
-  id: UUID,
-  name: String,
-  email: String,
-  password: String,
-  joined: LocalDateTime,
-  born: LocalDate
-) extends Entity {
+final case class User(id: UUID, name: String, email: String, password: String, joined: LocalDateTime, born: LocalDate) extends Entity {
   lazy val asResponse: Response.User = this.into[Response.User].transform
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(UUID.randomUUID().toString), id, expires, this)
 }

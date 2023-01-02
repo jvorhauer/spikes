@@ -23,8 +23,11 @@ Queries are defined later and return a response of the required entity or a list
 * Akka http
 * Akka cluster
 * Akka Typed persistence
-* Cassandra adapter for Akka persistence
+  * * Jackson for Cbor serialization
+  * * Cassandra adapter for Akka persistence
 * Akka projections
+* ULIDs for unique, sortable IDs
+* Circe for http/json stuff via Heiko's lib
 
 See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/akka-guide/microservices-tutorial/index.html)
 
@@ -40,6 +43,8 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [Akka http validation](https://github.com/Fruzenshtein/akka-http-validation)
 * [Akka http metrics](https://index.scala-lang.org/rustedbones/akka-http-metrics)
 * [Akka http OAuth2](https://www.jannikarndt.de/blog/2018/10/oauth2-akka-http/)
+* [AirFrame ULID](https://wvlet.org/airframe/docs/airframe-ulid)
+* [Circe and ULID](https://circe.github.io/circe/codecs/custom-codecs.html)
 
 ### Infrastructure
 
@@ -71,13 +76,13 @@ An Entry can have Comments.
 
 ```scala User class
 case class User(
-  id: UUID,
+  id: ULID,
   name: String,
   email: String,
   password: String,
   born: LocalDate,
-  joined: LocalDateTime,
-  entries: Map[UUID, Entry]
+  entries: Map[ULID, Entry],
+  comments: Map[ULID, Comment]
 )
 ```
 
@@ -87,31 +92,43 @@ Entry is either Note, Task, Marker (bookmark, favorite), Blog, Journal or Event
 
 ```scala Entry class
 case class Entry(
-  id: UUID,
+  id: ULID,
   owner: UUID,
-  created: LocalDatetime,
   title: String,
   body: String,
   status: Status,
   url: Option[String] = None,
   due: Option[LocalDateTime] = None,
   starts: Option[LocalDateTime] = None,
-  ends: Option[LocalDateTime] = None
+  ends: Option[LocalDateTime] = None,
+  comments: Map[ULID, Comment]
 ) {
   lazy val isMarker: Boolean = url.isDefined && due.isEmpty && starts.isEmpty && ends.isEmpty
   lazy val isTask: Boolean = due.isDefined
   lazy val isEvent: Boolean = starts.isDefined && ends.isDefined
-  lazy val isJournal: Boolean = starts.isDefined && ends.isEmpty
 }
 ```
 
 with attributes to indicate type: 
 
 * no url and no due date/time: Note
-* url, but no due date/time: Marker
+* url, but no due or event date/time: Marker
 * due date/time: Task
 * starts and ends date/time: Event
 * starts, no ends: Journal
+
+or
+
+* Note: just title and body
+* Marker: URL + title (can have body, but no timestamps)
+* Task (or Reminder): Note + due timestamp (can have URL)
+* Event: Note + start and end timestamps
+
+#### Case Classes
+
+Instead of checking for existence of specific fields, Entry could be subclassed by Note, Marker, Task and Event. This makes converting from one to another 
+incarnation of Entry more difficult. I want a Note to become a Marker, Task or Event without any hassle, so the frontend can be as
+flexible about this as possible.
 
 Converting from and to different types is just filling/setting one of the two optional determinators. This is actually a lot more
 flexible than have a hierarchy of case classes, that each have one or two more fields than the base entry. A note becomes a reminder 
@@ -142,12 +159,11 @@ Request -> Command + State -> Event(s) -> State'
 
 ### User
 
-* Create / Register User
-* Login
-* Logout
-* Update Password
-* Update User
-* Delete User
+* Create / Register User -> UserCreated
+* Update User -> UserUpdated
+* Delete User -> UserDeleted
+* Login -> + UserSession
+* Logout -> - UserSession
 
 ### Entry
 
@@ -163,11 +179,16 @@ Request -> Command + State -> Event(s) -> State'
 
 Any User can add Comments to any Entry.
 
+* CreateComment
+* UpdateComment
+* DeleteComment
+
 ## Application State
 
 Consists of
-1. A Map[UUID, User] of all Users
-2. A Map[UUID, Entry] of all Entries
+1. Users
+2. Sessions
+3. Entries
 
 The Application State, or just State from now on, is only available in memory.
 The State is constructed of the initial, empty State with all Events until now applied to it.

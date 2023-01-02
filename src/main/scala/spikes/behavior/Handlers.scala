@@ -7,6 +7,7 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffec
 import akka.persistence.typed.{RecoveryCompleted, RecoveryFailed}
 import spikes.Main.persistenceId
 import spikes.model._
+import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
 import scala.concurrent.duration._
@@ -45,13 +46,14 @@ object Handlers {
         }
       case Command.DeleteUser(email, replyTo) =>
         state.find(email) match {
-          case Some(user) => Effect.persist(Event.UserDeleted(email)).thenReply(replyTo)(_ => StatusReply.success(user.asResponse))
+          case Some(user) => Effect.persist(Event.UserDeleted(user.id)).thenReply(replyTo)(_ => StatusReply.success(user.asResponse))
           case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error(s"user with email $email not found"))
         }
+
       case Command.Login(email, passwd, replyTo) =>
         state.find(email) match {
           case Some(user) if user.password == passwd =>
-            Effect.persist(Event.LoggedIn(email)).thenReply(replyTo) { state =>
+            Effect.persist(Event.LoggedIn(user.id)).thenReply(replyTo) { state =>
               state.authorize(user.id) match {
                 case Some(au) => StatusReply.success(au.asOAuthToken)
                 case None => StatusReply.error(s"!!!: user[${user.email}] is authenticated but no session found")
@@ -60,13 +62,21 @@ object Handlers {
           case _ => Effect.none.thenReply(replyTo) { _ => StatusReply.error("invalid credentials") }
         }
       case Command.Authenticate(token, replyTo) => Effect.none.thenReply(replyTo) { state => state.authorize(token) }
+      case Command.Logout(token, replyTo) => state.authorize(token) match {
+        case Some(us) => Effect.persist(Event.LoggedOut(us.id)).thenReply(replyTo)(_ => StatusReply.success("Yeah"))
+        case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error("User was not logged in"))
+      }
+
       case Command.Reap(replyTo) =>
         val count = state.sessions.count(_.expires.isBefore(now()))
         if (count == 0) {
           Effect.none.thenReply(replyTo)(_ => Done)
         } else {
-          Effect.persist(Event.Reaped(count)).thenReply(replyTo)(_ => Done)
+          Effect.persist(Event.Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => Done)
         }
+      case Command.Info(replyTo) =>
+        Effect.none.thenReply(replyTo)(state => StatusReply.success(Response.Info(state.users.size, state.sessions.size)))
+
       case Command.FindUserById(id, replyTo) =>
         Effect.none.thenReply(replyTo)(_.find(id)
           .map(u => StatusReply.success(u.asResponse)).getOrElse(StatusReply.error(s"user $id not found")))
@@ -83,9 +93,12 @@ object Handlers {
     event match {
       case uc: Event.UserCreated => state.save(uc.asEntity)
       case uu: Event.UserUpdated => state.find(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get
-      case ud: Event.UserDeleted => state.delete(ud.email)
-      case li: Event.LoggedIn => state.find(li.email).map(user => state.authenticate(user, li.expires)).getOrElse(state)
-      case _: Event.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(LocalDateTime.now())))
+      case ud: Event.UserDeleted => state.delete(ud.id)
+
+      case li: Event.LoggedIn    => state.find(li.id).map(user => state.authenticate(user, li.expires)).getOrElse(state)
+      case lo: Event.LoggedOut   => state.logout(lo.id)
+
+      case _: Event.Reaped       => state.copy(sessions = state.sessions.filter(_.expires.isAfter(LocalDateTime.now())))
     }
   }
 }

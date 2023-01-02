@@ -1,13 +1,13 @@
 package spikes.model
 
-import java.util.UUID
+import wvlet.airframe.ulid.ULID
 
-case class CreateTagRequest(id: UUID, title: String) extends Request {
+case class CreateTagRequest(title: String) extends Request {
 
 }
 
-case class CreateTag(id: UUID, title: String) extends Command
+case class CreateTag(id: ULID, title: String) extends Command
 
-case class TagCreated(id: UUID, title: String) extends Event
+case class TagCreated(id: ULID, title: String) extends Event
 
-case class Tag(id: UUID, title: String) extends Entity
+case class Tag(id: ULID, title: String) extends Entity

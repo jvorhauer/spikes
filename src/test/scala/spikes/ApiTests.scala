@@ -5,10 +5,11 @@ import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.{Directives, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
+import io.circe.{Decoder, Encoder}
 import io.circe.generic.auto._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
@@ -16,11 +17,16 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import spikes.behavior.{Handlers, Query, Reader}
 import spikes.model._
+import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 import java.util.UUID
+import scala.util.Try
 
 class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
+
+  implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
+  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
 
   implicit val ts = system.toTyped
   val testKit = ActorTestKit(
@@ -36,7 +42,7 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
 
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val reader: ActorRef[Query] = testKit.spawn(Reader.query(), "query-handler")
-  val route: Route = UserRoutes(handlers, reader).route
+  val route: Route = Directives.concat(UserRouter(handlers, reader).route, InfoRouter(handlers).route)
 
   "Post without User request" should "return bad request" in {
     Post("/users") ~> Route.seal(route) ~> check {
@@ -104,6 +110,21 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
     Delete("/users", rdu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.Accepted
       responseAs[Response.User].email shouldEqual rcu.email
+    }
+
+    Get("/info") ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[Response.Info] shouldEqual Response.Info(2, 1)
+    }
+
+
+    Put("/users/logout") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+    }
+
+    Get("/info") ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[Response.Info] shouldEqual Response.Info(2, 0)
     }
   }
 

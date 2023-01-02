@@ -5,9 +5,12 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior, PostStop}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
+import akka.http.scaladsl.server.Directives
+import akka.http.scaladsl.server.Directives.handleRejections
 import akka.persistence.typed.PersistenceId
 import spikes.behavior.{Handlers, Reader, Reaper}
-import spikes.model.{State, UserRoutes, Users}
+import spikes.model.{InfoRouter, State, UserRouter, Users}
+import spikes.validate.Validation
 
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
@@ -39,7 +42,12 @@ object Main {
     ctx.spawn(Reaper(handlers, 1.hour), "reaper")
     val query = ctx.spawn(Reader.query(), "query")
 
-    val routes = UserRoutes(handlers, query).route
+    val routes = handleRejections(Validation.rejectionHandler) {
+      Directives.concat(
+        UserRouter(handlers, query).route,
+        InfoRouter(handlers).route
+      )
+    }
     val serverBinding = Http().newServerAt(host, port).bind(routes)
     ctx.pipeToSelf(serverBinding) {
       case Success(binding) => Started(binding)

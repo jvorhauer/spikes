@@ -27,7 +27,7 @@ object Reader {
             ctx.log.info("reader: created user: {}", uc.email)
             users += uc.asEntity
           case ud: Event.UserDeleted =>
-            ctx.log.info("reader: deleted user: {}", ud.email)
+            ctx.log.info("reader: deleted user: {}", ud.id)
           case r: Event.Reaped =>
             ctx.log.info("reader: reaped {} sessions", r.eligible)
             loggedIn -= r.eligible

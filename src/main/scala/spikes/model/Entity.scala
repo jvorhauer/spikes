@@ -1,7 +1,10 @@
 package spikes.model
 
-import java.util.UUID
+import wvlet.airframe.ulid.ULID
+
+import java.time.{LocalDateTime, ZoneId}
 
 trait Entity extends CborSerializable {
- def id: UUID
+  def id: ULID
+  def created: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
 }

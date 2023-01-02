@@ -7,7 +7,9 @@ import akka.http.scaladsl.server.Directives.{complete, provide, reject}
 import akka.http.scaladsl.server.{Directive1, Rejection, RejectionHandler, ValidationRejection}
 import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
+import wvlet.airframe.ulid.ULID
 
+import java.time.LocalDate
 import scala.util.{Failure, Success, Try}
 
 
@@ -15,7 +17,7 @@ final case class FieldRule[-T](field: String, isValid: T => Boolean, error: Stri
 final case class FieldErrorInfo(field: String, error: String)
 final case class ModelValidationRejection(fields: Set[FieldErrorInfo]) extends Rejection
 
-object ModelValidation {
+object Validation {
   private def caseClassFields[T <: Any](obj: AnyRef): Seq[(String, T)] = {
     obj.getClass.getDeclaredFields.toIndexedSeq.map { field =>
       field.setAccessible(true)
@@ -54,8 +56,25 @@ object ModelValidation {
 }
 
 object Regexes {
-  val name = "^[a-zA-Z '-]+$"
+  val name = "^[\\p{L}\\p{Space}'-]+$"
   val email = "^([\\w-]+(?:\\.[\\w-]+)*)@\\w[\\w.-]+\\.[a-zA-Z]+$"
   val poco = "^[1-9][0-9]{3} ?[a-zA-Z]{2}$"
   val passw = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()–[{}]:;',?/*~$^+=<>]).{8,42}$"
+}
+
+object Rules {
+
+  private val nameFieldRule = FieldRule("name", (name: String) => name.matches(Regexes.name), "invalid name")
+  private val emailFieldRule = FieldRule("email", (email: String) => email.matches(Regexes.email), "invalid email address")
+  private val passwordFieldRule = FieldRule("password", (password: String) => password.matches(Regexes.passw), "invalid password")
+  private val bornFieldRules = Set(
+    FieldRule("born", (born: LocalDate) => born.isBefore(LocalDate.now().minusYears(8)), "too young"),
+    FieldRule("born", (born: LocalDate) => born.isAfter(LocalDate.now().minusYears(121)), "too old")
+  )
+  private val idFieldRule = FieldRule("id", (id: ULID) => id != null, "no id specified")
+
+  val createUser = Set(nameFieldRule, emailFieldRule, passwordFieldRule) ++ bornFieldRules
+  val updateUser = Set(nameFieldRule, passwordFieldRule, idFieldRule) ++ bornFieldRules
+  val deleteUser = Set(emailFieldRule)
+  val login      = Set(emailFieldRule, passwordFieldRule)
 }

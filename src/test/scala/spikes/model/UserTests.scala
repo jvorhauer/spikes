@@ -7,14 +7,16 @@ import io.scalaland.chimney.dsl.TransformerOps
 import net.datafaker.Faker
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.validate.ModelValidation.validate
+import spikes.validate.Rules
+import spikes.validate.Validation.validate
+import wvlet.airframe.ulid.ULID
 
-import java.time.{LocalDate, LocalDateTime}
-import java.util.{Locale, UUID}
+import java.time.{LocalDate, LocalDateTime, ZoneId}
+import java.util.Locale
 
 trait TestUser {
   val faker = new Faker(Locale.US)
-  val uuid = UUID.randomUUID()
+  val ulid = ULID.newULID
   val name = "Tester"
   val email = "tester@test.er"
   val password = "Welkom123!"
@@ -27,7 +29,7 @@ trait TestUser {
 }
 
 object TestUser {
-  val empty = User(UUID.randomUUID(), "", "", "", LocalDateTime.now(), LocalDate.now())
+  val empty = User(ULID.newULID, "", "", "", LocalDate.now())
 }
 
 /*
@@ -77,7 +79,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   }
 
   "a RequestUpdateUser" should "transform to a UpdateUser command" in {
-    val ruu = Request.UpdateUser(uuid, name, password, born)
+    val ruu = Request.UpdateUser(ulid, name, password, born)
     val cmd = ruu.asCmd(probe)
     assert(cmd.name == ruu.name)
     assert(cmd.born == ruu.born)
@@ -91,14 +93,13 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   }
 
   "a CreateUser command" should "transform to a UserCreated event" in {
-    val now = LocalDateTime.now()
     val born = LocalDate.now().minusYears(42)
-    val cmd = Command.CreateUser(UUID.randomUUID(), name, email, born, password, probe)
-    val evt = cmd.into[Event.UserCreated].withFieldComputed(_.joined, _ => now).transform
+    val cmd = Command.CreateUser(ULID.newULID, name, email, born, password, probe)
+    val evt = cmd.into[Event.UserCreated].transform
     assert(evt.name == cmd.name)
     assert(evt.id == cmd.id)
     assert(evt.email == cmd.email)
-    assert(evt.joined == now)
+    assert(evt.created == LocalDateTime.ofInstant(evt.id.toInstant, ZoneId.of("UTC")))
     assert(evt.born == cmd.born && evt.born == born)
     assert(evt.password == cmd.password)
   }

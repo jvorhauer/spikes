@@ -7,7 +7,7 @@ import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.validate.ModelValidation.validated
+import spikes.validate.Validation.validated
 
 
 class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {

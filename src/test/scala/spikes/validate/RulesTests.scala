@@ -12,11 +12,11 @@ class RulesTests extends AnyFlatSpec with Matchers {
 
   "TestMe" should "validate" in {
     var errors = Validation.validate(testKees, Rules.createUser)
-    errors should have size(0)
+    errors should have size 0
     errors shouldBe empty
 
     errors = Validation.validate(TestMe("", "", ""), Rules.createUser)
-    errors should have size(4)
+    errors should have size 4
 
     errors = Validation.validate(testKees.copy(name = "Vlad dë Émpaïlér"), Rules.createUser)
     errors shouldBe empty

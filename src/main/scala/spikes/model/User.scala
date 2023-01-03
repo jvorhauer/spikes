@@ -56,12 +56,12 @@ final case class State(
   def find(email: String): Option[User] = users.find(email)
   def find(id: ULID): Option[User] = users.find(id)
   def save(u: User): State = State(users.save(u), sessions)
-  def delete(id: ULID): State = State(users.remove(id), sessions)
+  def delete(id: ULID): State = State(users.remove(id), sessions.filter(_.id != id))
 
-  def authenticate(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires))
+  def login(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires))
   def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now()))
   def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id == id && us.expires.isAfter(now()))
-  def logout(id: ULID) = State(users, sessions.filter(_.id != id))
+  def logout(id: ULID): State = State(users, sessions.filterNot(_.id == id))
 }
 
 
@@ -90,8 +90,7 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
     }
 
   private val authenticator: AsyncAuthenticator[UserSession] = {
-    case Credentials.Provided(token) =>
-      handlers.ask(rt => Command.Authenticate(token, rt))
+    case Credentials.Provided(token) => handlers.ask(Command.Authenticate(token, _))
     case _ => Future.successful(None)
   }
 
@@ -109,15 +108,16 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
           }
         },
         put {
-          entity(as[Request.UpdateUser]) { ruu =>
-            validated(ruu, ruu.rules) { valid =>
-              replier(handlers.ask(valid.asCmd), StatusCodes.OK)
+          authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
+            entity(as[Request.UpdateUser]) { ruu =>
+              validated(ruu, ruu.rules) { valid =>
+                replier(handlers.ask(valid.asCmd), StatusCodes.OK)
+              }
             }
           }
         },
         delete {
           authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-            println(s"authenticated ${us.user.id}")
             entity(as[Request.DeleteUser]) { rdu =>
               validated(rdu, rdu.rules) { valid =>
                 replier(handlers.ask(valid.asCmd), StatusCodes.Accepted)
@@ -147,33 +147,13 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
         },
         (put & path("logout")) {
           authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-            println(s"authenticated ${us.user.id}")
             onSuccess(handlers.ask(ref => Command.Logout(us.token, ref))) {
               case sr: StatusReply[_] if sr.isSuccess => complete(StatusCodes.OK)
-              case _                                  => complete(StatusCodes.BadRequest)
+              case _ => complete(StatusCodes.BadRequest)
             }
           }
         }
       )
-    }
-  }
-}
-
-
-final case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[_]) {
-
-  implicit val ec = system.executionContext
-  implicit val timeout: Timeout = 3.seconds
-
-  import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
-
-  val route = path("info") {
-    get {
-      onSuccess(handlers.ask(Command.Info)) {
-        case sr: StatusReply[Response.Info] =>
-          complete(HttpResponse(StatusCodes.OK, entity = HttpEntity(ContentTypes.`application/json`, sr.getValue.asJson.toString())))
-        case _ => complete(StatusCodes.BadRequest)
-      }
     }
   }
 }

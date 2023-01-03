@@ -46,6 +46,11 @@ object Request {
 
 
   final case class CreateEntry(user: ULID, title: String, body: String) extends Request {
+    def asCmd(user: ULID, replyTo: ActorRef[StatusReply[Response.Entry]]): Command.CreateEntry = this.into[Command.CreateEntry]
+      .withFieldComputed(_.id, _ => ULID.newULID)
+      .withFieldComputed(_.owner, _ => user)
+      .withFieldComputed(_.replyTo, _ => replyTo)
+      .transform
 
   }
 }

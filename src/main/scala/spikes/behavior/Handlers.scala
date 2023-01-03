@@ -14,6 +14,8 @@ import scala.concurrent.duration._
 
 object Handlers {
 
+  private var recovered: Boolean = false
+
   def apply(state: State = State(Users())): Behavior[Command] = Behaviors.setup { ctx =>
     EventSourcedBehavior.withEnforcedReplies[Command, Event, State](
       persistenceId = persistenceId,
@@ -25,7 +27,9 @@ object Handlers {
       .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
       .receiveSignal {
         case (_, PreRestart) => ctx.log.info("pre restart signal received")
-        case (state, RecoveryCompleted) => ctx.log.info(s"recovery completed: ${state.users.size} user(s)")
+        case (state, RecoveryCompleted) =>
+          ctx.log.info(s"recovery completed: ${state.users.size} user(s)")
+          recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
       }
   }
@@ -35,7 +39,7 @@ object Handlers {
       case cu: Command.CreateUser =>
         state.find(cu.email) match {
           case Some(_) => Effect.none.thenReply(cu.replyTo) { _ => StatusReply.error("email already in use") }
-          case None => Effect.persist(cu.asEvent).thenReply(cu.replyTo) { _ => StatusReply.success(cu.asEvent.asEntity.asResponse) }
+          case None => Effect.persist(cu.asEvent).thenReply(cu.replyTo)(_ => StatusReply.success(cu.asEvent.asEntity.asResponse))
         }
       case uu: Command.UpdateUser =>
         state.find(uu.id) match {
@@ -50,8 +54,7 @@ object Handlers {
           case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error(s"user with email $email not found"))
         }
 
-      case Command.Login(email, passwd, replyTo) =>
-        state.find(email) match {
+      case Command.Login(email, passwd, replyTo) => state.find(email) match {
           case Some(user) if user.password == passwd =>
             Effect.persist(Event.LoggedIn(user.id)).thenReply(replyTo) { state =>
               state.authorize(user.id) match {
@@ -61,7 +64,10 @@ object Handlers {
             }
           case _ => Effect.none.thenReply(replyTo) { _ => StatusReply.error("invalid credentials") }
         }
-      case Command.Authenticate(token, replyTo) => Effect.none.thenReply(replyTo) { state => state.authorize(token) }
+      case Command.Authenticate(token, replyTo) => state.authorize(token) match {
+          case Some(us) => Effect.persist(Event.Refreshed(us.id)).thenReply(replyTo)(_.authorize(token))
+          case None => Effect.none.thenReply(replyTo)(_ => None)
+        }
       case Command.Logout(token, replyTo) => state.authorize(token) match {
         case Some(us) => Effect.persist(Event.LoggedOut(us.id)).thenReply(replyTo)(_ => StatusReply.success("Yeah"))
         case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error("User was not logged in"))
@@ -75,7 +81,9 @@ object Handlers {
           Effect.persist(Event.Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => Done)
         }
       case Command.Info(replyTo) =>
-        Effect.none.thenReply(replyTo)(state => StatusReply.success(Response.Info(state.users.size, state.sessions.size)))
+        Effect.none.thenReply(replyTo)(state =>
+          StatusReply.success(Response.Info(state.users.size, state.sessions.size, recovered))
+        )
 
       case Command.FindUserById(id, replyTo) =>
         Effect.none.thenReply(replyTo)(_.find(id)
@@ -85,6 +93,8 @@ object Handlers {
           .map(u => StatusReply.success(u.asResponse)).getOrElse(StatusReply.error(s"user ${email} not found")))
       case Command.FindAllUser(replyTo) =>
         Effect.none.thenReply(replyTo)(state => StatusReply.success(state.users.ids.values.toList.map(_.asResponse)))
+
+      case ce: Command.CreateEntry => Effect.persist(ce.asEvent).thenReply(ce.replyTo)(_ => StatusReply.success(ce.asResponse))
     }
   }
 
@@ -95,8 +105,12 @@ object Handlers {
       case uu: Event.UserUpdated => state.find(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get
       case ud: Event.UserDeleted => state.delete(ud.id)
 
-      case li: Event.LoggedIn    => state.find(li.id).map(user => state.authenticate(user, li.expires)).getOrElse(state)
+      case li: Event.LoggedIn    => state.find(li.id).map(user => state.login(user, li.expires)).getOrElse(state)
       case lo: Event.LoggedOut   => state.logout(lo.id)
+      case re: Event.Refreshed   => {
+        state.logout(re.id)
+        state.find(re.id).map(user => state.login(user, re.expires)).getOrElse(state)
+      }
 
       case _: Event.Reaped       => state.copy(sessions = state.sessions.filter(_.expires.isAfter(LocalDateTime.now())))
     }

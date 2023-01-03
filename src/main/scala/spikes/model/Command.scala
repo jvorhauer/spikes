@@ -39,4 +39,9 @@ object Command {
 
   case class Reap(replyTo: ActorRef[Command]) extends Command
   case class Info(replyTo: ActorRef[StatusReply[Response.Info]]) extends Command
+
+  case class CreateEntry(id: ULID, owner: ULID, title: String, body: String, replyTo: ActorRef[StatusReply[Response.Entry]]) extends Command {
+    lazy val asEvent: Event.EntryCreated = this.into[Event.EntryCreated].transform
+    lazy val asResponse: Response.Entry = this.into[Response.Entry].transform
+  }
 }

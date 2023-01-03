@@ -4,17 +4,6 @@ import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
 
-trait EntryRequest {
-  def id: ULID
-  def title: String
-  def body: String
-}
-
-case class CreateNoteRequest(id: ULID, title: String, body: String) extends EntryRequest
-case class CreateMarkerRequest(id: ULID, title: String, body: String, url: String) extends EntryRequest
-case class CreateEventRequest(id: ULID, title: String, body: String, starts: LocalDateTime, ends: LocalDateTime) extends EntryRequest
-case class CreateReminderRequest(id: ULID, title: String, body: String, due: LocalDateTime) extends EntryRequest
-
 case class Entry(
   id: ULID,
   owner: ULID,

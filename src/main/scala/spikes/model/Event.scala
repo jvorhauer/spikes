@@ -20,7 +20,10 @@ object Event {
   case class UserDeleted(id: ULID) extends Event
 
   case class LoggedIn(id: ULID, expires: LocalDateTime = LocalDateTime.now().plusHours(2)) extends Event
+  case class Refreshed(id: ULID, expires: LocalDateTime = LocalDateTime.now().plusHours(2)) extends Event
   case class LoggedOut(id: ULID) extends Event
 
-  case class Reaped(id: ULID, eligible: Int, performed: LocalDateTime = LocalDateTime.now()) extends Event
+  case class Reaped(id: ULID, eligible: Int) extends Event
+
+  case class EntryCreated(id: ULID, owner: ULID, title: String, body: String) extends Event
 }

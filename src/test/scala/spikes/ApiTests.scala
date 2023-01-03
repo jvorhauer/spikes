@@ -14,6 +14,7 @@ import io.circe.generic.auto._
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
+import org.scalatest.matchers.must.Matchers.{be, not}
 import org.scalatest.matchers.should.Matchers
 import spikes.behavior.{Handlers, Query, Reader}
 import spikes.model._
@@ -71,19 +72,29 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
 
   "Create and Update User" should "return updated User" in {
     val rcu = Request.CreateUser("CreateAndUpdate", fakeEmail, password, born)
-    var resp: Option[Response.User] = None
+    var user: Option[Response.User] = None
     Post("/users", rcu) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.Created
-      resp = Some(responseAs[Response.User])
+      user = Some(responseAs[Response.User])
     }
-    resp.isDefined shouldBe true
-    val ruu = Request.UpdateUser(resp.get.id, "Flipje", password, born)
-    Put("/users", ruu) ~> Route.seal(route) ~> check {
+    user.isDefined shouldBe true
+
+    val rl = Request.Login(user.get.email, password)
+    var resp: Option[OAuthToken] = None
+    Post("/users/login", rl) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      resp = Some(responseAs[OAuthToken])
+    }
+    resp should not be None
+    val token = resp.get.access_token
+
+    val ruu = Request.UpdateUser(user.get.id, "Flipje", password, born)
+    Put("/users", ruu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
       responseAs[Response.User].name shouldEqual "Flipje"
     }
 
-    Get(s"/users/${resp.get.id}") ~> Route.seal(route) ~> check {
+    Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
       responseAs[Response.User].name shouldEqual "Flipje"
     }
@@ -92,6 +103,17 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
   "Create and Delete User" should "return the deleted User" in {
     val eeeemail = "create.delete@test.er"
     val rcu = Request.CreateUser("CreateAndDelete", eeeemail, password, born)
+
+    var userCount = 0
+    var sessionCount = 0
+
+    Get("/info") ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      val info = responseAs[Response.Info]
+      userCount = info.users
+      sessionCount = info.sessions
+    }
+
     Post("/users", rcu) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.Created
       responseAs[Response.User].name shouldEqual rcu.name
@@ -106,6 +128,13 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
     resp should not be None
     val token = resp.get.access_token
 
+    Get("/info") ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      val info = responseAs[Response.Info]
+      info.users should equal(userCount + 1)
+      info.sessions should equal(sessionCount + 1)
+    }
+
     val rdu = Request.DeleteUser(eeeemail)
     Delete("/users", rdu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.Accepted
@@ -114,9 +143,46 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
 
     Get("/info") ~> route ~> check {
       status shouldEqual StatusCodes.OK
-      responseAs[Response.Info] shouldEqual Response.Info(2, 1)
+      val info = responseAs[Response.Info]
+      info.users should equal (userCount)
+      info.sessions should equal (sessionCount)   // deleted user should not have session anymore
+    }
+  }
+
+  "Create user, login and logout" should "reset session count" in {
+    val eeeemail = "create.delete@test.er"
+    val rcu = Request.CreateUser("CreateAndDelete", eeeemail, password, born)
+
+    var userCount = 0
+    var sessionCount = 0
+
+    Get("/info") ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      val info = responseAs[Response.Info]
+      userCount = info.users
+      sessionCount = info.sessions
     }
 
+    Post("/users", rcu) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Created
+      responseAs[Response.User].name shouldEqual rcu.name
+    }
+
+    val rl = Request.Login(eeeemail, password)
+    var resp: Option[OAuthToken] = None
+    Post("/users/login", rl) ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      resp = Some(responseAs[OAuthToken])
+    }
+    resp should not be None
+    val token = resp.get.access_token
+
+    Get("/info") ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      val info = responseAs[Response.Info]
+      info.users should equal(userCount + 1)
+      info.sessions should equal(sessionCount + 1)
+    }
 
     Put("/users/logout") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
@@ -124,7 +190,7 @@ class ApiTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalates
 
     Get("/info") ~> route ~> check {
       status shouldEqual StatusCodes.OK
-      responseAs[Response.Info] shouldEqual Response.Info(2, 0)
+      responseAs[Response.Info].sessions should equal(sessionCount)
     }
   }
 

@@ -13,18 +13,17 @@ import io.circe.syntax._
 import io.circe.{Decoder, Encoder}
 import io.scalaland.chimney.dsl.TransformerOps
 import spikes.behavior.Query
-import spikes.validate.Validation
 import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime}
-import scala.collection.immutable.HashSet
+import scala.collection.immutable.{HashSet, SortedSet}
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
 
 
-final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate) extends Entity {
+final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate, entries: Set[Entry] = HashSet.empty) extends Entity {
   lazy val asResponse: Response.User = this.into[Response.User].transform
   lazy val joined = created
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires, this)
@@ -45,23 +44,29 @@ final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, Use
 
 final case class OAuthToken(access_token: String, token_type: String = "bearer", expires_in: Int = 7200) extends CborSerializable
 
-final case class UserSession(token: String, id: ULID, expires: LocalDateTime = LocalDateTime.now().plusHours(2), user: User) {
+final case class UserSession(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2), user: User) {
   lazy val asOAuthToken = OAuthToken(token)
 }
 
 final case class State(
   users: Users = Users(),
-  sessions: Set[UserSession] = HashSet.empty
+  sessions: Set[UserSession] = HashSet.empty,
+  entries: Set[Entry] = HashSet.empty
 ) extends CborSerializable {
-  def find(email: String): Option[User] = users.find(email)
-  def find(id: ULID): Option[User] = users.find(id)
-  def save(u: User): State = State(users.save(u), sessions)
-  def delete(id: ULID): State = State(users.remove(id), sessions)
+  private def enrich(u: User): User = u.copy(entries = SortedSet(entries.filter(_.owner == u.id).toList: _*))
+  def find(email: String): Option[User] = users.find(email).map(enrich)
+  def find(id: ULID): Option[User] = users.find(id).map(enrich)
+  def all(): List[User] = users.ids.values.map(enrich).toList
 
-  def authenticate(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires))
-  def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now()))
-  def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id == id && us.expires.isAfter(now()))
-  def logout(id: ULID) = State(users, sessions.filter(_.id != id))
+  def save(u: User): State = State(users.save(u), sessions, entries)
+  def delete(id: ULID): State = State(users.remove(id), sessions.filter(_.id != id), entries)
+
+  def login(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires), entries)
+  def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now))
+  def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id == id && us.expires.isAfter(now))
+  def logout(id: ULID): State = State(users, sessions.filterNot(_.id == id), entries)
+
+  def save(e: Entry): State = State(users, sessions, entries + e)
 }
 
 
@@ -90,15 +95,14 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
     }
 
   private val authenticator: AsyncAuthenticator[UserSession] = {
-    case Credentials.Provided(token) =>
-      handlers.ask(rt => Command.Authenticate(token, rt))
+    case Credentials.Provided(token) => handlers.ask(Command.Authenticate(token, _))
     case _ => Future.successful(None)
   }
 
   val pULID: PathMatcher1[ULID] = PathMatcher("""[A-HJKMNP-TV-Z0-9]{26}""".r).map(ULID.fromString)
 
 
-  val route = handleRejections(Validation.rejectionHandler) {
+  val route =
     pathPrefix("users") {
       concat(
         (post & pathEndOrSingleSlash) {
@@ -109,15 +113,16 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
           }
         },
         put {
-          entity(as[Request.UpdateUser]) { ruu =>
-            validated(ruu, ruu.rules) { valid =>
-              replier(handlers.ask(valid.asCmd), StatusCodes.OK)
+          authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
+            entity(as[Request.UpdateUser]) { ruu =>
+              validated(ruu, ruu.rules) { valid =>
+                replier(handlers.ask(valid.asCmd), StatusCodes.OK)
+              }
             }
           }
         },
         delete {
-          authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-            println(s"authenticated ${us.user.id}")
+          authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
             entity(as[Request.DeleteUser]) { rdu =>
               validated(rdu, rdu.rules) { valid =>
                 replier(handlers.ask(valid.asCmd), StatusCodes.Accepted)
@@ -147,33 +152,12 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
         },
         (put & path("logout")) {
           authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-            println(s"authenticated ${us.user.id}")
             onSuccess(handlers.ask(ref => Command.Logout(us.token, ref))) {
               case sr: StatusReply[_] if sr.isSuccess => complete(StatusCodes.OK)
-              case _                                  => complete(StatusCodes.BadRequest)
+              case _ => complete(StatusCodes.BadRequest)
             }
           }
         }
       )
     }
-  }
-}
-
-
-final case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[_]) {
-
-  implicit val ec = system.executionContext
-  implicit val timeout: Timeout = 3.seconds
-
-  import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
-
-  val route = path("info") {
-    get {
-      onSuccess(handlers.ask(Command.Info)) {
-        case sr: StatusReply[Response.Info] =>
-          complete(HttpResponse(StatusCodes.OK, entity = HttpEntity(ContentTypes.`application/json`, sr.getValue.asJson.toString())))
-        case _ => complete(StatusCodes.BadRequest)
-      }
-    }
-  }
 }

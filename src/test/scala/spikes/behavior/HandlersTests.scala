@@ -1,6 +1,8 @@
 package spikes.behavior
 
+import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.persistence.testkit.scaladsl.UnpersistentBehavior
+import com.typesafe.config.ConfigFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import spikes.model.Command.FindUserById
@@ -9,6 +11,7 @@ import spikes.model._
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
+import java.util.UUID
 
 class HandlersTests extends AnyFlatSpec with Matchers {
 
@@ -18,8 +21,20 @@ class HandlersTests extends AnyFlatSpec with Matchers {
   private val born = LocalDate.now().minusYears(21)
   private val password = "Welkom123!"
 
+  val testKit = ActorTestKit(
+    ConfigFactory.parseString(
+      s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
+          akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
+          akka.persistence.snapshot-store.local.dir = "target/snapshot-${UUID.randomUUID()}"
+          akka.loggers = ["akka.event.Logging$$DefaultLogger"]
+          akka.loglevel = DEBUG
+      """
+    )
+  )
+
+  val finder = testKit.spawn(Finder(), "finder")
   private def onEmptyState: UnpersistentBehavior.EventSourced[Command, Event, User] =
-    UnpersistentBehavior.fromEventSourced(Handlers())
+    UnpersistentBehavior.fromEventSourced(Handlers(findr = finder))
 
   "Create a new User" should "persist" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>

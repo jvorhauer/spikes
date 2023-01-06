@@ -1,6 +1,7 @@
 import ReleaseTransformations._
 
 ThisBuild / scalaVersion := "2.13.10"
+ThisBuild / organization := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 
 lazy val AkkaVersion = "2.7.0"
@@ -45,11 +46,12 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http-testkit"        % AkkaHttpVersion,
       "net.datafaker"     %  "datafaker"                % "1.7.0",
     ).map(_ % Test) ++ Seq(
-      "io.scalaland"       %% "chimney"         % "0.6.2",
-      "ch.qos.logback"     %  "logback-classic" % "1.4.5",
-      "io.circe"           %% "circe-generic"   % "0.14.3",
-      "org.scalactic"      %% "scalactic"       % ScalaTestVersion,
-      "org.wvlet.airframe" %% "airframe-ulid"   % "22.12.6"
+      "io.scalaland"       %% "chimney"                   % "0.6.2",
+      "ch.qos.logback"     %  "logback-classic"           % "1.4.5",
+      "io.circe"           %% "circe-generic"             % "0.14.3",
+      "org.scalactic"      %% "scalactic"                 % ScalaTestVersion,
+      "org.wvlet.airframe" %% "airframe-ulid"             % "22.12.6",
+      "fr.davit"           %% "akka-http-metrics-datadog" % "1.7.1",
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,

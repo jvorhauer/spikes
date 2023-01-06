@@ -2,14 +2,18 @@ package spikes
 
 import akka.actor.typed.eventstream.EventStream.Subscribe
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorSystem, Behavior, PostStop}
+import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
-import akka.http.scaladsl.server.Directives
-import akka.http.scaladsl.server.Directives.handleRejections
+import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import akka.http.scaladsl.server.Directives._
+import akka.pattern.StatusReply
 import akka.persistence.typed.PersistenceId
-import spikes.behavior.{Handlers, Reader, Reaper}
-import spikes.model.{InfoRouter, State, UserRouter, Users}
+import akka.util.Timeout
+import io.circe.generic.auto._
+import io.circe.syntax._
+import spikes.behavior.{Finder, Handlers, Reader, Reaper}
+import spikes.model._
 import spikes.validate.Validation
 
 import scala.concurrent.duration.DurationInt
@@ -23,7 +27,7 @@ object Main {
   private final case class Started(binding: ServerBinding) extends Message
   private case object Stop extends Message
 
-  val persistenceId = PersistenceId.ofUniqueId("spikes-handlers")
+  val persistenceId = PersistenceId.of("spikes", "1", "|")
 
 
   def main(args: Array[String]): Unit = {
@@ -37,15 +41,17 @@ object Main {
     ctx.system.eventStream.tell(Subscribe(reader))
 
     val state = State(Users())
-    val handlers = ctx.spawn(Handlers(state), "handlers")
+    val finder = ctx.spawn(Finder(), "finder")
+    val handlers = ctx.spawn(Handlers(state, finder), "handlers")
 
-    ctx.spawn(Reaper(handlers, 1.hour), "reaper")
+    ctx.spawn(Reaper(handlers, 1.minute), "reaper")
     val query = ctx.spawn(Reader.query(), "query")
 
     val routes = handleRejections(Validation.rejectionHandler) {
-      Directives.concat(
+      concat(
         UserRouter(handlers, query).route,
-        InfoRouter(handlers).route
+        InfoRouter(handlers).route,
+        EntryRouter(handlers).route
       )
     }
     val serverBinding = Http().newServerAt(host, port).bind(routes)
@@ -77,4 +83,34 @@ object Main {
 
     starting(wasStopped = false)
   }
+}
+
+final case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[_]) {
+
+  implicit val ec = system.executionContext
+  implicit val timeout: Timeout = 3.seconds
+
+  import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
+
+  val route = concat(
+    (path("info") & get) {
+      onSuccess(handlers.ask(Command.Info)) {
+        case sr: StatusReply[Response.Info] =>
+          complete(HttpResponse(StatusCodes.OK, entity = HttpEntity(ContentTypes.`application/json`, sr.getValue.asJson.toString())))
+        case _ => complete(StatusCodes.BadRequest)
+      }
+    },
+    (path("liveness") & get) {
+      onSuccess(handlers.ask(Command.Info)) {
+        case info: StatusReply[Response.Info] if info.isSuccess && info.getValue.recovered => complete(StatusCodes.OK)
+        case _ => complete(StatusCodes.ServiceUnavailable)
+      }
+    },
+    (path("readiness") & get) {
+      onSuccess(handlers.ask(Command.Info)) {
+        case info: StatusReply[Response.Info] if info.isSuccess && info.getValue.recovered => complete(StatusCodes.OK)
+        case _ => complete(StatusCodes.ServiceUnavailable)
+      }
+    }
+  )
 }

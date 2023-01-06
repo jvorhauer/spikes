@@ -6,7 +6,7 @@ import io.scalaland.chimney.dsl.TransformerOps
 import spikes.validate.{Rules, Validation}
 import wvlet.airframe.ulid.ULID
 
-import java.time.LocalDate
+import java.time.{LocalDate, LocalDateTime}
 
 trait Request
 
@@ -45,7 +45,19 @@ object Request {
   }
 
 
-  final case class CreateEntry(user: ULID, title: String, body: String) extends Request {
+  final case class CreateEntry(
+    title: String,
+    body: String,
+    url: Option[String] = None,
+    due: Option[LocalDateTime] = None,
+    starts: Option[LocalDateTime] = None,
+    ends: Option[LocalDateTime] = None
+  ) extends Request {
+    def asCmd(user: ULID, replyTo: ActorRef[StatusReply[Response.Entry]]): Command.CreateEntry = this.into[Command.CreateEntry]
+      .withFieldComputed(_.id, _ => ULID.newULID)
+      .withFieldComputed(_.owner, _ => user)
+      .withFieldComputed(_.replyTo, _ => replyTo)
+      .transform
 
   }
 }

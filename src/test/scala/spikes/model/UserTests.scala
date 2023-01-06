@@ -13,6 +13,7 @@ import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 import java.util.Locale
+import scala.collection.immutable.HashSet
 
 trait TestUser {
   val faker = new Faker(Locale.US)
@@ -25,7 +26,6 @@ trait TestUser {
   def fakeName: String = faker.name().fullName()
   def fakeEmail: String = faker.internet().emailAddress().replace("@", s"-${System.nanoTime()}@")
   def fakePassword: String = faker.internet().password(8, 64, true, true, true)
-  def joined: LocalDateTime = LocalDateTime.now()
 }
 
 object TestUser {
@@ -102,5 +102,12 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
     assert(evt.created == LocalDateTime.ofInstant(evt.id.toInstant, ZoneId.of("UTC")))
     assert(evt.born == cmd.born && evt.born == born)
     assert(evt.password == cmd.password)
+  }
+
+  "Set" should "allow removal of not-there element" in {
+    val set: Set[String] = HashSet("one", "two", "four")
+    set should have size 3
+    set - "one" should have size 2
+    set - "three" should have size 3
   }
 }

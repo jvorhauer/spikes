@@ -30,6 +30,9 @@ build/
 
 ### VS Code ###
 .vscode/
+.metals/
+.bloop/
+.bsp/
 
 ### Mac OS ###
 .DS_Store

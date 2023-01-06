@@ -26,7 +26,6 @@ trait TestUser {
   def fakeName: String = faker.name().fullName()
   def fakeEmail: String = faker.internet().emailAddress().replace("@", s"-${System.nanoTime()}@")
   def fakePassword: String = faker.internet().password(8, 64, true, true, true)
-  def joined: LocalDateTime = LocalDateTime.now()
 }
 
 object TestUser {

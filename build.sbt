@@ -1,6 +1,7 @@
 import ReleaseTransformations._
 
 ThisBuild / scalaVersion := "2.13.10"
+ThisBuild / organization := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 
 lazy val AkkaVersion = "2.7.0"

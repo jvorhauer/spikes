@@ -55,11 +55,17 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 
 * [etm](https://dagraham.github.io/etm-dgraham/)
 * [UpBase](https://upbase.io/)
+* [LinkDing](https://github.com/sissbruecker/linkding)
 
 ### Development
 
 * [GitHub project](https://github.com/jvorhauer/spikes)
 * [sbt release](https://github.com/sbt/sbt-release)
+
+### Further reading required
+
+* [JGraphT](https://jgrapht.org)
+* [Cassovary](https://github.com/twitter/cassovary) interesting Twitter Big Graph library in Scala, but not maintained since 2018
 
 Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
 focus and cleaner process. Also update this document when applicable.

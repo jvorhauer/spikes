@@ -12,7 +12,7 @@ import akka.persistence.typed.PersistenceId
 import akka.util.Timeout
 import io.circe.generic.auto._
 import io.circe.syntax._
-import spikes.behavior.{Handlers, Reader, Reaper}
+import spikes.behavior.{Finder, Handlers, Reader, Reaper}
 import spikes.model._
 import spikes.validate.Validation
 
@@ -41,15 +41,17 @@ object Main {
     ctx.system.eventStream.tell(Subscribe(reader))
 
     val state = State(Users())
-    val handlers = ctx.spawn(Handlers(state), "handlers")
+    val finder = ctx.spawn(Finder(), "finder")
+    val handlers = ctx.spawn(Handlers(state, finder), "handlers")
 
-    ctx.spawn(Reaper(handlers, 1.hour), "reaper")
+    ctx.spawn(Reaper(handlers, 1.minute), "reaper")
     val query = ctx.spawn(Reader.query(), "query")
 
     val routes = handleRejections(Validation.rejectionHandler) {
       concat(
         UserRouter(handlers, query).route,
-        InfoRouter(handlers).route
+        InfoRouter(handlers).route,
+        EntryRouter(handlers).route
       )
     }
     val serverBinding = Http().newServerAt(host, port).bind(routes)

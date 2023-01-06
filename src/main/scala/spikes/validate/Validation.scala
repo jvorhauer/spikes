@@ -60,6 +60,9 @@ object Regexes {
   val email = "^([\\w-]+(?:\\.[\\w-]+)*)@\\w[\\w.-]+\\.[a-zA-Z]+$"
   val poco = "^[1-9][0-9]{3} ?[a-zA-Z]{2}$"
   val passw = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()–[{}]:;',?/*~$^+=<>]).{8,42}$"
+
+  val title = "^[\\p{L}\\p{Space}'-,;\"'.]+$"
+  val body = "^[\\p{L}\\p{Space}'-,;\"'.]+$"
 }
 
 object Rules {
@@ -73,8 +76,13 @@ object Rules {
   )
   private val idFieldRule = FieldRule("id", (id: ULID) => id != null, "no id specified")
 
+  private val titleFieldRule = FieldRule("title", (title: String) => title.matches(Regexes.title), "invalid title")
+  private val bodyFieldRule = FieldRule("body", (body: String) => body.matches(Regexes.body), "invalid body")
+
   val createUser = Set(nameFieldRule, emailFieldRule, passwordFieldRule) ++ bornFieldRules
   val updateUser = Set(nameFieldRule, passwordFieldRule, idFieldRule) ++ bornFieldRules
   val deleteUser = Set(emailFieldRule)
   val login      = Set(emailFieldRule, passwordFieldRule)
+
+  val createEntry = Set(titleFieldRule, bodyFieldRule)
 }

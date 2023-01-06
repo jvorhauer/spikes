@@ -1,5 +1,5 @@
 ### create-user
-POST http://localhost:8080/users
+POST {{ host }}/users
 Content-Type: application/json
 
 {
@@ -9,14 +9,14 @@ Content-Type: application/json
   "born": "1967-04-01"
 }
 
-### get-jurjen
-GET http://localhost:8080/users/9ee43b12-dc09-4788-b0f3-d4359152f474
-
 ### get-all-users
-GET http://localhost:8080/users
+GET {{ host }}/users
+
+### get-jurjen
+GET {{ host }}/users/01GNVWJKZ2HV0KNCWEEXHARDQC
 
 ### login-jurjen
-POST http://localhost:8080/users/login
+POST {{ host }}/users/login
 Content-Type: application/json
 
 {
@@ -24,8 +24,20 @@ Content-Type: application/json
   "password": "Welkom123!"
 }
 
+> {% client.global.set("authorized", response.body.access_token); %}
+
+### post-entry-for-jurjen
+POST {{ host }}/entries
+Content-Type: application/json
+Authorization: Bearer {{ authorized }}
+
+{
+  "title": "My Second Entry",
+  "body": "This should do the second trick, I guess"
+}
+
 ### invalid-name-and-password
-POST http://localhost:8080/users
+POST {{ host }}/users
 Content-Type: application/json
 
 {
@@ -36,7 +48,7 @@ Content-Type: application/json
 }
 
 ### invalid-email
-POST http://localhost:8080/users
+POST {{ host }}/users
 Content-Type: application/json
 
 {
@@ -48,7 +60,7 @@ Content-Type: application/json
 
 
 ### create-temp-user
-POST http://localhost:8080/users
+POST {{ host }}/users
 Content-Type: application/json
 
 {
@@ -59,10 +71,10 @@ Content-Type: application/json
 }
 
 ### get-temp-user
-GET http://localhost:8080/users/1fea6d11-262e-4a17-967d-4cfe6e5e945b
+GET {{ host }}/users/1fea6d11-262e-4a17-967d-4cfe6e5e945b
 
 ### delete-temp-user
-DELETE http://localhost:8080/users
+DELETE {{ host }}/users
 Content-Type: application/json
 
 {
@@ -71,4 +83,4 @@ Content-Type: application/json
 
 
 ### get-info
-GET http://localhost:8080/info
+GET {{ host }}/info

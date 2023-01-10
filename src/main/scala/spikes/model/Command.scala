@@ -4,6 +4,7 @@ import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
 import wvlet.airframe.ulid.ULID
+import spikes.model.Status._
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 
@@ -46,6 +47,7 @@ object Command {
     title: String,
     body: String,
     replyTo: ReplyEntryTo,
+    status: Status = Status.Blank,
     url: Option[String] = None,
     due: Option[LocalDateTime] = None,
     starts: Option[LocalDateTime] = None,

@@ -5,6 +5,7 @@ import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
 import spikes.validate.{Rules, Validation}
 import wvlet.airframe.ulid.ULID
+import spikes.model.Status._
 
 import java.time.{LocalDate, LocalDateTime}
 
@@ -48,6 +49,7 @@ object Request {
   final case class CreateEntry(
     title: String,
     body: String,
+    status: Status = Status.Blank,
     url: Option[String] = None,
     due: Option[LocalDateTime] = None,
     starts: Option[LocalDateTime] = None,

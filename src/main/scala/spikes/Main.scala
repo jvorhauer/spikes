@@ -18,6 +18,7 @@ import spikes.validate.Validation
 
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
+import scala.concurrent.ExecutionContextExecutor
 
 object Main {
 
@@ -87,7 +88,7 @@ object Main {
 
 final case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[_]) {
 
-  implicit val ec = system.executionContext
+  implicit val ec: ExecutionContextExecutor = system.executionContext
   implicit val timeout: Timeout = 3.seconds
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}

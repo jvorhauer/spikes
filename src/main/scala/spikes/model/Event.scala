@@ -2,6 +2,7 @@ package spikes.model
 
 import io.scalaland.chimney.dsl.TransformerOps
 import wvlet.airframe.ulid.ULID
+import spikes.model.Status._
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 
@@ -25,7 +26,17 @@ object Event {
 
   case class Reaped(id: ULID, eligible: Int) extends Event
 
-  case class EntryCreated(id: ULID, owner: ULID, title: String, body: String) extends Event {
+  case class EntryCreated(
+    id: ULID, 
+    owner: ULID, 
+    title: String, 
+    body: String,
+    status: Status = Status.Blank,
+    url: Option[String] = None,
+    due: Option[LocalDateTime] = None,
+    starts: Option[LocalDateTime] = None,
+    ends: Option[LocalDateTime] = None
+  ) extends Event {
     lazy val asEntity = this.into[Entry].transform
   }
 }

@@ -198,3 +198,37 @@ Consists of
 
 The Application State, or just State from now on, is only available in memory.
 The State is constructed of the initial, empty State with all Events until now applied to it.
+
+## Internal State
+
+Two Maps, first, all entities:
+
+```scala
+Map[ULID, Entity]
+```
+
+and
+
+```scala
+Map[ULID, ULID + Type]
+
+// Note: ULID + Type => EntityKey
+```
+
+In which the Type can be:
+
+* `HAS`: Entity -> Entity: Entry has Comment, Entry has Tag
+* `WROTE`: User -> Entity: User wrote Entry, User wrote Comment
+* `FOLLOWS`: User -> User
+* `FOLLOWED_BY`: User -> User
+* `LIKES`: User -> Entry, User -> Comment (likes are like stars, but just yes or no)
+
+Examples of usage:
+
+If the CreateNote request is received, an element is added to the `entities` Map and an element is added to the `mapping` Map to map the Note to a User who `wrote` this Note.
+
+If a User starts to follow another User, two elements are added to the `mapping` Map, so that both followers and following Users can be retrieved for a User.
+
+## Finder, a read state
+
+To allow for flexible and fast access to the graph of entities a Finder is provided that will support more complex queries. Preferably something like an in memory graph should be used. Not sure yet if that provides an advantage over a simple in-memory RDBMS like H2, though.

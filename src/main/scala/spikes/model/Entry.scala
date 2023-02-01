@@ -19,6 +19,8 @@ import java.time.LocalDateTime
 import scala.concurrent.Future
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
+import akka.http.scaladsl.server.Route
+import scala.concurrent.ExecutionContextExecutor
 
 object Status extends Enumeration {
   type Status = Value
@@ -46,7 +48,7 @@ final case class EntryRouter(handlers: ActorRef[Command])(implicit system: Actor
 
   private val jsont = ContentTypes.`application/json`
 
-  implicit val ec = system.executionContext
+  implicit val ec: ExecutionContextExecutor = system.executionContext
   implicit val timeout: Timeout = 3.seconds
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -72,7 +74,7 @@ final case class EntryRouter(handlers: ActorRef[Command])(implicit system: Actor
 
   val pULID: PathMatcher1[ULID] = PathMatcher("""[A-HJKMNP-TV-Z0-9]{26}""".r).map(ULID.fromString)
 
-  val route =
+  val route: Route =
     pathPrefix("entries") {
       concat(
         (post & pathEndOrSingleSlash) {

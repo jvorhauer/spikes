@@ -1,11 +1,11 @@
 package spikes.behavior
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.typed.ActorRef
 import akka.persistence.testkit.scaladsl.UnpersistentBehavior
 import com.typesafe.config.ConfigFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.model.Command.FindUserById
 import spikes.model.Event.LoggedIn
 import spikes.model._
 import wvlet.airframe.ulid.ULID
@@ -21,7 +21,7 @@ class HandlersTests extends AnyFlatSpec with Matchers {
   private val born = LocalDate.now().minusYears(21)
   private val password = "Welkom123!"
 
-  val testKit = ActorTestKit(
+  val testKit: ActorTestKit = ActorTestKit(
     ConfigFactory.parseString(
       s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
           akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
@@ -32,7 +32,7 @@ class HandlersTests extends AnyFlatSpec with Matchers {
     )
   )
 
-  val finder = testKit.spawn(Finder(), "finder")
+  val finder: ActorRef[Event] = testKit.spawn(Finder(), "finder")
   private def onEmptyState: UnpersistentBehavior.EventSourced[Command, Event, User] =
     UnpersistentBehavior.fromEventSourced(Handlers(findr = finder))
 
@@ -84,8 +84,7 @@ class HandlersTests extends AnyFlatSpec with Matchers {
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
 
-      val user = testkit.runAskWithStatus(FindUserById(id, _)).receiveStatusReply().getValue
-      user.name shouldEqual name
+      Finder.findUser(id) shouldBe Some(User(id, name, email, password, born))
     }
   }
 }

@@ -3,12 +3,10 @@ package spikes.behavior
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
 import spikes.model.Command
-import spikes.model.Command.Reap
+import spikes.model.Command._
 
 import scala.concurrent.duration.FiniteDuration
 
-case object Done extends Command
-case object Timeout extends Command
 
 object Reaper {
   def apply(target: ActorRef[Command], after: FiniteDuration): Behavior[Command] =

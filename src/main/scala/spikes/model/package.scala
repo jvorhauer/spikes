@@ -11,5 +11,5 @@ package object model {
   private def toHex(ba: Array[Byte]): String = ba.map(s => String.format(Locale.US, "%02x", s)).mkString("")
   def hash(s: String): String = toHex(md.digest(s.getBytes(StandardCharsets.UTF_8)))
 
-  def now = LocalDateTime.now()
+  def now: LocalDateTime = LocalDateTime.now()
 }

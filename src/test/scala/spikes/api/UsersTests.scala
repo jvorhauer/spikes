@@ -25,14 +25,15 @@ import wvlet.airframe.ulid.ULID
 import java.time.LocalDate
 import java.util.UUID
 import scala.util.Try
+import akka.actor.typed.ActorSystem
 
 class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
 
-  implicit val ts = system.toTyped
-  val testKit = ActorTestKit(
+  implicit val ts: ActorSystem[Nothing] = system.toTyped
+  val testKit: ActorTestKit = ActorTestKit(
     ConfigFactory.parseString(
       s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
           akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
@@ -43,7 +44,7 @@ class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalat
     )
   )
 
-  val finder = testKit.spawn(Finder(), "api-test-finder")
+  val finder: ActorRef[Event] = testKit.spawn(Finder(), "api-test-finder")
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(findr = finder), "api-test-handlers")
   val querier: ActorRef[Query] = testKit.spawn(Reader.query(), "query-handler")
   val route: Route = handleRejections(Validation.rejectionHandler) {

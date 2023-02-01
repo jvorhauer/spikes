@@ -6,16 +6,16 @@ import spikes.model.Status._
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 
-trait Event extends CborSerializable {
+trait Event {
   def id: ULID
-  lazy val created = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
+  lazy val created: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
 }
 
 object Event {
   case class UserCreated(
     id: ULID, name: String, email: String, password: String, born: LocalDate
   ) extends Event {
-    lazy val asEntity = this.into[User].transform
+    lazy val asEntity: User = this.into[User].transform
   }
   case class UserUpdated(id: ULID, name: String, password: String, born: LocalDate) extends Event
   case class UserDeleted(id: ULID) extends Event
@@ -37,6 +37,6 @@ object Event {
     starts: Option[LocalDateTime] = None,
     ends: Option[LocalDateTime] = None
   ) extends Event {
-    lazy val asEntity = this.into[Entry].transform
+    lazy val asEntity: Entry = this.into[Entry].transform
   }
 }

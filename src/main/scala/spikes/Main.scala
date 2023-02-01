@@ -7,6 +7,7 @@ import akka.http.scaladsl.Http
 import akka.http.scaladsl.Http.ServerBinding
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
 import akka.persistence.typed.PersistenceId
 import akka.util.Timeout
@@ -28,7 +29,7 @@ object Main {
   private final case class Started(binding: ServerBinding) extends Message
   private case object Stop extends Message
 
-  val persistenceId = PersistenceId.of("spikes", "1", "|")
+  val persistenceId: PersistenceId = PersistenceId.of("spikes", "1", "|")
 
 
   def main(args: Array[String]): Unit = {
@@ -48,7 +49,7 @@ object Main {
     ctx.spawn(Reaper(handlers, 1.minute), "reaper")
     val query = ctx.spawn(Reader.query(), "query")
 
-    val routes = handleRejections(Validation.rejectionHandler) {
+    val routes: Route = handleRejections(Validation.rejectionHandler) {
       concat(
         UserRouter(handlers, query).route,
         InfoRouter(handlers).route,
@@ -93,7 +94,7 @@ final case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorS
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
-  val route = concat(
+  val route: Route = concat(
     (path("info") & get) {
       onSuccess(handlers.ask(Command.Info)) {
         case sr: StatusReply[Response.Info] =>

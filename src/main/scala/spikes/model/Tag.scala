@@ -6,7 +6,6 @@ case class CreateTagRequest(title: String) extends Request {
 
 }
 
-case class CreateTag(id: ULID, title: String) extends Command
 
 case class TagCreated(id: ULID, title: String) extends Event
 

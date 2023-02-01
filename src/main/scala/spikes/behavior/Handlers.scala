@@ -7,6 +7,7 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffec
 import akka.persistence.typed.{RecoveryCompleted, RecoveryFailed}
 import spikes.Main.persistenceId
 import spikes.model._
+import spikes.model.Command.Done
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.duration._
@@ -86,9 +87,6 @@ object Handlers {
           StatusReply.success(Response.Info(state.users.size, state.sessions.size, state.entries.size, recovered))
         )
 
-      case Command.FindUserById(id, replyTo) =>
-        Effect.none.thenReply(replyTo)(_.find(id)
-          .map(u => StatusReply.success(u.asResponse)).getOrElse(StatusReply.error(s"user $id not found")))
       case Command.FindUserByEmail(email, replyTo) =>
         Effect.none.thenReply(replyTo)(_.find(email)
           .map(u => StatusReply.success(u.asResponse)).getOrElse(StatusReply.error(s"user ${email} not found")))

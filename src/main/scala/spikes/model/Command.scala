@@ -8,7 +8,7 @@ import spikes.model.Status._
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 
-trait Command extends CborSerializable
+trait Command
 
 object Command {
 
@@ -34,7 +34,6 @@ object Command {
   case class Authenticate(token: String, replyTo: ReplySessionTo) extends Command
   case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
 
-  case class FindUserById(id: ULID, replyTo: ReplyUserTo) extends Command
   case class FindUserByEmail(email: String, replyTo: ReplyUserTo) extends Command
   case class FindAllUser(replyTo: ReplyUserListTo) extends Command
 
@@ -57,4 +56,9 @@ object Command {
     lazy val asResponse: Response.Entry = this.into[Response.Entry].transform
     lazy val written: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
   }
+
+  case class CreateTag(id: ULID, title: String) extends Command
+
+  case object Done extends Command
+  case object Timeout extends Command
 }

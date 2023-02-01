@@ -4,7 +4,7 @@ import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime}
 
-trait Response extends CborSerializable
+trait Response
 
 object Response {
   case class User(id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, entries: Set[Entry]) extends Response

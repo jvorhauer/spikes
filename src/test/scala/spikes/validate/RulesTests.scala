@@ -8,7 +8,7 @@ import java.time.LocalDate
 class RulesTests extends AnyFlatSpec with Matchers {
   case class TestMe(name: String, email: String, password: String, born: LocalDate = LocalDate.now())
 
-  val testKees= TestMe("Kees", "kees@hier.nu", "Welkom123!", LocalDate.now().minusYears(23))
+  val testKees: TestMe= TestMe("Kees", "kees@hier.nu", "Welkom123!", LocalDate.now().minusYears(23))
 
   "TestMe" should "validate" in {
     var errors = Validation.validate(testKees, Rules.createUser)

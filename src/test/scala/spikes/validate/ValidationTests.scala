@@ -13,13 +13,13 @@ import spikes.validate.Validation.validated
 class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
   case class Book(title: String, author: String, pages: Int)
 
-  val titleRule = FieldRule("title", (_: String).nonEmpty, "title cannot be empty")
-  val authorRule = FieldRule("author", (_: String).length > 3, "author must be longer than 3")
-  val pagesRule = FieldRule("pages", (_: Int) > 10, "page count must be greater than 10")
-  val failRule = FieldRule("thingy", (_: String) == "oink", "fail")
-  val rules = Set(titleRule, authorRule, pagesRule)
+  val titleRule: FieldRule[String] = FieldRule("title", (_: String).nonEmpty, "title cannot be empty")
+  val authorRule: FieldRule[String] = FieldRule("author", (_: String).length > 3, "author must be longer than 3")
+  val pagesRule: FieldRule[Int] = FieldRule("pages", (_: Int) > 10, "page count must be greater than 10")
+  val failRule: FieldRule[String] = FieldRule("thingy", (_: String) == "oink", "fail")
+  val rules: Set[FieldRule[Int with String]] = Set(titleRule, authorRule, pagesRule)
 
-  val routes =  {
+  val routes: Route =  {
     pathPrefix("books") {
       post {
         entity(as[Book]) { book =>

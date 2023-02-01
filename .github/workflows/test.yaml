@@ -1,4 +1,5 @@
 name: sbt test
+on: push
 permissions:
   contents: write
 jobs:

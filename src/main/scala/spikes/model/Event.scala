@@ -39,4 +39,8 @@ object Event {
   ) extends Event {
     lazy val asEntity: Entry = this.into[Entry].transform
   }
+
+  case class CommentCreated(id: ULID, entry: ULID, owner: ULID, title: String, body: String) extends Event {
+    lazy val asEntity: Comment = this.into[Comment].transform
+  }
 }

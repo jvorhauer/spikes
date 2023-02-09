@@ -49,13 +49,17 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http-testkit"        % AkkaHttpVersion,
       "net.datafaker"     %  "datafaker"                % "1.7.0",
     ).map(_ % Test) ++ Seq(
-      "io.scalaland"       %% "chimney"                   % "0.6.2",
-      "ch.qos.logback"     %  "logback-classic"           % "1.4.5",
-      "io.circe"           %% "circe-generic"             % "0.14.3",
-      "org.scalactic"      %% "scalactic"                 % ScalaTestVersion,
-      "org.wvlet.airframe" %% "airframe-ulid"             % "23.1.4",
-      "fr.davit"           %% "akka-http-metrics-datadog" % "1.7.1",
+      "io.scalaland"           %% "chimney"                   % "0.6.2",
+      "ch.qos.logback"         %  "logback-classic"           % "1.4.5",
+      "io.circe"               %% "circe-generic"             % "0.14.3",
+      "org.scalactic"          %% "scalactic"                 % ScalaTestVersion,
+      "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.0",
+      "fr.davit"               %% "akka-http-metrics-datadog" % "1.7.1",
       "org.scala-lang.modules" %% "scala-collection-contrib" % "0.3.0"
+    ) ++ Seq(
+      "com.typesafe.slick" %% "slick"          % "3.4.1",
+      "com.typesafe.slick" %% "slick-hikaricp" % "3.4.1",
+      "com.h2database"     %  "h2"             % "2.1.214",
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,

@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.Credentials
-import akka.http.scaladsl.server.{PathMatcher, PathMatcher1}
+import akka.http.scaladsl.server.{PathMatcher, PathMatcher1, Route}
 import akka.pattern.StatusReply
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
@@ -17,18 +17,18 @@ import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime}
-import scala.collection.immutable.{HashSet, SortedSet}
-import scala.concurrent.Future
+import scala.collection.immutable.HashSet
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration.DurationInt
 import scala.util.Try
-import akka.http.scaladsl.server.Route
-
-import scala.concurrent.ExecutionContextExecutor
 
 
-final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate, entries: Set[Entry] = HashSet.empty) extends Entity {
+
+final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate, entries: Seq[Entry] = Seq.empty) extends Entity {
+  def this(t: (ULID, String, String, String, LocalDate)) = this(t._1, t._2, t._3, t._4, t._5)
   lazy val asResponse: Response.User = this.into[Response.User].transform
-  lazy val joined = created
+  lazy val joined: LocalDateTime = created
+  lazy val asTuple = (id, name, email, password, born)
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires, this)
 }
 
@@ -37,9 +37,7 @@ final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, Use
   def find(id: ULID): Option[User] = ids.get(id)
   def find(email: String): Option[User] = emails.get(email)
   def remove(id: ULID): Users = find(id).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
-  def remove(email: String): Users = find(email).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
   def concat(other: Users): Users = Users(ids ++ other.ids, emails ++ other.emails)
-  def ++(others: Users): Users = concat(others)
 
   lazy val size: Int = ids.size
   lazy val valid: Boolean = ids.size == emails.size
@@ -52,10 +50,8 @@ final case class UserSession(token: String, id: ULID, expires: LocalDateTime = n
 }
 
 final case class State(users: Users = Users(), sessions: Set[UserSession] = HashSet.empty, entries: Set[Entry] = HashSet.empty) {
-  private def enrich(u: User): User = u.copy(entries = SortedSet(entries.filter(_.owner == u.id).toList: _*))
-  def find(email: String): Option[User] = users.find(email).map(enrich)
-  def find(id: ULID): Option[User] = users.find(id).map(enrich)
-  def all(): List[User] = users.ids.values.map(enrich).toList
+  def find(email: String): Option[User] = users.find(email)
+  def find(id: ULID): Option[User] = users.find(id)
 
   def save(u: User): State = State(users.save(u), sessions, entries)
   def delete(id: ULID): State = State(users.remove(id), sessions.filter(_.id != id), entries)
@@ -99,6 +95,8 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
     case None => notFound
   }
 
+  private def replier(list: List[User]) = respond(StatusCodes.OK, list.map(_.asResponse).asJson.toString())
+
   private val authenticator: AsyncAuthenticator[UserSession] = {
     case Credentials.Provided(token) => handlers.ask(Command.Authenticate(token, _))
     case _ => Future.successful(None)
@@ -135,15 +133,8 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
             }
           }
         },
-        (get & path(pULID)) { id =>
-          replier(Finder.findUser(id), StatusCodes.OK)
-        },
-        (get & pathEndOrSingleSlash) {
-          onSuccess(handlers.ask(Command.FindAllUser)) {
-            case lru: StatusReply[List[Response.User]] => respond(StatusCodes.OK, lru.getValue.asJson.toString())
-            case _ => badRequest
-          }
-        },
+        (get & path(pULID)) { id => replier(Finder.findUser(id), StatusCodes.OK) },
+        (get & pathEndOrSingleSlash) { replier(Finder.findUsers()) },
         (post & path("login")) {
           entity(as[Request.Login]) { rl =>
             validated(rl, rl.rules) { valid =>

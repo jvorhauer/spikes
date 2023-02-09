@@ -5,14 +5,12 @@ import akka.actor.typed.ActorRef
 import com.typesafe.config.ConfigFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.model.Event
 import spikes.model.Event.UserCreated
-import spikes.model.User
+import spikes.model.{Event, User}
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 import java.util.UUID
-import scala.collection.immutable.HashSet
 
 class FinderTests extends AnyFlatSpec with Matchers {
 
@@ -33,6 +31,6 @@ class FinderTests extends AnyFlatSpec with Matchers {
     val uc = UserCreated(ULID.newULID, "Test", "test@tester.de", "welkom123!", LocalDate.now())
     finder ! uc
     Thread.sleep(5) // wait for async call to complete, ask is probably nicer to use, but overkill here
-    Finder.findUser(uc.id) shouldBe Some(User(uc.id, uc.name, uc.email, uc.password, uc.born, HashSet.empty))
+    Finder.findUser(uc.id) shouldBe Some(User(uc.id, uc.name, uc.email, uc.password, uc.born, Seq.empty))
   }
 }

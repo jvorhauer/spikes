@@ -83,6 +83,6 @@ object Rules {
   val updateUser: Set[FieldRule[LocalDate with String with ULID]] = Set(nameFieldRule, passwordFieldRule, idFieldRule) ++ bornFieldRules
   val deleteUser: Set[FieldRule[String]] = Set(emailFieldRule)
   val login: Set[FieldRule[String]]      = Set(emailFieldRule, passwordFieldRule)
-
-  val createEntry: Set[FieldRule[String]] = Set(titleFieldRule, bodyFieldRule)
+  val entry: Set[FieldRule[String]]      = Set(titleFieldRule, bodyFieldRule)
+  val comment: Set[FieldRule[String]]    = Set(titleFieldRule, bodyFieldRule)
 }

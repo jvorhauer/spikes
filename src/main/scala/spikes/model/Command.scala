@@ -19,6 +19,7 @@ object Command {
   type ReplyUserListTo = ActorRef[StatusReply[List[Response.User]]]
   type ReplyInfoTo = ActorRef[StatusReply[Response.Info]]
   type ReplyEntryTo = ActorRef[StatusReply[Response.Entry]]
+  type ReplyCommentTo = ActorRef[StatusReply[Response.Comment]]
 
   case class CreateUser(id: ULID, name: String, email: String, born: LocalDate, password: String, replyTo: ReplyUserTo) extends Command {
     lazy val asEvent: Event.UserCreated = this.into[Event.UserCreated].transform
@@ -33,9 +34,6 @@ object Command {
   case class Login(email: String, password: String, replyTo: ReplyTokenTo) extends Command
   case class Authenticate(token: String, replyTo: ReplySessionTo) extends Command
   case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
-
-  case class FindUserByEmail(email: String, replyTo: ReplyUserTo) extends Command
-  case class FindAllUser(replyTo: ReplyUserListTo) extends Command
 
   case class Reap(replyTo: ActorRef[Command]) extends Command
   case class Info(replyTo: ReplyInfoTo) extends Command
@@ -58,6 +56,12 @@ object Command {
   }
 
   case class CreateTag(id: ULID, title: String) extends Command
+
+  case class CreateComment(id: ULID, entry: ULID, owner: ULID, title: String, body: String, replyTo: ReplyCommentTo) extends Command {
+    lazy val written = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
+    lazy val asEvent: Event.CommentCreated = this.into[Event.CommentCreated].transform
+    lazy val asResponse: Response.Comment = this.into[Response.Comment].transform
+  }
 
   case object Done extends Command
   case object Timeout extends Command

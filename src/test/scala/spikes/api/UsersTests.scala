@@ -12,7 +12,7 @@ import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder}
-import org.scalatest.BeforeAndAfterAll
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -26,8 +26,9 @@ import java.time.LocalDate
 import java.util.UUID
 import scala.util.Try
 import akka.actor.typed.ActorSystem
+import spikes.db.Repository
 
-class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
+class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with BeforeAndAfterEach with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -200,5 +201,6 @@ class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalat
     }
   }
 
+  override def beforeEach(): Unit = Repository.reset()
   override def afterAll(): Unit = testKit.shutdownTestKit()
 }

@@ -6,9 +6,8 @@ import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect}
 import akka.persistence.typed.{RecoveryCompleted, RecoveryFailed}
 import spikes.Main.persistenceId
-import spikes.db.Repository
-import spikes.model._
 import spikes.model.Command.Done
+import spikes.model._
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.duration._

@@ -74,7 +74,7 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
   }
 
   "Create and Update User" should "return updated User" in {
-    val rcu = Request.CreateUser("CreateAndUpdate", fakeEmail, password, born)
+    val rcu = Request.CreateUser("Created", fakeEmail, password, born)
     var user: Option[Response.User] = None
     Post("/users", rcu) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.Created
@@ -82,26 +82,31 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
     }
     user.isDefined shouldBe true
 
+    Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[Response.User].name shouldEqual "Created"
+    }
+
     val rl = Request.Login(user.get.email, password)
     var resp: Option[OAuthToken] = None
     Post("/users/login", rl) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
       resp = Some(responseAs[OAuthToken])
     }
-    resp should not be None
+    resp should not be empty
     val token = resp.get.access_token
 
-    val ruu = Request.UpdateUser(user.get.id, "Flipje", password, born)
+    val ruu = Request.UpdateUser(user.get.id, "Updated", password, born)
     Put("/users", ruu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
-      responseAs[Response.User].name shouldEqual "Flipje"
+      responseAs[Response.User].name shouldEqual "Updated"
     }
 
-    Thread.sleep(100)     // due to async nature of actors this happens to be necessary
+    Thread.sleep(10)    // wait for update to finish
 
     Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
-      responseAs[Response.User].name shouldEqual "Flipje"
+      responseAs[Response.User].name shouldEqual "Updated"
     }
   }
 

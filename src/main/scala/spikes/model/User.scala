@@ -26,6 +26,7 @@ import scala.util.Try
 
 final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate, entries: Seq[Entry] = Seq.empty) extends Entity {
   def this(t: (ULID, String, String, String, LocalDate)) = this(t._1, t._2, t._3, t._4, t._5)
+  def this(t: (ULID, String, String, String, LocalDate), es: Seq[Entry]) = this(t._1, t._2, t._3, t._4, t._5, entries = es)
   lazy val asResponse: Response.User = this.into[Response.User].transform
   lazy val joined: LocalDateTime = created
   lazy val asTuple = (id, name, email, password, born)

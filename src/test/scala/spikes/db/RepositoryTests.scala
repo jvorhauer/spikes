@@ -1,7 +1,7 @@
 package spikes.db
 
 import spikes.SpikesTest
-import spikes.model.{Entry, User}
+import spikes.model.{Comment, Entry, User}
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
@@ -59,5 +59,38 @@ class RepositoryTests extends SpikesTest {
     val found = ofound.get
     found.name shouldEqual "Tester4"
     found.entries should have size 1
+    found.entries.head.owner shouldEqual user.id
+  }
+
+  "save and findWithEntries" should "return user with entries" in {
+    val user = User(ULID.newULID, "TestWithEntries", "test-with-entries@tester.nl", "Test123", LocalDate.now())
+    Repository.save(user) shouldEqual 1
+
+    val e1 = Entry(ULID.newULID, user.id, "1. entry title", "entry body")
+    Repository.save(e1) shouldEqual 1
+
+    val e2 = Entry(ULID.newULID, user.id, "2. entry title", "entry body")
+    Repository.save(e2) shouldEqual 1
+
+    val o = Repository.findUser(user.id)
+    o should not be empty
+    val found = o.get
+    found.entries should have size 2
+  }
+
+  "save and findEntry" should "return entry with comments" in {
+    val user = User(ULID.newULID, "TestWithComments", "test-with-comments@tester.nl", "Test123", LocalDate.now())
+    Repository.save(user) shouldEqual 1
+
+    val e1 = Entry(ULID.newULID, user.id, "entry title", "entry with comments")
+    Repository.save(e1) shouldEqual 1
+
+    val c1 = Comment(ULID.newULID, e1.id, user.id, "comment title", "comment body")
+    Repository.save(c1) shouldEqual 1
+
+    val o = Repository.findEntry(e1.id)
+    o should not be empty
+    val found = o.get
+    found.comments should have size 1
   }
 }

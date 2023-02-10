@@ -9,6 +9,7 @@ import org.scalatest.matchers.should.Matchers
 import spikes.db.Repository
 import spikes.model.Event.LoggedIn
 import spikes.model._
+import spikes.validate.Regexes.email
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
@@ -89,16 +90,13 @@ class HandlersTests extends AnyFlatSpec with Matchers {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
       val id = ULID.newULID
       val email = s"test-$id@tester.nl"
+      val userCountBefore = Finder.findUsers().size
       testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
 
-      Thread.sleep(25)    // due to async nature of actors this happens to be necessary
+      Thread.sleep(100)    // due to async nature of actors this happens to be necessary
 
-      println(s"Repository.findUser($id)")
-      Repository.findUser(id) should not be empty
-
-      println(s"Finder.findUser($id)")
       Finder.findUser(id) shouldBe Some(User(id, name, email, password, born))
     }
   }

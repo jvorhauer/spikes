@@ -101,6 +101,8 @@ class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalat
       responseAs[Response.User].name shouldEqual "Flipje"
     }
 
+    Thread.sleep(25)     // due to async nature of actors this happens to be necessary
+
     Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
       responseAs[Response.User].name shouldEqual "Flipje"

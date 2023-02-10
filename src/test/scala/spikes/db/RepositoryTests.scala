@@ -9,8 +9,6 @@ import java.time.LocalDate
 
 class RepositoryTests extends AnyFlatSpec with Matchers {
 
-  Repository.init()
-
   "save a new user" should "return 1" in {
     val user = User(ULID.newULID, "Tester1", "test1@tester.nl", "Test123", LocalDate.now())
     Repository.save(user) shouldEqual 1

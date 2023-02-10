@@ -6,6 +6,7 @@ import akka.persistence.testkit.scaladsl.UnpersistentBehavior
 import com.typesafe.config.ConfigFactory
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import spikes.db.Repository
 import spikes.model.Event.LoggedIn
 import spikes.model._
 import wvlet.airframe.ulid.ULID
@@ -15,9 +16,7 @@ import java.util.UUID
 
 class HandlersTests extends AnyFlatSpec with Matchers {
 
-  private val id = ULID.newULID
   private val name = "Tester"
-  private val email = "Test@test.er"
   private val born = LocalDate.now().minusYears(21)
   private val password = "Welkom123!"
 
@@ -38,6 +37,8 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Create a new User" should "persist" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
+      val id = ULID.newULID
+      val email = s"test-$id@tester.nl"
       testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
@@ -46,6 +47,8 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Update a new User" should "persist updated information" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
+      val id = ULID.newULID
+      val email = s"test-$id@tester.nl"
       testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
@@ -59,6 +62,8 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Update non existent User" should "return an error" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
+      val id = ULID.newULID
+      val email = s"test-$id@tester.nl"
       val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply()
       eventProbe.hasEffects shouldBe false
       snapshotProbe.hasEffects shouldBe false
@@ -68,6 +73,8 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Login" should "return a session token" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
+      val id = ULID.newULID
+      val email = s"test-$id@tester.nl"
       testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
@@ -80,10 +87,18 @@ class HandlersTests extends AnyFlatSpec with Matchers {
 
   "Create and Find" should "return the previously added User" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
+      val id = ULID.newULID
+      val email = s"test-$id@tester.nl"
       testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
 
+      Thread.sleep(25)    // due to async nature of actors this happens to be necessary
+
+      println(s"Repository.findUser($id)")
+      Repository.findUser(id) should not be empty
+
+      println(s"Finder.findUser($id)")
       Finder.findUser(id) shouldBe Some(User(id, name, email, password, born))
     }
   }

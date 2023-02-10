@@ -95,7 +95,7 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
     case None => notFound
   }
 
-  private def replier(list: List[User]) = respond(StatusCodes.OK, list.map(_.asResponse).asJson.toString())
+  private def replier(list: Seq[User]) = respond(StatusCodes.OK, list.map(_.asResponse).asJson.toString())
 
   private val authenticator: AsyncAuthenticator[UserSession] = {
     case Credentials.Provided(token) => handlers.ask(Command.Authenticate(token, _))

@@ -97,16 +97,8 @@ object Handlers {
   private val eventHandler: (State, Event) => State = { (state, event) =>
     finder ! event
     event match {
-      case uc: Event.UserCreated =>
-        Repository.save(uc.asEntity)
-        state.save(uc.asEntity)
-      case uu: Event.UserUpdated =>
-        state.find(uu.id)
-          .map(u => {
-            Repository.save(u.copy(name = uu.name, born = uu.born))
-            state.save(u.copy(name = uu.name, born = uu.born))
-          })
-          .get
+      case uc: Event.UserCreated => state.save(uc.asEntity)
+      case uu: Event.UserUpdated => state.find(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get
       case ud: Event.UserDeleted => state.delete(ud.id)
 
       case li: Event.LoggedIn => state.find(li.id).map(user => state.login(user, li.expires)).getOrElse(state)

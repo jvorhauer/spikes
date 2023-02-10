@@ -5,7 +5,7 @@ import spikes.model._
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
-import scala.concurrent.duration.DurationInt
+import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
 
 object Repository {
@@ -54,14 +54,14 @@ object Repository {
   private val entries = TableQuery[EntriesTable]
   private val comments = TableQuery[CommentsTable]
 
-  import scala.concurrent.ExecutionContext.Implicits.global
+  private def await[T](f: Future[T], t: FiniteDuration = timeout): T = Await.result(f, t)
 
-  def init(): Unit = {
+  {
     val setup = DBIO.seq((users.schema ++ entries.schema ++ comments.schema).createIfNotExists)
-    db.run(setup).value
+    await(db.run(setup), 5.seconds)
   }
 
-  private def await[T](f: Future[T]): T = Await.result(f, timeout)
+  import scala.concurrent.ExecutionContext.Implicits.global
 
   private def save(ins: DBIO[Int]): Int = await(db.run(ins))
   def save(u: User): Int = save(users.insertOrUpdate(u.asTuple))
@@ -71,15 +71,15 @@ object Repository {
   private def enrich(user: User): User = user.copy(entries = await(db.run(entries.filter(_.ownerId === user.id).result)).map(new Entry(_)).map(enrich))
   private def enrich(entry: Entry): Entry = entry.copy(comments = await(db.run(comments.filter(_.entryId === entry.id).result)).map(new Comment(_)))
   def findUser(userId: ULID): Option[User] = await(db.run(users.filter(_.id === userId).result)).headOption.map(new User(_)).map(enrich)
+  def findUser(email: String): Option[User] = await(db.run(users.filter(_.email === email).result)).headOption.map(new User(_)).map(enrich)
+  def findEntry(id: ULID): Option[Entry] = await(db.run(entries.filter(_.id === id).result)).headOption.map(new Entry(_)).map(enrich)
 
   def findUsers(skip: Long = 0, rows: Long = Long.MaxValue): Seq[User] = await(
     db.run(usersSlice(skip, rows).result.map(seqt => seqt.map(t => new User(t)).map(enrich)))
   )
 
   private def deleteComment(entryId: ULID): Int = await(db.run(comments.filter(_.entryId === entryId).delete))
-  private def deleteEntries(userId: ULID): Int = {
-    await(db.run(entries.filter(_.ownerId === userId).delete))
-  }
+  private def deleteEntries(userId: ULID): Int = await(db.run(entries.filter(_.ownerId === userId).delete))
   def deleteUser(userId: ULID): Int = {
     findUser(userId).map(u => {
       u.entries.foreach(e => deleteComment(e.id))

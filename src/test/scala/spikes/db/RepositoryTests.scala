@@ -1,17 +1,18 @@
 package spikes.db
 
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
+import spikes.SpikesTest
 import spikes.model.{Entry, User}
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 
-class RepositoryTests extends AnyFlatSpec with Matchers {
+class RepositoryTests extends SpikesTest {
 
   "save a new user" should "return 1" in {
     val user = User(ULID.newULID, "Tester1", "test1@tester.nl", "Test123", LocalDate.now())
     Repository.save(user) shouldEqual 1
+    Repository.userCount() shouldEqual 1
+    Repository.findUser(user.id) should not be empty
   }
 
   "save a new entry for a new user" should "return 1" in {
@@ -27,6 +28,7 @@ class RepositoryTests extends AnyFlatSpec with Matchers {
     Repository.save(user) shouldEqual 1
 
     Repository.save(user.copy(name = "Tester222")) shouldEqual 1
+
     val oupdated = Repository.findUser(user.id)
     oupdated should not be empty
     oupdated.get.name shouldEqual "Tester222"
@@ -36,6 +38,7 @@ class RepositoryTests extends AnyFlatSpec with Matchers {
   "save and find a user with no entries" should "return user" in {
     val user = User(ULID.newULID, "Tester3", "test3@tester.nl", "Test123", LocalDate.now())
     Repository.save(user) shouldEqual 1
+    Repository.userCount() shouldEqual 1
 
     val ofound = Repository.findUser(user.id)
     ofound should not be empty

@@ -1,7 +1,7 @@
 package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.ActorRef
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
@@ -12,23 +12,19 @@ import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder}
-import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
+import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import spikes.InfoRouter
 import spikes.behavior.{Finder, Handlers, Query, Reader}
 import spikes.model._
 import spikes.validate.Validation
+import spikes.{InfoRouter, SpikesTest}
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 import java.util.UUID
 import scala.util.Try
-import akka.actor.typed.ActorSystem
-import spikes.db.Repository
 
-class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with BeforeAndAfterEach with TestUser {
+class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -203,6 +199,5 @@ class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalat
     }
   }
 
-  override def beforeEach(): Unit = Repository.reset()
   override def afterAll(): Unit = testKit.shutdownTestKit()
 }

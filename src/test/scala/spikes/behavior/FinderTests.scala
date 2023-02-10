@@ -3,8 +3,7 @@ package spikes.behavior
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import com.typesafe.config.ConfigFactory
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
+import spikes.SpikesTest
 import spikes.model.Event.UserCreated
 import spikes.model.{Event, User}
 import wvlet.airframe.ulid.ULID
@@ -12,7 +11,7 @@ import wvlet.airframe.ulid.ULID
 import java.time.LocalDate
 import java.util.UUID
 
-class FinderTests extends AnyFlatSpec with Matchers {
+class FinderTests extends SpikesTest {
 
   val testKit: ActorTestKit = ActorTestKit(
     ConfigFactory.parseString(
@@ -30,7 +29,9 @@ class FinderTests extends AnyFlatSpec with Matchers {
   "Finder" should "find" in {
     val uc = UserCreated(ULID.newULID, "Test", "test@tester.de", "welkom123!", LocalDate.now())
     finder ! uc
-    Thread.sleep(5) // wait for async call to complete, ask is probably nicer to use, but overkill here
+
+    waitForUser()
+
     Finder.findUser(uc.id) shouldBe Some(User(uc.id, uc.name, uc.email, uc.password, uc.born, Seq.empty))
   }
 }

@@ -37,7 +37,8 @@ object Finder {
 
   def findUser(id: ULID): Option[User] = Repository.findUser(id)
   def findUser(email: String): Option[User] = Repository.findUser(email)
-  def findUsers(page: Int = 1, psize: Int = 20): Seq[User] = Repository.findUsers(page * psize, psize)
+  def findUsers(page: Int = 0, psize: Int = 20): Seq[User] = Repository.findUsers(page * psize, psize)
+  def userCount(): Int = Repository.userCount()
 
   def findEntry(id: ULID): Option[Entry] = Repository.findEntry(id)
   def findEntries(userId: ULID): Seq[Entry] = findUser(userId).map(u => u.entries).getOrElse(Seq.empty)

@@ -4,18 +4,17 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorRef
 import akka.persistence.testkit.scaladsl.UnpersistentBehavior
 import com.typesafe.config.ConfigFactory
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
+import org.scalatest.BeforeAndAfterAll
+import spikes.SpikesTest
 import spikes.db.Repository
 import spikes.model.Event.LoggedIn
 import spikes.model._
-import spikes.validate.Regexes.email
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 import java.util.UUID
 
-class HandlersTests extends AnyFlatSpec with Matchers {
+class HandlersTests extends SpikesTest with BeforeAndAfterAll {
 
   private val name = "Tester"
   private val born = LocalDate.now().minusYears(21)
@@ -64,7 +63,6 @@ class HandlersTests extends AnyFlatSpec with Matchers {
   "Update non existent User" should "return an error" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
       val id = ULID.newULID
-      val email = s"test-$id@tester.nl"
       val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply()
       eventProbe.hasEffects shouldBe false
       snapshotProbe.hasEffects shouldBe false
@@ -90,14 +88,15 @@ class HandlersTests extends AnyFlatSpec with Matchers {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
       val id = ULID.newULID
       val email = s"test-$id@tester.nl"
-      val userCountBefore = Finder.findUsers().size
       testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
 
-      Thread.sleep(100)    // due to async nature of actors this happens to be necessary
+      waitForUser()
 
-      Finder.findUser(id) shouldBe Some(User(id, name, email, password, born))
+      Repository.findUser(id) shouldBe Some(User(id, name, email, password, born))
     }
   }
+
+  override def afterAll(): Unit = testKit.shutdownTestKit()
 }

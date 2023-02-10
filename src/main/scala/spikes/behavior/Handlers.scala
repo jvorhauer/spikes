@@ -41,7 +41,7 @@ object Handlers {
     cmd match {
       case cu: Command.CreateUser =>
         state.find(cu.email) match {
-          case Some(_) => Effect.none.thenReply(cu.replyTo) { _ => StatusReply.error("email already in use") }
+          case Some(_) => Effect.none.thenReply(cu.replyTo)(_ => StatusReply.error("email already in use"))
           case None => Effect.persist(cu.asEvent).thenReply(cu.replyTo)(_ => StatusReply.success(cu.asEvent.asEntity.asResponse))
         }
       case uu: Command.UpdateUser =>

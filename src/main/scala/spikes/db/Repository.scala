@@ -77,6 +77,7 @@ object Repository {
   def findUsers(skip: Long = 0, rows: Long = Long.MaxValue): Seq[User] = await(
     db.run(usersSlice(skip, rows).result.map(seqt => seqt.map(t => new User(t)).map(enrich)))
   )
+  def userCount() = await(db.run(users.length.result))
 
   private def deleteComment(entryId: ULID): Int = await(db.run(comments.filter(_.entryId === entryId).delete))
   private def deleteEntries(userId: ULID): Int = await(db.run(entries.filter(_.ownerId === userId).delete))
@@ -89,8 +90,10 @@ object Repository {
   }
 
   def reset(): Unit = {
-    val fc = db.run(comments.delete)
-    val fe = fc.flatMap(_ => db.run(entries.delete))
-    fe.flatMap(_ => db.run(users.delete))
+    await(
+      db.run(comments.delete)
+        .flatMap(_ => db.run(entries.delete))
+        .flatMap(_ => db.run(users.delete))
+    )
   }
 }

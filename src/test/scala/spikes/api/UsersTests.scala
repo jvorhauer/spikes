@@ -102,7 +102,7 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
       responseAs[Response.User].name shouldEqual "Updated"
     }
 
-    Thread.sleep(10)    // wait for update to finish
+    Thread.sleep(100)    // wait for update to finish
 
     Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK

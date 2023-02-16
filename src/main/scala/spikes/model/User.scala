@@ -39,6 +39,7 @@ final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, Use
   def find(email: String): Option[User] = emails.get(email)
   def remove(id: ULID): Users = find(id).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
   def concat(other: Users): Users = Users(ids ++ other.ids, emails ++ other.emails)
+  def all(): List[User] = ids.values.toList
 
   lazy val size: Int = ids.size
   lazy val valid: Boolean = ids.size == emails.size
@@ -54,15 +55,15 @@ final case class State(users: Users = Users(), sessions: Set[UserSession] = Hash
   def find(email: String): Option[User] = users.find(email)
   def find(id: ULID): Option[User] = users.find(id)
 
-  def save(u: User): State = State(users.save(u), sessions, entries)
-  def delete(id: ULID): State = State(users.remove(id), sessions.filter(_.id != id), entries)
+  def save(u: User): State =  this.copy(users = users.save(u))
+  def delete(id: ULID): State = this.copy(users = users.remove(id), sessions = sessions.filterNot(_.id == id))
 
-  def login(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires), entries)
+  def login(u: User, expires: LocalDateTime): State = this.copy(sessions = sessions + u.asSession(expires))
   def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now))
   def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id == id && us.expires.isAfter(now))
-  def logout(id: ULID): State = State(users, sessions.filterNot(_.id == id), entries)
+  def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id == id))
 
-  def save(e: Entry): State = State(users, sessions, entries + e)
+  def save(e: Entry): State = this.copy(entries = entries + e)
 }
 
 

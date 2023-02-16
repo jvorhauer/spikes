@@ -14,7 +14,7 @@ import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import spikes.behavior.{Handlers, Query, Reader}
+import spikes.behavior.Handlers
 import spikes.model._
 import spikes.validate.Validation
 import spikes.{InfoRouter, SpikesTest}
@@ -42,9 +42,8 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
   )
 
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
-  val querier: ActorRef[Query] = testKit.spawn(Reader.query(), "query-handler")
   val route: Route = handleRejections(Validation.rejectionHandler) {
-    concat(UserRouter(handlers, querier).route, InfoRouter(handlers).route)
+    concat(UserRouter(handlers).route, InfoRouter(handlers).route)
   }
 
   "Post without User request" should "return bad request" in {

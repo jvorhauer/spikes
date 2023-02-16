@@ -21,11 +21,9 @@ Queries are defined later and return a response of the required entity or a list
 
 * Akka Typed
 * Akka http
-* Akka cluster
 * Akka Typed persistence
   * * Jackson for Cbor serialization
   * * Cassandra adapter for Akka persistence
-* Akka projections
 * ULIDs for unique, sortable IDs
 * Circe for http/json stuff via Heiko's lib
 
@@ -37,7 +35,6 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [Akka http Directives (ProgramCreek)](https://www.programcreek.com/scala/akka.http.scaladsl.server.Directive)
 * [Akka http json (Heiko)](https://github.com/hseeberger/akka-http-json)
 * [ScalaTest](https://www.scalatest.org/user_guide/selecting_a_style)
-* [Architecture Decision Records](https://adr.github.io/madr/) 
 * [SBT jib](https://github.com/schmitch/sbt-jib)
 * [Akka http tools (sbus labs)](https://github.com/sbuslab/akka-http-tools)
 * [Akka http validation](https://github.com/Fruzenshtein/akka-http-validation)
@@ -50,6 +47,7 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 
 * [DataStax Astra](https://astra.datastax.com/bbf920a2-9480-43f0-bdfb-ae682405943d)
 * [MicroK8s](https://microk8s.io/)
+* [Monitoring with Kamon](https://kamon.io/)
 
 ### Inspiration
 
@@ -62,19 +60,18 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [GitHub project](https://github.com/jvorhauer/spikes)
 * [sbt release](https://github.com/sbt/sbt-release)
 
+Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
+focus and cleaner process. Also update this document when applicable.
+
 ### Further reading required
 
 * [JGraphT](https://jgrapht.org)
 * [Cassovary](https://github.com/twitter/cassovary) interesting Twitter Big Graph library in Scala, but not maintained since 2018
 
-Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
-focus and cleaner process. Also update this document when applicable.
 
 ## Model
 
 The Model is the blueprint for the elements in the Application State.
-
-A User has 0 or more Entries that can be one of 5 things.
 
 An Entry can have Comments.
 
@@ -94,7 +91,7 @@ case class User(
 
 ### Entry 
 
-Entry is either Note, Task, Marker (bookmark, favorite), Blog, Journal or Event
+A User has 0 or more Entries that can be one of 6 things: either Note, Task, Marker (bookmark, favorite), Blog, Journal or Event
 
 ```scala Entry class
 case class Entry(
@@ -151,13 +148,11 @@ where the UUID is the id of the Entry. That should help in looking up entries re
 An Entry has a Status:
 
 * Entry:
-  * Active
-  * Archived
-  * Deleted
-* Task:
   * ToDo
   * Doing
   * Done
+
+if status is Blank, this entry is not a Task. 
 
 ## Commands & Events
 

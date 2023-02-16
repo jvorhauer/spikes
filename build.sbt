@@ -56,6 +56,9 @@ lazy val root = (project in file("."))
       "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.4",
       "fr.davit"               %% "akka-http-metrics-datadog" % "1.7.1",
       "org.scala-lang.modules" %% "scala-collection-contrib" % "0.3.0"
+    ) ++ Seq(
+      "io.kamon" %% "kamon-bundle"       % "2.6.0",
+      "io.kamon" %% "kamon-apm-reporter" % "2.6.0"
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,

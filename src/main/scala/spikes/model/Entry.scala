@@ -35,11 +35,13 @@ final case class Entry(
 ) extends Entity with Ordered[Entry] {
   def this(t: (ULID, ULID, String, String, Option[String])) = this(t._1, t._2, t._3, t._4, url = t._5)
   def this(t: (ULID, ULID, String, String, Option[String]), cs: Seq[Comment]) = this(t._1, t._2, t._3, t._4, url = t._5, comments = cs)
-  lazy val isTask: Boolean = due.isDefined && status != Status.Blank
+  lazy val isTask: Boolean = status != Status.Blank
   lazy val isEvent: Boolean = starts.isDefined && ends.isDefined
   lazy val isMarker: Boolean = url.isDefined
+
   lazy val written: LocalDateTime = created
   lazy val asTuple: (ULID, ULID, String, String, Option[String]) = (id, owner, title, body, url)
+
   override def compare(that: Entry): Int = if (this.id == that.id) 0 else if (this.id > that.id) 1 else -1
 }
 

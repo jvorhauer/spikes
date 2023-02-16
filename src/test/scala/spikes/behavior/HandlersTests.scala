@@ -37,7 +37,6 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
       val id = ULID.newULID
       val email = s"test-$id@tester.nl"
       val v = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      println(s"v: $v")
       v.name shouldEqual name
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
@@ -50,7 +49,6 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
       val email = s"test-$id@tester.nl"
       val v = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       v.name shouldEqual name
-      println(s"v: $v")
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
 

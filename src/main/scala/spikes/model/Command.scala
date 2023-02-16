@@ -13,6 +13,7 @@ trait Command
 object Command {
 
   type ReplyUserTo = ActorRef[StatusReply[Response.User]]
+  type ReplyUsersTo = ActorRef[StatusReply[List[Response.User]]]
   type ReplyTokenTo = ActorRef[StatusReply[OAuthToken]]
   type ReplySessionTo = ActorRef[Option[UserSession]]
   type ReplyAnyTo = ActorRef[StatusReply[_]]
@@ -30,6 +31,9 @@ object Command {
   }
 
   case class DeleteUser(email: String, replyTo: ReplyUserTo) extends Command
+
+  case class FindUser(id: ULID, replyTo: ReplyUserTo) extends Command
+  case class FindUsers(replyTo: ReplyUsersTo) extends Command
 
   case class Login(email: String, password: String, replyTo: ReplyTokenTo) extends Command
   case class Authenticate(token: String, replyTo: ReplySessionTo) extends Command

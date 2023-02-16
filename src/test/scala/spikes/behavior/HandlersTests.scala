@@ -5,7 +5,6 @@ import akka.persistence.testkit.scaladsl.UnpersistentBehavior
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import spikes.SpikesTest
-import spikes.db.Repository
 import spikes.model.Event.LoggedIn
 import spikes.model._
 import wvlet.airframe.ulid.ULID
@@ -55,10 +54,6 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
 
-      val ou = Repository.findUser(id)
-      ou should not be empty
-      ou.get.name shouldEqual name
-
       val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserUpdated(id, "Breaker", password, born))
       snapshotProbe.hasEffects shouldBe false
@@ -97,10 +92,6 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
       testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
-
-      waitForUser()
-
-      Repository.findUser(id) shouldBe Some(User(id, name, email, password, born))
     }
   }
 

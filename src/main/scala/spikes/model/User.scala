@@ -13,7 +13,6 @@ import io.circe.syntax._
 import io.circe.{Decoder, Encoder}
 import io.scalaland.chimney.dsl.TransformerOps
 import spikes.behavior.Query
-import spikes.db.Repository
 import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
@@ -83,7 +82,7 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
     complete(HttpResponse(sc, entity = HttpEntity(ContentTypes.`application/json`, body)))
 
   private val badRequest = complete(StatusCodes.BadRequest)
-  private val notFound = complete(StatusCodes.NotFound)
+  complete(StatusCodes.NotFound)
 
   private def replier(fut: Future[StatusReply[Response.User]], sc: StatusCode) =
     onSuccess(fut) {
@@ -92,12 +91,12 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
       case _ => badRequest
     }
 
-  private def replier(opt: Option[User], sc: StatusCode) = opt match {
-    case Some(u) => respond(sc, u.asResponse.asJson.toString())
-    case None => notFound
-  }
-
-  private def replier(list: Seq[User]) = respond(StatusCodes.OK, list.map(_.asResponse).asJson.toString())
+  private def repliers(fut: Future[StatusReply[List[Response.User]]], sc: StatusCode) =
+    onSuccess(fut) {
+      case sur: StatusReply[List[Response.User]] if sur.isSuccess => respond(sc, sur.getValue.asJson.toString())
+      case sur: StatusReply[List[Response.User]] => respond(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson.toString())
+      case _ => badRequest
+    }
 
   private val authenticator: AsyncAuthenticator[UserSession] = {
     case Credentials.Provided(token) => handlers.ask(Command.Authenticate(token, _))
@@ -135,8 +134,8 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
             }
           }
         },
-        (get & path(pULID)) { id => replier(Repository.findUser(id), StatusCodes.OK) },
-        (get & pathEndOrSingleSlash) { replier(Repository.findUsers()) },
+        (get & path(pULID)) { id => replier(handlers.ask(Command.FindUser(id, _)), StatusCodes.OK) },
+        (get & pathEndOrSingleSlash) { repliers(handlers.ask(Command.FindUsers), StatusCodes.OK) },
         (post & path("login")) {
           entity(as[Request.Login]) { rl =>
             validated(rl, rl.rules) { valid =>

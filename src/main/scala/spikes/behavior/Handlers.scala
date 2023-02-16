@@ -6,7 +6,6 @@ import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect}
 import akka.persistence.typed.{RecoveryCompleted, RecoveryFailed}
 import spikes.Main.persistenceId
-import spikes.db.Repository
 import spikes.model.Command.Done
 import spikes.model._
 import wvlet.airframe.ulid.ULID
@@ -74,6 +73,14 @@ object Handlers {
         case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error("User was not logged in"))
       }
 
+      case Command.FindUser(id, replyTo) => state.find(id) match {
+        case Some(user) => Effect.none.thenReply(replyTo)(_ => StatusReply.success(user.asResponse))
+        case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error(s"user $id not found"))
+      }
+      case Command.FindUsers(replyTo) => Effect.none.thenReply(replyTo)(state =>
+        StatusReply.success(state.users.ids.values.map(_.asResponse).toList)
+      )
+
       case Command.Reap(replyTo) =>
         val count = state.sessions.count(_.expires.isBefore(now))
         if (count == 0) {
@@ -93,7 +100,6 @@ object Handlers {
   }
 
   private val eventHandler: (State, Event) => State = (state, event) => {
-    Repository.eventHandler(event)
     event match {
       case uc: Event.UserCreated => state.save(uc.asEntity)
       case uu: Event.UserUpdated => state.find(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get

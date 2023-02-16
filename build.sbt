@@ -3,11 +3,14 @@ import ReleaseTransformations._
 ThisBuild / scalaVersion := "2.13.10"
 ThisBuild / organization := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
+ThisBuild / semanticdbEnabled := true
+ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
+ThisBuild / scalafixScalaBinaryVersion := "2.13"
 
-lazy val AkkaVersion = "2.7.0"
-lazy val AkkaHttpVersion = "10.4.0"
-lazy val ScalaTestVersion = "3.2.14"
-lazy val Test = "test"
+val AkkaVersion = "2.7.0"
+val AkkaHttpVersion = "10.4.0"
+val ScalaTestVersion = "3.2.15"
+val Test = "test"
 
 lazy val root = (project in file("."))
   .settings(
@@ -44,14 +47,15 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-stream-testkit"      % AkkaVersion,
       "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion,
       "com.typesafe.akka" %% "akka-http-testkit"        % AkkaHttpVersion,
-      "net.datafaker"     %  "datafaker"                % "1.7.0",
+      "net.datafaker"     %  "datafaker"                % "1.8.0",
     ).map(_ % Test) ++ Seq(
-      "io.scalaland"       %% "chimney"                   % "0.6.2",
-      "ch.qos.logback"     %  "logback-classic"           % "1.4.5",
-      "io.circe"           %% "circe-generic"             % "0.14.3",
-      "org.scalactic"      %% "scalactic"                 % ScalaTestVersion,
-      "org.wvlet.airframe" %% "airframe-ulid"             % "22.12.6",
-      "fr.davit"           %% "akka-http-metrics-datadog" % "1.7.1",
+      "io.scalaland"           %% "chimney"                   % "0.6.2",
+      "ch.qos.logback"         %  "logback-classic"           % "1.4.5",
+      "io.circe"               %% "circe-generic"             % "0.14.4",
+      "org.scalactic"          %% "scalactic"                 % ScalaTestVersion,
+      "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.4",
+      "fr.davit"               %% "akka-http-metrics-datadog" % "1.7.1",
+      "org.scala-lang.modules" %% "scala-collection-contrib" % "0.3.0"
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies,

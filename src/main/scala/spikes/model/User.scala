@@ -4,7 +4,7 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.directives.Credentials
-import akka.http.scaladsl.server.{PathMatcher, PathMatcher1}
+import akka.http.scaladsl.server.{PathMatcher, PathMatcher1, Route}
 import akka.pattern.StatusReply
 import akka.util.Timeout
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
@@ -17,56 +17,53 @@ import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime}
-import scala.collection.immutable.{HashSet, SortedSet}
-import scala.concurrent.Future
+import scala.collection.immutable.HashSet
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
 
-final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate, entries: Set[Entry] = HashSet.empty) extends Entity {
+
+final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate, entries: Seq[Entry] = Seq.empty) extends Entity {
+  def this(t: (ULID, String, String, String, LocalDate)) = this(t._1, t._2, t._3, t._4, t._5)
+  def this(t: (ULID, String, String, String, LocalDate), es: Seq[Entry]) = this(t._1, t._2, t._3, t._4, t._5, entries = es)
   lazy val asResponse: Response.User = this.into[Response.User].transform
-  lazy val joined = created
+  lazy val joined: LocalDateTime = created
+  lazy val asTuple: (ULID, String, String, String, LocalDate) = (id, name, email, password, born)
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires, this)
 }
 
-final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, User] = Map.empty) extends CborSerializable {
+final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, User] = Map.empty) {
   def save(u: User): Users = Users(ids + (u.id -> u), emails + (u.email -> u))
   def find(id: ULID): Option[User] = ids.get(id)
   def find(email: String): Option[User] = emails.get(email)
   def remove(id: ULID): Users = find(id).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
-  def remove(email: String): Users = find(email).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
   def concat(other: Users): Users = Users(ids ++ other.ids, emails ++ other.emails)
-  def ++(others: Users): Users = concat(others)
+  def all(): List[User] = ids.values.toList
 
   lazy val size: Int = ids.size
   lazy val valid: Boolean = ids.size == emails.size
 }
 
-final case class OAuthToken(access_token: String, token_type: String = "bearer", expires_in: Int = 7200) extends CborSerializable
+final case class OAuthToken(access_token: String, token_type: String = "bearer", expires_in: Int = 7200) extends Response
 
 final case class UserSession(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2), user: User) {
-  lazy val asOAuthToken = OAuthToken(token)
+  lazy val asOAuthToken: OAuthToken = OAuthToken(token)
 }
 
-final case class State(
-  users: Users = Users(),
-  sessions: Set[UserSession] = HashSet.empty,
-  entries: Set[Entry] = HashSet.empty
-) extends CborSerializable {
-  private def enrich(u: User): User = u.copy(entries = SortedSet(entries.filter(_.owner == u.id).toList: _*))
-  def find(email: String): Option[User] = users.find(email).map(enrich)
-  def find(id: ULID): Option[User] = users.find(id).map(enrich)
-  def all(): List[User] = users.ids.values.map(enrich).toList
+final case class State(users: Users = Users(), sessions: Set[UserSession] = HashSet.empty, entries: Set[Entry] = HashSet.empty) {
+  def find(email: String): Option[User] = users.find(email)
+  def find(id: ULID): Option[User] = users.find(id)
 
-  def save(u: User): State = State(users.save(u), sessions, entries)
-  def delete(id: ULID): State = State(users.remove(id), sessions.filter(_.id != id), entries)
+  def save(u: User): State =  this.copy(users = users.save(u))
+  def delete(id: ULID): State = this.copy(users = users.remove(id), sessions = sessions.filterNot(_.id == id))
 
-  def login(u: User, expires: LocalDateTime): State = State(users, sessions + u.asSession(expires), entries)
+  def login(u: User, expires: LocalDateTime): State = this.copy(sessions = sessions + u.asSession(expires))
   def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now))
   def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id == id && us.expires.isAfter(now))
-  def logout(id: ULID): State = State(users, sessions.filterNot(_.id == id), entries)
+  def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id == id))
 
-  def save(e: Entry): State = State(users, sessions, entries + e)
+  def save(e: Entry): State = this.copy(entries = entries + e)
 }
 
 
@@ -79,18 +76,26 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
-  implicit val ec = system.executionContext
+  implicit val ec: ExecutionContextExecutor = system.executionContext
   implicit val timeout: Timeout = 3.seconds
 
   private def respond(sc: StatusCode, body: String) =
     complete(HttpResponse(sc, entity = HttpEntity(ContentTypes.`application/json`, body)))
 
   private val badRequest = complete(StatusCodes.BadRequest)
+  complete(StatusCodes.NotFound)
 
   private def replier(fut: Future[StatusReply[Response.User]], sc: StatusCode) =
     onSuccess(fut) {
       case sur: StatusReply[Response.User] if sur.isSuccess => respond(sc, sur.getValue.asJson.toString())
       case sur: StatusReply[Response.User] => respond(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson.toString())
+      case _ => badRequest
+    }
+
+  private def repliers(fut: Future[StatusReply[List[Response.User]]], sc: StatusCode) =
+    onSuccess(fut) {
+      case sur: StatusReply[List[Response.User]] if sur.isSuccess => respond(sc, sur.getValue.asJson.toString())
+      case sur: StatusReply[List[Response.User]] => respond(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson.toString())
       case _ => badRequest
     }
 
@@ -102,7 +107,7 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
   val pULID: PathMatcher1[ULID] = PathMatcher("""[A-HJKMNP-TV-Z0-9]{26}""".r).map(ULID.fromString)
 
 
-  val route =
+  val route: Route =
     pathPrefix("users") {
       concat(
         (post & pathEndOrSingleSlash) {
@@ -130,15 +135,8 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
             }
           }
         },
-        (get & path(pULID)) { id =>
-          replier(handlers.ask(Command.FindUserById(id, _)), StatusCodes.OK)
-        },
-        (get & pathEndOrSingleSlash) {
-          onSuccess(handlers.ask(Command.FindAllUser)) {
-            case lru: StatusReply[List[Response.User]] => respond(StatusCodes.OK, lru.getValue.asJson.toString())
-            case _ => badRequest
-          }
-        },
+        (get & path(pULID)) { id => replier(handlers.ask(Command.FindUser(id, _)), StatusCodes.OK) },
+        (get & pathEndOrSingleSlash) { repliers(handlers.ask(Command.FindUsers), StatusCodes.OK) },
         (post & path("login")) {
           entity(as[Request.Login]) { rl =>
             validated(rl, rl.rules) { valid =>

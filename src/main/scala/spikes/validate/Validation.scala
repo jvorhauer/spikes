@@ -79,10 +79,10 @@ object Rules {
   private val titleFieldRule = FieldRule("title", (title: String) => title.matches(Regexes.title), "invalid title")
   private val bodyFieldRule = FieldRule("body", (body: String) => body.matches(Regexes.body), "invalid body")
 
-  val createUser = Set(nameFieldRule, emailFieldRule, passwordFieldRule) ++ bornFieldRules
-  val updateUser = Set(nameFieldRule, passwordFieldRule, idFieldRule) ++ bornFieldRules
-  val deleteUser = Set(emailFieldRule)
-  val login      = Set(emailFieldRule, passwordFieldRule)
-
-  val createEntry = Set(titleFieldRule, bodyFieldRule)
+  val createUser: Set[FieldRule[LocalDate with String]] = Set(nameFieldRule, emailFieldRule, passwordFieldRule) ++ bornFieldRules
+  val updateUser: Set[FieldRule[LocalDate with String with ULID]] = Set(nameFieldRule, passwordFieldRule, idFieldRule) ++ bornFieldRules
+  val deleteUser: Set[FieldRule[String]] = Set(emailFieldRule)
+  val login: Set[FieldRule[String]]      = Set(emailFieldRule, passwordFieldRule)
+  val entry: Set[FieldRule[String]]      = Set(titleFieldRule, bodyFieldRule)
+  val comment: Set[FieldRule[String]]    = Set(titleFieldRule, bodyFieldRule)
 }

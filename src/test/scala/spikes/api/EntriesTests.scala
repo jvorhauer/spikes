@@ -1,8 +1,8 @@
 package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives._
@@ -14,26 +14,24 @@ import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import spikes.InfoRouter
-import spikes.behavior.{Finder, Handlers, Query, Reader}
+import spikes.behavior.{Handlers, Query, Reader}
 import spikes.model._
 import spikes.validate.Validation
+import spikes.{InfoRouter, SpikesTest}
 import wvlet.airframe.ulid.ULID
 
 import java.util.UUID
 import scala.util.Try
 
-class EntriesTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
+class EntriesTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser with BeforeAndAfterAll {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
   implicit val statusEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status)
   implicit val statusDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status)
 
-  implicit val ts = system.toTyped
-  val testKit = ActorTestKit(
+  implicit val ts: ActorSystem[Nothing] = system.toTyped
+  val testKit: ActorTestKit = ActorTestKit(
     ConfigFactory.parseString(
       s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
         akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
@@ -44,8 +42,7 @@ class EntriesTests extends AnyFlatSpec with Matchers with ScalaFutures with Scal
     )
   )
 
-  val finder = testKit.spawn(Finder(), "api-test-finder")
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(findr = finder), "api-test-handlers")
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val querier: ActorRef[Query] = testKit.spawn(Reader.query(), "query-handler")
 
   val route: Route = handleRejections(Validation.rejectionHandler) {
@@ -75,4 +72,6 @@ class EntriesTests extends AnyFlatSpec with Matchers with ScalaFutures with Scal
       status shouldEqual StatusCodes.Created
     }
   }
+
+  override def afterAll(): Unit = testKit.shutdownTestKit()
 }

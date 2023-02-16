@@ -1,8 +1,8 @@
 package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.ActorRef
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives._
@@ -14,25 +14,23 @@ import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import org.scalatest.flatspec.AnyFlatSpec
-import org.scalatest.matchers.should.Matchers
-import spikes.InfoRouter
-import spikes.behavior.{Finder, Handlers, Query, Reader}
+import spikes.behavior.{Handlers, Query, Reader}
 import spikes.model._
 import spikes.validate.Validation
+import spikes.{InfoRouter, SpikesTest}
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 import java.util.UUID
 import scala.util.Try
 
-class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
+class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
 
-  implicit val ts = system.toTyped
-  val testKit = ActorTestKit(
+  implicit val ts: ActorSystem[Nothing] = system.toTyped
+  val testKit: ActorTestKit = ActorTestKit(
     ConfigFactory.parseString(
       s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
           akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
@@ -43,8 +41,7 @@ class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalat
     )
   )
 
-  val finder = testKit.spawn(Finder(), "api-test-finder")
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(findr = finder), "api-test-handlers")
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val querier: ActorRef[Query] = testKit.spawn(Reader.query(), "query-handler")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     concat(UserRouter(handlers, querier).route, InfoRouter(handlers).route)
@@ -76,7 +73,7 @@ class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalat
   }
 
   "Create and Update User" should "return updated User" in {
-    val rcu = Request.CreateUser("CreateAndUpdate", fakeEmail, password, born)
+    val rcu = Request.CreateUser("Created", fakeEmail, password, born)
     var user: Option[Response.User] = None
     Post("/users", rcu) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.Created
@@ -84,24 +81,31 @@ class UsersTests extends AnyFlatSpec with Matchers with ScalaFutures with Scalat
     }
     user.isDefined shouldBe true
 
+    Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[Response.User].name shouldEqual "Created"
+    }
+
     val rl = Request.Login(user.get.email, password)
     var resp: Option[OAuthToken] = None
     Post("/users/login", rl) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
       resp = Some(responseAs[OAuthToken])
     }
-    resp should not be None
+    resp should not be empty
     val token = resp.get.access_token
 
-    val ruu = Request.UpdateUser(user.get.id, "Flipje", password, born)
+    val ruu = Request.UpdateUser(user.get.id, "Updated", password, born)
     Put("/users", ruu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
-      responseAs[Response.User].name shouldEqual "Flipje"
+      responseAs[Response.User].name shouldEqual "Updated"
     }
+
+    Thread.sleep(100)    // wait for update to finish
 
     Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
-      responseAs[Response.User].name shouldEqual "Flipje"
+      responseAs[Response.User].name shouldEqual "Updated"
     }
   }
 

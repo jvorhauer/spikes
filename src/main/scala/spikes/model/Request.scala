@@ -55,11 +55,22 @@ object Request {
     starts: Option[LocalDateTime] = None,
     ends: Option[LocalDateTime] = None
   ) extends Request {
+    val rules = Rules.entry
     def asCmd(user: ULID, replyTo: ActorRef[StatusReply[Response.Entry]]): Command.CreateEntry = this.into[Command.CreateEntry]
       .withFieldComputed(_.id, _ => ULID.newULID)
       .withFieldComputed(_.owner, _ => user)
       .withFieldComputed(_.replyTo, _ => replyTo)
       .transform
 
+  }
+
+  final case class CreateComment(title: String, body: String) extends Request {
+    val rules = Rules.comment
+    def asCmd(user: ULID, entry: ULID, replyTo: ActorRef[StatusReply[Response.Comment]]): Command.CreateComment = this.into[Command.CreateComment]
+      .withFieldComputed(_.id, _ => ULID.newULID)
+      .withFieldComputed(_.entry, _ => entry)
+      .withFieldComputed(_.owner, _ => user)
+      .withFieldComputed(_.replyTo, _ => replyTo)
+      .transform
   }
 }

@@ -11,8 +11,8 @@ import scala.concurrent.duration._
 
 class ReaperTests extends ScalaTestWithActorTestKit(ManualTime.config) with AnyFlatSpecLike with Matchers {
 
-  val probe = TestProbe[Command]()
-  val manualTime = ManualTime()
+  val probe: TestProbe[Command] = TestProbe[Command]()
+  val manualTime: ManualTime = ManualTime()
 
   "Reaper" should "reap" in {
     spawn(Reaper(probe.ref, 10.millis))

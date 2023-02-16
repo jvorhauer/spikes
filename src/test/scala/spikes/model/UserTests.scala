@@ -14,6 +14,7 @@ import wvlet.airframe.ulid.ULID
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 import java.util.Locale
 import scala.collection.immutable.HashSet
+import scala.concurrent.ExecutionContextExecutor
 
 trait TestUser {
   val faker = new Faker(Locale.US)
@@ -21,7 +22,7 @@ trait TestUser {
   val name = "Tester"
   val email = "tester@test.er"
   val password = "Welkom123!"
-  val born = LocalDate.now().minusYears(21)
+  val born: LocalDate = LocalDate.now().minusYears(21)
 
   def fakeName: String = faker.name().fullName()
   def fakeEmail: String = faker.internet().emailAddress().replace("@", s"-${System.nanoTime()}@")
@@ -29,7 +30,7 @@ trait TestUser {
 }
 
 object TestUser {
-  val empty = User(ULID.newULID, "", "", "", LocalDate.now())
+  val empty: User = User(ULID.newULID, "", "", "", LocalDate.now())
 }
 
 /*
@@ -42,7 +43,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   private val testkit = ActorTestKit()
   private val probe = testkit.createTestProbe[StatusReply[Response.User]]().ref
 
-  implicit val ec = testkit.system.executionContext
+  implicit val ec: ExecutionContextExecutor = testkit.system.executionContext
 
 
   "Validate RequestCreateUser" should "correctly check" in {

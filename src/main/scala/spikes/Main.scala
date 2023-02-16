@@ -13,13 +13,13 @@ import akka.persistence.typed.PersistenceId
 import akka.util.Timeout
 import io.circe.generic.auto._
 import io.circe.syntax._
-import spikes.behavior.{Finder, Handlers, Reader, Reaper}
+import spikes.behavior.{Handlers, Reader, Reaper}
 import spikes.model._
 import spikes.validate.Validation
 
+import scala.concurrent.ExecutionContextExecutor
 import scala.concurrent.duration.DurationInt
 import scala.util.{Failure, Success}
-import scala.concurrent.ExecutionContextExecutor
 
 object Main {
 
@@ -43,8 +43,7 @@ object Main {
     ctx.system.eventStream.tell(Subscribe(reader))
 
     val state = State(Users())
-    val finder = ctx.spawn(Finder(), "finder")
-    val handlers = ctx.spawn(Handlers(state, finder), "handlers")
+    val handlers = ctx.spawn(Handlers(state), "handlers")
 
     ctx.spawn(Reaper(handlers, 1.minute), "reaper")
     val query = ctx.spawn(Reader.query(), "query")

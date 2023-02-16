@@ -12,14 +12,15 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder}
 import io.scalaland.chimney.dsl.TransformerOps
-import spikes.behavior.{Finder, Query}
+import spikes.behavior.Query
+import spikes.db.Repository
 import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime}
 import scala.collection.immutable.HashSet
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
 
@@ -29,7 +30,7 @@ final case class User(id: ULID, name: String, email: String, password: String, b
   def this(t: (ULID, String, String, String, LocalDate), es: Seq[Entry]) = this(t._1, t._2, t._3, t._4, t._5, entries = es)
   lazy val asResponse: Response.User = this.into[Response.User].transform
   lazy val joined: LocalDateTime = created
-  lazy val asTuple = (id, name, email, password, born)
+  lazy val asTuple: (ULID, String, String, String, LocalDate) = (id, name, email, password, born)
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires, this)
 }
 
@@ -134,8 +135,8 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
             }
           }
         },
-        (get & path(pULID)) { id => replier(Finder.findUser(id), StatusCodes.OK) },
-        (get & pathEndOrSingleSlash) { replier(Finder.findUsers()) },
+        (get & path(pULID)) { id => replier(Repository.findUser(id), StatusCodes.OK) },
+        (get & pathEndOrSingleSlash) { replier(Repository.findUsers()) },
         (post & path("login")) {
           entity(as[Request.Login]) { rl =>
             validated(rl, rl.rules) { valid =>

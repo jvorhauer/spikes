@@ -1,58 +1,60 @@
 package spikes.db
 
 import slick.jdbc.H2Profile.api._
+import spikes.model.Event._
 import spikes.model._
-import spikes.validate.Rules.entry
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.concurrent.{Await, Future}
-import scala.reflect.internal.NoPhase.id
+import slick.ast.BaseTypedType
+import slick.jdbc.JdbcType
+import slick.lifted.ForeignKeyQuery
 
 object Repository {
 
   private val timeout = 100.milliseconds
 
-  implicit val ulidMapper = MappedColumnType.base[ULID, String](
+  implicit val ulidMapper: JdbcType[ULID] with BaseTypedType[ULID] = MappedColumnType.base[ULID, String](
     ulid => ulid.toString(),
     str => ULID.fromString(str)
   )
 
   type UserT = (ULID, String, String, String, LocalDate)
 
-  private class UsersTable(tag: Tag) extends Table[UserT](tag, "USERS") {
-    def id = column[ULID]("USER_ID", O.PrimaryKey)
-    def name = column[String]("NAME")
-    def email = column[String]("EMAIL", O.Unique)
-    def password = column[String]("PASSWORD")
-    def born = column[LocalDate]("BORN")
+  private final class UsersTable(tag: Tag) extends Table[UserT](tag, "USERS") {
+    def id: Rep[ULID] = column[ULID]("USER_ID", O.PrimaryKey)
+    def name: Rep[String] = column[String]("NAME")
+    def email: Rep[String] = column[String]("EMAIL", O.Unique)
+    def password: Rep[String] = column[String]("PASSWORD")
+    def born: Rep[LocalDate] = column[LocalDate]("BORN")
     def * = (id, name, email, password, born)
   }
 
   type EntryT = (ULID, ULID, String, String, Option[String])
 
   private class EntriesTable(tag: Tag) extends Table[EntryT](tag, "ENTRIES") {
-    def id = column[ULID]("ENTRY_ID", O.PrimaryKey)
-    def ownerId = column[ULID]("OWNER_ID")
-    def title = column[String]("TITLE")
-    def body = column[String]("BODY")
-    def url = column[Option[String]]("URL")
+    def id: Rep[ULID] = column[ULID]("ENTRY_ID", O.PrimaryKey)
+    def ownerId: Rep[ULID] = column[ULID]("OWNER_ID")
+    def title: Rep[String] = column[String]("TITLE")
+    def body: Rep[String] = column[String]("BODY")
+    def url: Rep[Option[String]] = column[Option[String]]("URL")
     def * = (id, ownerId, title, body, url)
-    def owner = foreignKey("ENTRY_USER_FK", ownerId, Repository.users)(_.id)
+    def owner: ForeignKeyQuery[UsersTable,UserT] = foreignKey("ENTRY_USER_FK", ownerId, Repository.users)(_.id)
   }
 
   type CommentT = (ULID, ULID, ULID, String, String)
 
   private class CommentsTable(tag: Tag) extends Table[CommentT](tag, "COMMENTS") {
-    def id = column[ULID]("COMMENT_ID", O.PrimaryKey)
-    def entryId = column[ULID]("ENTRY_ID")
-    def ownerId = column[ULID]("OWNER_ID")
-    def title = column[String]("TITLE")
-    def body = column[String]("BODY")
+    def id: Rep[ULID] = column[ULID]("COMMENT_ID", O.PrimaryKey)
+    def entryId: Rep[ULID] = column[ULID]("ENTRY_ID")
+    def ownerId: Rep[ULID] = column[ULID]("OWNER_ID")
+    def title: Rep[String] = column[String]("TITLE")
+    def body: Rep[String] = column[String]("BODY")
     def * = (id, entryId, ownerId, title, body)
-    def entry = foreignKey("COMMENT_ENTRY_FK", entryId, Repository.entries)(_.id)
-    def owner = foreignKey("COMMENT_OWNER_FK", ownerId, Repository.users)(_.id)
+    def entry: ForeignKeyQuery[EntriesTable,EntryT] = foreignKey("COMMENT_ENTRY_FK", entryId, Repository.entries)(_.id)
+    def owner: ForeignKeyQuery[UsersTable,UserT] = foreignKey("COMMENT_OWNER_FK", ownerId, Repository.users)(_.id)
   }
 
   private val db = Database.forConfig("h2mem")
@@ -100,6 +102,15 @@ object Repository {
       deleteEntries(u.id)
     })
     await(db.run(users.filter(_.id === userId).delete))
+  }
+
+  def eventHandler(event: Event): Unit = event match {
+    case uc: UserCreated    => save(uc.asEntity)
+    case uu: UserUpdated    => findUser(uu.id).map(user => save(user.copy(name = uu.name, born = uu.born)))
+    case ud: UserDeleted    => deleteUser(ud.id)
+    case ec: EntryCreated   => findUser(ec.owner).foreach(_ => save(ec.asEntity))
+    case cc: CommentCreated => findEntry(cc.entry).foreach(_ => save(cc.asEntity))
+    case _                  =>
   }
 
   def reset(): Unit = await(db.run(comments.delete).flatMap(_ => db.run(entries.delete)).flatMap(_ => db.run(users.delete)))

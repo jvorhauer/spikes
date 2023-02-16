@@ -1,8 +1,8 @@
 package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives._
@@ -14,7 +14,7 @@ import io.circe.generic.auto._
 import io.circe.{Decoder, Encoder}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
-import spikes.behavior.{Finder, Handlers, Query, Reader}
+import spikes.behavior.{Handlers, Query, Reader}
 import spikes.model._
 import spikes.validate.Validation
 import spikes.{InfoRouter, SpikesTest}
@@ -41,8 +41,7 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
     )
   )
 
-  val finder: ActorRef[Event] = testKit.spawn(Finder(), "api-test-finder")
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(findr = finder), "api-test-handlers")
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val querier: ActorRef[Query] = testKit.spawn(Reader.query(), "query-handler")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     concat(UserRouter(handlers, querier).route, InfoRouter(handlers).route)

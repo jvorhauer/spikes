@@ -39,7 +39,7 @@ final case class Entry(
   lazy val isEvent: Boolean = starts.isDefined && ends.isDefined
   lazy val isMarker: Boolean = url.isDefined
   lazy val written: LocalDateTime = created
-  lazy val asTuple = (id, owner, title, body, url)
+  lazy val asTuple: (ULID, ULID, String, String, Option[String]) = (id, owner, title, body, url)
   override def compare(that: Entry): Int = if (this.id == that.id) 0 else if (this.id > that.id) 1 else -1
 }
 

@@ -8,9 +8,14 @@ import java.time.LocalDate
 
 class RepositoryTests extends SpikesTest {
 
+  override def beforeEach(): Unit = Repository.reset()
+
   "save a new user" should "return 1" in {
     val user = User(ULID.newULID, "Tester1", "test1@tester.nl", "Test123", LocalDate.now())
     Repository.save(user) shouldEqual 1
+
+    Thread.sleep(100)
+
     Repository.userCount() shouldEqual 1
     Repository.findUser(user.id) should not be empty
   }
@@ -18,6 +23,8 @@ class RepositoryTests extends SpikesTest {
   "save a new entry for a new user" should "return 1" in {
     val user = User(ULID.newULID, "Tester2", "test2@tester.nl", "Test123", LocalDate.now())
     Repository.save(user) shouldEqual 1
+
+    Thread.sleep(100)
 
     val entry = Entry(ULID.newULID, user.id, "Test Ttile", "Test Body")
     Repository.save(entry) shouldEqual 1

@@ -1,11 +1,12 @@
 package spikes.behavior
 
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior, PreRestart, SupervisorStrategy}
+import akka.actor.typed.{Behavior, PreRestart, SupervisorStrategy}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect}
 import akka.persistence.typed.{RecoveryCompleted, RecoveryFailed}
 import spikes.Main.persistenceId
+import spikes.db.Repository
 import spikes.model.Command.Done
 import spikes.model._
 import wvlet.airframe.ulid.ULID
@@ -15,10 +16,8 @@ import scala.concurrent.duration._
 object Handlers {
 
   private var recovered: Boolean = false
-  private var finder: ActorRef[Event] = _
 
-  def apply(state: State = State(Users()), findr: ActorRef[Event]): Behavior[Command] = Behaviors.setup { ctx =>
-    finder = findr
+  def apply(state: State = State(Users())): Behavior[Command] = Behaviors.setup { ctx =>
     EventSourcedBehavior.withEnforcedReplies[Command, Event, State](
       persistenceId = persistenceId,
       emptyState = state,
@@ -93,8 +92,8 @@ object Handlers {
     }
   }
 
-  private val eventHandler: (State, Event) => State = { (state, event) =>
-    finder ! event
+  private val eventHandler: (State, Event) => State = (state, event) => {
+    Repository.eventHandler(event)
     event match {
       case uc: Event.UserCreated => state.save(uc.asEntity)
       case uu: Event.UserUpdated => state.find(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get

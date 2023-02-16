@@ -1,7 +1,6 @@
 package spikes.behavior
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.actor.typed.ActorRef
 import akka.persistence.testkit.scaladsl.UnpersistentBehavior
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
@@ -31,15 +30,16 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
     )
   )
 
-  val finder: ActorRef[Event] = testKit.spawn(Finder(), "finder")
   private def onEmptyState: UnpersistentBehavior.EventSourced[Command, Event, User] =
-    UnpersistentBehavior.fromEventSourced(Handlers(findr = finder))
+    UnpersistentBehavior.fromEventSourced(Handlers())
 
   "Create a new User" should "persist" in {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
       val id = ULID.newULID
       val email = s"test-$id@tester.nl"
-      testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      val v = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      println(s"v: $v")
+      v.name shouldEqual name
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
     }
@@ -49,9 +49,15 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
     onEmptyState { (testkit, eventProbe, snapshotProbe) =>
       val id = ULID.newULID
       val email = s"test-$id@tester.nl"
-      testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      val v = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
+      v.name shouldEqual name
+      println(s"v: $v")
       eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
       snapshotProbe.hasEffects shouldBe false
+
+      val ou = Repository.findUser(id)
+      ou should not be empty
+      ou.get.name shouldEqual name
 
       val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply().getValue
       eventProbe.expectPersisted(Event.UserUpdated(id, "Breaker", password, born))

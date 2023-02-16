@@ -58,7 +58,7 @@ object Command {
   case class CreateTag(id: ULID, title: String) extends Command
 
   case class CreateComment(id: ULID, entry: ULID, owner: ULID, title: String, body: String, replyTo: ReplyCommentTo) extends Command {
-    lazy val written = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
+    lazy val written: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
     lazy val asEvent: Event.CommentCreated = this.into[Event.CommentCreated].transform
     lazy val asResponse: Response.Comment = this.into[Response.Comment].transform
   }

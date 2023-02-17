@@ -13,7 +13,7 @@ spec:
     spec:
       containers:
         - name: spikes
-          image: ghcr.io/jvorhauer/spikes:1.0.2
+          image: ghcr.io/jvorhauer/spikes:1.0.3
           env:
             - name: ASTRA_USERNAME
               valueFrom:

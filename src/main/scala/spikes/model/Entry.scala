@@ -11,12 +11,11 @@ import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
 import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder}
-import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
-import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
 object Status extends Enumeration {
@@ -87,18 +86,14 @@ final case class EntryRouter(handlers: ActorRef[Command])(implicit system: Actor
         (post & pathEndOrSingleSlash) {
           authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
             entity(as[Request.CreateEntry]) { rce =>
-              validated(rce, rce.rules) { valid =>
-                entryReplier(handlers.ask(rt => valid.asCmd(us.id, rt)), StatusCodes.Created)
-              }
+              entryReplier(handlers.ask(rt => rce.asCmd(us.id, rt)), StatusCodes.Created)
             }
           }
         },
         (post & path(pULID / "comment")) { eid =>
           authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
             entity(as[Request.CreateComment]) { rcc =>
-              validated(rcc, rcc.rules) { valid =>
-                commentReplier(handlers.ask(rt => valid.asCmd(us.id, eid, rt)), StatusCodes.Created)
-              }
+              commentReplier(handlers.ask(rt => rcc.asCmd(us.id, eid, rt)), StatusCodes.Created)
             }
           }
         }

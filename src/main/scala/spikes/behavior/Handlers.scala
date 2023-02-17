@@ -34,27 +34,27 @@ object Handlers {
       }
   }
 
-  private val commandHandler: (State, Command) => ReplyEffect[Event, State] = { (state, cmd) =>
+  private val commandHandler: (State, Command) => ReplyEffect[Event, State] = (state, cmd) =>
     cmd match {
       case cu: Command.CreateUser =>
-        state.find(cu.email) match {
+        state.findUser(cu.email) match {
           case Some(_) => Effect.none.thenReply(cu.replyTo)(_ => StatusReply.error("email already in use"))
           case None => Effect.persist(cu.asEvent).thenReply(cu.replyTo)(_ => StatusReply.success(cu.asEvent.asEntity.asResponse))
         }
       case uu: Command.UpdateUser =>
-        state.find(uu.id) match {
+        state.findUser(uu.id) match {
           case Some(_) => Effect.persist(uu.asEvent).thenReply(uu.replyTo)(updatedState =>
-            StatusReply.success(updatedState.find(uu.id).get.asResponse)
+            StatusReply.success(updatedState.findUser(uu.id).get.asResponse)
           )
           case None => Effect.none.thenReply(uu.replyTo)(_ => StatusReply.error(s"user with id ${uu.id} not found"))
         }
       case Command.DeleteUser(email, replyTo) =>
-        state.find(email) match {
+        state.findUser(email) match {
           case Some(user) => Effect.persist(Event.UserDeleted(user.id)).thenReply(replyTo)(_ => StatusReply.success(user.asResponse))
           case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error(s"user with email $email not found"))
         }
 
-      case Command.Login(email, passwd, replyTo) => state.find(email) match {
+      case Command.Login(email, passwd, replyTo) => state.findUser(email) match {
         case Some(user) if user.password == passwd =>
           Effect.persist(Event.LoggedIn(user.id)).thenReply(replyTo) { state =>
             state.authorize(user.id) match {
@@ -73,12 +73,12 @@ object Handlers {
         case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error("User was not logged in"))
       }
 
-      case Command.FindUser(id, replyTo) => state.find(id) match {
+      case Command.FindUser(id, replyTo) => state.findUser(id) match {
         case Some(user) => Effect.none.thenReply(replyTo)(_ => StatusReply.success(user.asResponse))
         case None => Effect.none.thenReply(replyTo)(_ => StatusReply.error(s"user $id not found"))
       }
       case Command.FindUsers(replyTo) => Effect.none.thenReply(replyTo)(state =>
-        StatusReply.success(state.users.ids.values.map(_.asResponse).toList)
+        StatusReply.success(state.findUsers().map(_.asResponse))
       )
 
       case Command.Reap(replyTo) =>
@@ -97,24 +97,22 @@ object Handlers {
 
       case cc: Command.CreateComment => Effect.persist(cc.asEvent).thenReply(cc.replyTo)(_ => StatusReply.success(cc.asResponse))
     }
-  }
 
-  private val eventHandler: (State, Event) => State = (state, event) => {
+  private val eventHandler: (State, Event) => State = (state, event) =>
     event match {
       case uc: Event.UserCreated => state.save(uc.asEntity)
-      case uu: Event.UserUpdated => state.find(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get
-      case ud: Event.UserDeleted => state.delete(ud.id)
+      case uu: Event.UserUpdated => state.findUser(uu.id).map(u => state.save(u.copy(name = uu.name, born = uu.born))).get
+      case ud: Event.UserDeleted => state.deleteUser(ud.id)
 
-      case li: Event.LoggedIn => state.find(li.id).map(user => state.login(user, li.expires)).getOrElse(state)
+      case li: Event.LoggedIn => state.findUser(li.id).map(user => state.login(user, li.expires)).getOrElse(state)
       case lo: Event.LoggedOut => state.logout(lo.id)
       case re: Event.Refreshed => {
         state.logout(re.id)
-        state.find(re.id).map(user => state.login(user, re.expires)).getOrElse(state)
+        state.findUser(re.id).map(user => state.login(user, re.expires)).getOrElse(state)
       }
 
       case _: Event.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(now)))
 
       case ec: Event.EntryCreated => state.save(ec.asEntity)
     }
-  }
 }

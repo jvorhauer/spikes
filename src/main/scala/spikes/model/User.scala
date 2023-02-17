@@ -12,7 +12,6 @@ import io.circe.generic.auto._
 import io.circe.syntax._
 import io.circe.{Decoder, Encoder}
 import io.scalaland.chimney.dsl.TransformerOps
-import spikes.behavior.Query
 import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
@@ -51,12 +50,17 @@ final case class UserSession(token: String, id: ULID, expires: LocalDateTime = n
   lazy val asOAuthToken: OAuthToken = OAuthToken(token)
 }
 
-final case class State(users: Users = Users(), sessions: Set[UserSession] = HashSet.empty, entries: Set[Entry] = HashSet.empty) {
-  def find(email: String): Option[User] = users.find(email)
-  def find(id: ULID): Option[User] = users.find(id)
+final case class State(
+  users: Users = Users(),
+  sessions: Set[UserSession] = HashSet.empty,
+  entries: Set[Entry] = HashSet.empty
+) {
+  def findUser(email: String): Option[User] = users.find(email)
+  def findUser(id: ULID): Option[User] = users.find(id).map(u => u.copy(entries = findEntries(u.id)))
+  def findUsers(): List[User] = users.ids.values.map(u => u.copy(entries = findEntries(u.id))).toList
 
   def save(u: User): State =  this.copy(users = users.save(u))
-  def delete(id: ULID): State = this.copy(users = users.remove(id), sessions = sessions.filterNot(_.id == id))
+  def deleteUser(id: ULID): State = this.copy(users = users.remove(id), sessions = sessions.filterNot(_.id == id))
 
   def login(u: User, expires: LocalDateTime): State = this.copy(sessions = sessions + u.asSession(expires))
   def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now))
@@ -64,12 +68,13 @@ final case class State(users: Users = Users(), sessions: Set[UserSession] = Hash
   def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id == id))
 
   def save(e: Entry): State = this.copy(entries = entries + e)
+  def findEntries(id: ULID): Seq[Entry] = entries.filter(_.owner == id).toSeq
 }
 
 
 final case class RequestError(message: String)
 
-final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query])(implicit system: ActorSystem[_]) {
+final case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[_]) {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -83,7 +88,6 @@ final case class UserRouter(handlers: ActorRef[Command], reader: ActorRef[Query]
     complete(HttpResponse(sc, entity = HttpEntity(ContentTypes.`application/json`, body)))
 
   private val badRequest = complete(StatusCodes.BadRequest)
-  complete(StatusCodes.NotFound)
 
   private def replier(fut: Future[StatusReply[Response.User]], sc: StatusCode) =
     onSuccess(fut) {

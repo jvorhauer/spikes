@@ -1,6 +1,5 @@
 package spikes
 
-import akka.actor.typed.eventstream.EventStream.Subscribe
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, PostStop}
 import akka.http.scaladsl.Http
@@ -13,7 +12,8 @@ import akka.persistence.typed.PersistenceId
 import akka.util.Timeout
 import io.circe.generic.auto._
 import io.circe.syntax._
-import spikes.behavior.{Handlers, Reader, Reaper}
+import kamon.Kamon
+import spikes.behavior.{Handlers, Reaper}
 import spikes.model._
 import spikes.validate.Validation
 
@@ -33,24 +33,21 @@ object Main {
 
 
   def main(args: Array[String]): Unit = {
+    Kamon.init()
     ActorSystem[Message](Main("127.0.0.1", 8080), "spikes")
   }
 
   def apply(host: String, port: Int): Behavior[Message] = Behaviors.setup { ctx =>
     implicit val system = ctx.system
 
-    val reader = ctx.spawn(Reader(), "reader")
-    ctx.system.eventStream.tell(Subscribe(reader))
-
     val state = State(Users())
     val handlers = ctx.spawn(Handlers(state), "handlers")
 
     ctx.spawn(Reaper(handlers, 1.minute), "reaper")
-    val query = ctx.spawn(Reader.query(), "query")
 
     val routes: Route = handleRejections(Validation.rejectionHandler) {
       concat(
-        UserRouter(handlers, query).route,
+        UserRouter(handlers).route,
         InfoRouter(handlers).route,
         EntryRouter(handlers).route
       )

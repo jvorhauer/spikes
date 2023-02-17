@@ -72,4 +72,12 @@ lazy val root = (project in file("."))
       commitNextVersion,
       pushChanges
     ),
+    jibBaseImage := "openjdk:17",
+    jibRegistry := "ghcr.io",
+    jibCustomRepositoryPath := Some("jvorhauer/spikes"),
+    jibTcpPorts := List(8080),
+    jibUseCurrentTimestamp := true,
+    jibName := "spikes",
+    jibTags := List("latest"),
+    jibTargetImageCredentialHelper := Some("docker-credential-osxkeychain")
   )

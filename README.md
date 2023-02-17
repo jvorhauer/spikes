@@ -227,3 +227,14 @@ If a User starts to follow another User, two elements are added to the `mapping`
 ## Finder, a read state
 
 To allow for flexible and fast access to the graph of entities a Finder is provided that will support more complex queries. Preferably something like an in memory graph should be used. Not sure yet if that provides an advantage over a simple in-memory RDBMS like H2, though.
+
+
+## k8s
+
+### ConfigMap
+
+```shell
+kubectl create configmap name --from-literal=SECRET_KEY=$ENV_VAR --from-literal=OTHER_SECRET_KEY=$OTHER_ENV_VAR
+```
+
+see [k8s docs](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#-em-configmap-em-)

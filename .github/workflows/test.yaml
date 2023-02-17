@@ -20,6 +20,7 @@ jobs:
           ASTRA_USERNAME: ${{ secrets.ASTRA_USERNAME }}
           ASTRA_PASSWORD: ${{ secrets.ASTRA_PASSWORD }}
           ASTRA_SCB: ${{ secrets.ASTRA_SCB }}
+          KAMON_TOKEN: ${{ secrets.KAMON_TOKEN }}
         # Optional: This step uploads information to the GitHub dependency graph and unblocking Dependabot alerts for the repository
       - name: Upload dependency graph
         uses: scalacenter/sbt-dependency-submission@ab086b50c947c9774b70f39fc7f6e20ca2706c91

@@ -78,6 +78,5 @@ lazy val root = (project in file("."))
     jibTcpPorts := List(8080),
     jibUseCurrentTimestamp := true,
     jibName := "spikes",
-    jibTags := List("latest"),
     jibTargetImageCredentialHelper := Some("docker-credential-osxkeychain")
   )

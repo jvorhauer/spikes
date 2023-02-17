@@ -71,7 +71,7 @@ Content-Type: application/json
 }
 
 ### get-temp-user
-GET {{ host }}/users/1fea6d11-262e-4a17-967d-4cfe6e5e945b
+GET {{ host }}/users/01GSFXYNST540H44H170JQNQJB
 
 ### delete-temp-user
 DELETE {{ host }}/users

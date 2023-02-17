@@ -4,6 +4,7 @@ metadata:
   labels:
     app: spikes
   name: spikes
+  namespace: default
 spec:
   template:
     metadata:
@@ -12,7 +13,7 @@ spec:
     spec:
       containers:
         - name: spikes
-          image: ghcr.io/jvorhauer/spikes:latest
+          image: ghcr.io/jvorhauer/spikes:1.0.2
           env:
             - name: ASTRA_USERNAME
               valueFrom:
@@ -39,16 +40,13 @@ spec:
               cpu: 500m
               memory: "512Mi"
           livenessProbe:
-            failureThreshold: 5
             httpGet:
               port: 8080
               path: /liveness
               scheme: HTTP
             initialDelaySeconds: 5
             periodSeconds: 5
-            timeoutSeconds: 3
           readinessProbe:
-            failureThreshold: 5
             httpGet:
               port: 8080
               path: /readiness

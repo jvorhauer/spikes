@@ -1,0 +1,18 @@
+# See https://microk8s.io/docs/addon-cert-manager
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: lets-encrypt
+spec:
+  acme:
+    email: jurjen@vorhauer.nl
+    server: https://acme-v02.api.letsencrypt.org/directory
+    privateKeySecretRef:
+      # Secret resource that will be used to store the account's private key.
+      name: lets-encrypt-priviate-key
+    # Add a single challenge solver, HTTP01 using nginx
+    solvers:
+      - http01:
+          ingress:
+            class: public

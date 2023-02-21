@@ -14,7 +14,7 @@ Request -> Command -> Event -> Entity -> Response
 5. The Event and the State are used to update that State into a new State with the Entity from the Event
 6. The requester from step 1 is informed about the result of steps 2..5 in the form of a http status code and the Response from the Entity.
 
-Requests are either a Create, Update or Delete instruction with the required data.
+Requests are either a **Create**, **Update** or **Delete** instruction with the required data.
 Queries are defined later and return a response of the required entity or a list of these responses.
 
 ## Tech Stack
@@ -23,7 +23,7 @@ Queries are defined later and return a response of the required entity or a list
 * Akka http
 * Akka Typed persistence
   * * Jackson for Cbor serialization
-  * * Cassandra adapter for Akka persistence
+  * * Cassandra for Akka persistence
 * ULIDs for unique, sortable IDs
 * Circe for http/json stuff via Heiko's lib
 
@@ -47,186 +47,28 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 
 * [DataStax Astra](https://astra.datastax.com/bbf920a2-9480-43f0-bdfb-ae682405943d)
 * [MicroK8s](https://microk8s.io/)
-* [Monitoring with Kamon](https://kamon.io/)
+* [Monitoring with Kamon](https://apm.kamon.io/)
 
 ### Inspiration
+
+The initial idea was to build a simple note-taking backend. Gradually some new features crept in, such as Tasks, Events and Log/Journal entries. 
+That scope-creep led to the idea of creating a simple CRM system, with Users logging their activities with Employees of Companies. 
+This backend will focus on storing the data created by the users in a traceable, retrievable and recoverable way. The integration with email and
+other external systems is not included yet.
 
 * [etm](https://dagraham.github.io/etm-dgraham/)
 * [UpBase](https://upbase.io/)
 * [LinkDing](https://github.com/sissbruecker/linkding)
+* [HighRise](https://highrisehq.com/)
 
 ### Development
 
 * [GitHub project](https://github.com/jvorhauer/spikes)
 * [sbt release](https://github.com/sbt/sbt-release)
+* [sbt-jib](https://index.scala-lang.org/sbt-jib/sbt-jib) and [jib](https://github.com/GoogleContainerTools/jib/tree/master/jib-cli#supported-commands)
 
 Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
 focus and cleaner process. Also update this document when applicable.
-
-### Further reading required
-
-* [JGraphT](https://jgrapht.org)
-* [Cassovary](https://github.com/twitter/cassovary) interesting Twitter Big Graph library in Scala, but not maintained since 2018
-
-
-## Model
-
-The Model is the blueprint for the elements in the Application State.
-
-An Entry can have Comments.
-
-### User
-
-```scala User class
-case class User(
-  id: ULID,
-  name: String,
-  email: String,
-  password: String,
-  born: LocalDate,
-  entries: Map[ULID, Entry],
-  comments: Map[ULID, Comment]
-)
-```
-
-### Entry 
-
-A User has 0 or more Entries that can be one of 6 things: either Note, Task, Marker (bookmark, favorite), Blog, Journal or Event
-
-```scala Entry class
-case class Entry(
-  id: ULID,
-  owner: UUID,
-  title: String,
-  body: String,
-  status: Status,
-  url: Option[String] = None,
-  due: Option[LocalDateTime] = None,
-  starts: Option[LocalDateTime] = None,
-  ends: Option[LocalDateTime] = None,
-  comments: Map[ULID, Comment]
-) {
-  lazy val isMarker: Boolean = url.isDefined && due.isEmpty && starts.isEmpty && ends.isEmpty
-  lazy val isTask: Boolean = due.isDefined
-  lazy val isEvent: Boolean = starts.isDefined && ends.isDefined
-}
-```
-
-with attributes to indicate type: 
-
-* no url and no due date/time: Note
-* url, but no due or event date/time: Marker
-* due date/time: Task
-* starts and ends date/time: Event
-* starts, no ends: Journal
-
-or
-
-* Note: just title and body
-* Marker: URL + title (can have body, but no timestamps)
-* Task (or Reminder): Note + due timestamp (can have URL)
-* Event: Note + start and end timestamps
-
-#### Case Classes
-
-Instead of checking for existence of specific fields, Entry could be subclassed by Note, Marker, Task and Event. This makes converting from one to another 
-incarnation of Entry more difficult. I want a Note to become a Marker, Task or Event without any hassle, so the frontend can be as
-flexible about this as possible.
-
-Converting from and to different types is just filling/setting one of the two optional determinators. This is actually a lot more
-flexible than have a hierarchy of case classes, that each have one or two more fields than the base entry. A note becomes a reminder 
-by simply setting the due date; a note becomes an event by adding start and end date/time, etc.
-A Marker can be a Reminder or an Event, a Note can be all and is the base class.
-
-An Entry is always owned by one User, identified by their UUID. 
-A User can have 0 (zero) or more entries in a (Hash)Map of UUID -> Entry, 
-where the UUID is the id of the Entry. That should help in looking up entries really fast...
-
-
-### Status
-
-An Entry has a Status:
-
-* Entry:
-  * ToDo
-  * Doing
-  * Done
-
-if status is Blank, this entry is not a Task. 
-
-## Commands & Events
-
-Request -> Command + State -> Event(s) -> State'
-
-### User
-
-* Create / Register User -> UserCreated
-* Update User -> UserUpdated
-* Delete User -> UserDeleted
-* Login -> + UserSession
-* Logout -> - UserSession
-
-### Entry
-
-* Create
-* Plan (set start & end)
-* Remind (set due)
-* Delete
-* ToDoing (only Tasks)
-* ToDone (only Tasks)
-* ToToDo (only Tasks)
-
-### Comment
-
-Any User can add Comments to any Entry.
-
-* CreateComment
-* UpdateComment
-* DeleteComment
-
-## Application State
-
-Consists of
-1. Users
-2. Sessions
-3. Entries
-
-The Application State, or just State from now on, is only available in memory.
-The State is constructed of the initial, empty State with all Events until now applied to it.
-
-## Internal State
-
-Two Maps, first, all entities:
-
-```scala
-Map[ULID, Entity]
-```
-
-and
-
-```scala
-Map[ULID, ULID + Type]
-
-// Note: ULID + Type => EntityKey
-```
-
-In which the Type can be:
-
-* `HAS`: Entity -> Entity: Entry has Comment, Entry has Tag
-* `WROTE`: User -> Entity: User wrote Entry, User wrote Comment
-* `FOLLOWS`: User -> User
-* `FOLLOWED_BY`: User -> User
-* `LIKES`: User -> Entry, User -> Comment (likes are like stars, but just yes or no)
-
-Examples of usage:
-
-If the CreateNote request is received, an element is added to the `entities` Map and an element is added to the `mapping` Map to map the Note to a User who `wrote` this Note.
-
-If a User starts to follow another User, two elements are added to the `mapping` Map, so that both followers and following Users can be retrieved for a User.
-
-## Finder, a read state
-
-To allow for flexible and fast access to the graph of entities a Finder is provided that will support more complex queries. Preferably something like an in memory graph should be used. Not sure yet if that provides an advantage over a simple in-memory RDBMS like H2, though.
 
 
 ## k8s
@@ -238,3 +80,28 @@ kubectl create configmap name --from-literal=SECRET_KEY=$ENV_VAR --from-literal=
 ```
 
 see [k8s docs](https://kubernetes.io/docs/reference/generated/kubectl/kubectl-commands#-em-configmap-em-)
+
+### Stuck namespaces
+
+See [SO](https://stackoverflow.com/questions/52369247/namespace-stuck-as-terminating-how-i-removed-it)
+
+### deploy to k8s
+
+First, enable necessary k8s services: `dns`, [ingress](https://microk8s.io/docs/addon-ingress) and 
+[cert-manager](https://microk8s.io/docs/addon-cert-manager).
+
+As I am using `microk8s` at the moment, this is as easy as 
+
+```shell
+microk8s enable dns, ingress, cert-manager
+```
+
+on one of the k8s cluster nodes.
+
+In folder `/k8s` in this project there are 5 YAML files.
+Apply these as:
+1. cluster-issuer.yaml
+2. microbot-ingress.yaml
+3. service.yaml
+4. deployment.yaml
+5. spikes-ingress.yaml

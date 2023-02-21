@@ -60,13 +60,9 @@ object Regexes {
   val email = "^([\\w-]+(?:\\.[\\w-]+)*)@\\w[\\w.-]+\\.[a-zA-Z]+$"
   val poco = "^[1-9][0-9]{3} ?[a-zA-Z]{2}$"
   val passw = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#&()–[{}]:;',?/*~$^+=<>]).{8,42}$"
-
-  val title = "^[\\p{L}\\p{Space}'-,;\"'.]+$"
-  val body = "^[\\p{L}\\p{Space}'-,;\"'.]+$"
 }
 
 object Rules {
-
   private val nameFieldRule = FieldRule("name", (name: String) => name.matches(Regexes.name), "invalid name")
   private val emailFieldRule = FieldRule("email", (email: String) => email.matches(Regexes.email), "invalid email address")
   private val passwordFieldRule = FieldRule("password", (password: String) => password.matches(Regexes.passw), "invalid password")
@@ -76,13 +72,8 @@ object Rules {
   )
   private val idFieldRule = FieldRule("id", (id: ULID) => id != null, "no id specified")
 
-  private val titleFieldRule = FieldRule("title", (title: String) => title.matches(Regexes.title), "invalid title")
-  private val bodyFieldRule = FieldRule("body", (body: String) => body.matches(Regexes.body), "invalid body")
-
   val createUser: Set[FieldRule[LocalDate with String]] = Set(nameFieldRule, emailFieldRule, passwordFieldRule) ++ bornFieldRules
   val updateUser: Set[FieldRule[LocalDate with String with ULID]] = Set(nameFieldRule, passwordFieldRule, idFieldRule) ++ bornFieldRules
   val deleteUser: Set[FieldRule[String]] = Set(emailFieldRule)
   val login: Set[FieldRule[String]]      = Set(emailFieldRule, passwordFieldRule)
-  val entry: Set[FieldRule[String]]      = Set(titleFieldRule, bodyFieldRule)
-  val comment: Set[FieldRule[String]]    = Set(titleFieldRule, bodyFieldRule)
 }

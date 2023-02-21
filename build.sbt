@@ -55,7 +55,8 @@ lazy val root = (project in file("."))
       "org.scalactic"          %% "scalactic"                 % ScalaTestVersion,
       "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.4",
       "fr.davit"               %% "akka-http-metrics-datadog" % "1.7.1",
-      "org.scala-lang.modules" %% "scala-collection-contrib" % "0.3.0"
+      "org.scala-lang.modules" %% "scala-collection-contrib"  % "0.3.0",
+      "org.owasp.encoder"      %  "encoder"                   % "1.2.3"
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % "2.6.0",
       "io.kamon" %% "kamon-apm-reporter" % "2.6.0"
@@ -72,4 +73,11 @@ lazy val root = (project in file("."))
       commitNextVersion,
       pushChanges
     ),
+    jibBaseImage := "openjdk:17",
+    jibRegistry := "ghcr.io",
+    jibCustomRepositoryPath := Some("jvorhauer/spikes"),
+    jibTcpPorts := List(8080),
+    jibUseCurrentTimestamp := true,
+    jibName := "spikes",
+    jibTargetImageCredentialHelper := Some("docker-credential-osxkeychain")
   )

@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: spikes
+  name: spikes
+  namespace: default
+spec:
+  template:
+    metadata:
+      labels:
+        app: spikes
+    spec:
+      containers:
+        - name: spikes
+          image: ghcr.io/jvorhauer/spikes:1.0.3
+          env:
+            - name: ASTRA_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: astra-config
+                  key: ASTRA_USERNAME
+            - name: ASTRA_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: astra-config
+                  key: ASTRA_PASSWORD
+            - name: ASTRA_SCB
+              value: /var/local/scb_e93d3b60-4128-4094-8824-a37327f973c4_europe-west1.zip
+            - name: KAMON_TOKEN
+              valueFrom:
+                configMapKeyRef:
+                  name: kamon-config
+                  key: KAMON_TOKEN
+          resources:
+            limits:
+              cpu: "2"
+              memory: "1024Mi"
+            requests:
+              cpu: 500m
+              memory: "512Mi"
+          livenessProbe:
+            httpGet:
+              port: 8080
+              path: /liveness
+              scheme: HTTP
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              port: 8080
+              path: /readiness
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          imagePullPolicy: Always
+          ports:
+            - name: spikes
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /var/local
+              name: astra-scb
+              readOnly: true
+      imagePullSecrets:
+        - name: dockerregistry
+      volumes:
+        - name: astra-scb
+          secret:
+            secretName: astra-scb
+  selector:
+    matchLabels:
+      app: spikes
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  replicas: 1

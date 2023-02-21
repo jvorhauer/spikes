@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: spikes
+  labels:
+    app: spikes
+spec:
+  ports:
+    - port: 8080
+  type: NodePort
+  selector:
+    app: spikes

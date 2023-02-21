@@ -34,7 +34,7 @@ object Main {
 
   def main(args: Array[String]): Unit = {
     Kamon.init()
-    ActorSystem[Message](Main("127.0.0.1", 8080), "spikes")
+    ActorSystem[Message](Main("0.0.0.0", 8080), "spikes")
   }
 
   def apply(host: String, port: Int): Behavior[Message] = Behaviors.setup { ctx =>

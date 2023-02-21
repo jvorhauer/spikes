@@ -32,8 +32,9 @@ Content-Type: application/json
 Authorization: Bearer {{ authorized }}
 
 {
-  "title": "My Second Entry",
-  "body": "This should do the second trick, I guess"
+  "title": "Deployed and Running on k8s",
+  "body": "This completes the MVP, version 1.0.2. Now on to version 2 with the complete functionality as required by me",
+  "status": "Blank"
 }
 
 ### invalid-name-and-password
@@ -71,7 +72,7 @@ Content-Type: application/json
 }
 
 ### get-temp-user
-GET {{ host }}/users/1fea6d11-262e-4a17-967d-4cfe6e5e945b
+GET {{ host }}/users/01GSFXYNST540H44H170JQNQJB
 
 ### delete-temp-user
 DELETE {{ host }}/users

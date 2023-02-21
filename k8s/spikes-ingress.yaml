@@ -1,0 +1,21 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spikes-ingress
+spec:
+  rules:
+    - host: enna.miruvor.nl
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: spikes
+                port:
+                  number: 8080
+  # see https://stackoverflow.com/questions/67268821/how-to-make-ingress-use-my-tls-certificate-in-microk8s
+  tls:
+    - hosts:
+        - enna.miruvor.nl
+      secretName: microbot-ingress-tls

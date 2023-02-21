@@ -65,7 +65,8 @@ other external systems is not included yet.
 
 * [GitHub project](https://github.com/jvorhauer/spikes)
 * [sbt release](https://github.com/sbt/sbt-release)
-* [sbt-jib](https://index.scala-lang.org/sbt-jib/sbt-jib) and [jib](https://github.com/GoogleContainerTools/jib/tree/master/jib-cli#supported-commands)
+* [sbt-jib](https://index.scala-lang.org/sbt-jib/sbt-jib) / [jib](https://github.com/GoogleContainerTools/jib/tree/master/jib-cli#supported-commands)
+* [ScalaTest](https://www.scalatest.org/user_guide)
 
 Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
 focus and cleaner process. Also update this document when applicable.

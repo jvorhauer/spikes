@@ -53,7 +53,7 @@ lazy val root = (project in file("."))
       "ch.qos.logback"         %  "logback-classic"           % "1.4.5",
       "io.circe"               %% "circe-generic"             % "0.14.4",
       "org.scalactic"          %% "scalactic"                 % ScalaTestVersion,
-      "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.4",
+      "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.5",
       "fr.davit"               %% "akka-http-metrics-datadog" % "1.7.1",
       "org.scala-lang.modules" %% "scala-collection-contrib"  % "0.3.0",
       "org.owasp.encoder"      %  "encoder"                   % "1.2.3"

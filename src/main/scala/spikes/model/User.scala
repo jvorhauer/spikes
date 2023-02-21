@@ -29,7 +29,7 @@ final case class User(id: ULID, name: String, email: String, password: String, b
   lazy val asResponse: Response.User = this.into[Response.User].transform
   lazy val joined: LocalDateTime = created
   lazy val asTuple: (ULID, String, String, String, LocalDate) = (id, name, email, password, born)
-  def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires, this)
+  def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires)
 }
 
 final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, User] = Map.empty) {
@@ -46,7 +46,7 @@ final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, Use
 
 final case class OAuthToken(access_token: String, token_type: String = "bearer", expires_in: Int = 7200) extends Response
 
-final case class UserSession(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2), user: User) {
+final case class UserSession(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2)) {
   lazy val asOAuthToken: OAuthToken = OAuthToken(token)
 }
 

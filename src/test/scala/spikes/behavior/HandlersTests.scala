@@ -1,20 +1,20 @@
 package spikes.behavior
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
-import akka.persistence.testkit.scaladsl.UnpersistentBehavior
+import akka.pattern.StatusReply
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import spikes.SpikesTest
-import spikes.model.Event.LoggedIn
 import spikes.model._
-import wvlet.airframe.ulid.ULID
+import spikes.route.InfoRouter
 
 import java.time.LocalDate
 import java.util.UUID
+import akka.actor.testkit.typed.scaladsl.TestProbe
+import akka.actor.typed.ActorRef
 
 class HandlersTests extends SpikesTest with BeforeAndAfterAll {
 
-  private val name = "Tester"
   private val born = LocalDate.now().minusYears(21)
   private val password = "Welkom123!"
 
@@ -28,70 +28,72 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
       """
     )
   )
-
-  private def onEmptyState: UnpersistentBehavior.EventSourced[Command, Event, User] =
-    UnpersistentBehavior.fromEventSourced(Handlers())
+  val probe: TestProbe[StatusReply[User.Response]] = testKit.createTestProbe[StatusReply[User.Response]]("probe")
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "handlers-test")
 
   "Create a new User" should "persist" in {
-    onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val id = ULID.newULID
-      val email = s"test-$id@tester.nl"
-      val v = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      v.name shouldEqual name
-      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
-      snapshotProbe.hasEffects shouldBe false
-    }
+    val id = next
+    val req = User.Post(s"test-$id", s"test-$id@miruvor.nl", password, born)
+    handlers ! req.asCmd(probe.ref)
+    val res = probe.receiveMessage()
+    res.isSuccess should be (true)
+    res.getValue.name should be (s"test-$id")
   }
 
   "Update a new User" should "persist updated information" in {
-    onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val id = ULID.newULID
-      val email = s"test-$id@tester.nl"
-      val v = testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      v.name shouldEqual name
-      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
-      snapshotProbe.hasEffects shouldBe false
+    val id = next
+    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    val res = probe.receiveMessage()
+    res.isSuccess should be(true)
+    res.getValue.name should be(s"test-$id")
 
-      val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(Event.UserUpdated(id, "Breaker", password, born))
-      snapshotProbe.hasEffects shouldBe false
-      updated.name shouldEqual "Breaker"
-    }
+    handlers ! User.Update(res.getValue.id, "updated", "Welkom124!", born.minusDays(1), probe.ref)
+    val updated = probe.receiveMessage()
+    updated.isSuccess should be (true)
+    updated.getValue.name should be ("updated")
   }
 
   "Update non existent User" should "return an error" in {
-    onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val id = ULID.newULID
-      val updated = testkit.runAskWithStatus(Command.UpdateUser(id, "Breaker", born, password, _)).receiveStatusReply()
-      eventProbe.hasEffects shouldBe false
-      snapshotProbe.hasEffects shouldBe false
-      updated.isError shouldBe true
-    }
+    val id = next
+    handlers ! User.Update(id, s"test-$id", password, born, probe.ref)
+    val updated = probe.receiveMessage()
+    updated.isSuccess should be(false)
   }
 
   "Login" should "return a session token" in {
-    onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val id = ULID.newULID
-      val email = s"test-$id@tester.nl"
-      testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
-      snapshotProbe.hasEffects shouldBe false
+    val id = next
+    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    val res = probe.receiveMessage()
+    res.isSuccess should be(true)
+    res.getValue.name should be(s"test-$id")
 
-      val token = testkit.runAskWithStatus(Command.Login(email, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersistedType[LoggedIn]()    // can't guess the time
-      token should not be null
-    }
+    val loginProbe = testKit.createTestProbe[StatusReply[OAuthToken]]()
+    handlers ! User.Login(s"test-$id@miruvor.nl", password, loginProbe.ref)
+    val loggedin = loginProbe.receiveMessage()
+    loggedin.isSuccess should be(true)
+    loggedin.getValue.access_token should not be null
   }
 
   "Create and Find" should "return the previously added User" in {
-    onEmptyState { (testkit, eventProbe, snapshotProbe) =>
-      val id = ULID.newULID
-      val email = s"test-$id@tester.nl"
-      testkit.runAskWithStatus(Command.CreateUser(id, name, email, born, password, _)).receiveStatusReply().getValue
-      eventProbe.expectPersisted(Event.UserCreated(id, name, email, password, born))
-      snapshotProbe.hasEffects shouldBe false
-    }
+    val id = next
+    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    val res = probe.receiveMessage()
+    res.isSuccess should be (true)
+    res.getValue.name should be(s"test-$id")
+
+    handlers ! User.Find(id, probe.ref)
+    val found = probe.receiveMessage()
+    found.isSuccess should be (true)
+    found.getValue.name should be (s"test-$id")
   }
+
+  "Asking for Info" should "return Info" in {
+    val prb = testKit.createTestProbe[StatusReply[InfoRouter.Info]]()
+    handlers ! InfoRouter.GetInfo(prb.ref)
+    val res = prb.receiveMessage()
+    res.isSuccess should be (true)
+  }
+
 
   override def afterAll(): Unit = testKit.shutdownTestKit()
 }

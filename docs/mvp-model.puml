@@ -1,0 +1,61 @@
+@startuml
+
+class User {
+  id: ULID
+  name: String
+  email: String
+  born: LocalDate
+  password: String
+}
+
+abstract class Entry {
+  id: ULID
+  title: String,
+}
+class Document
+class Task {
+  due: LocalDateTime
+  priority: Int
+  status: TaskStatus
+}
+class Appointment {
+  start: LocalDateTime
+  end: LocalDateTime
+}
+class Journal {
+  customer: String
+}
+Entry <|-- Document
+Entry <|-- Task
+Entry <|-- Appointment
+Entry <|-- Journal
+
+User *-- Entry
+
+class Comment {
+  body: String
+}
+Entry *-- Comment
+User *-- Comment
+
+abstract class Paragraph {
+  id: ULID
+}
+class Text {
+  body: String
+}
+class Link {
+  label: String
+  url: String
+}
+class Image {
+  url: String
+  alt: String
+}
+Paragraph <|-- Text
+Paragraph <|-- Link
+Paragraph <|-- Image
+
+Entry *-- Paragraph
+
+@enduml

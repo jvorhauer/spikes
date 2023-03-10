@@ -21,11 +21,12 @@ Queries are defined later and return a response of the required entity or a list
 
 * Akka Typed
 * Akka http
+  * Circe for http/json stuff via Heiko's lib
 * Akka Typed persistence
-  * * Jackson for Cbor serialization
-  * * Cassandra for Akka persistence
+  * Jackson for Cbor serialization
+  * Cassandra for Akka persistence
 * ULIDs for unique, sortable IDs
-* Circe for http/json stuff via Heiko's lib
+* Chimney for case class transformations
 
 See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/akka-guide/microservices-tutorial/index.html)
 
@@ -42,6 +43,7 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [Akka http OAuth2](https://www.jannikarndt.de/blog/2018/10/oauth2-akka-http/)
 * [AirFrame ULID](https://wvlet.org/airframe/docs/airframe-ulid)
 * [Circe and ULID](https://circe.github.io/circe/codecs/custom-codecs.html)
+* [Complete Example](https://blog.rockthejvm.com/akka-cassandra-project/)
 
 ### Infrastructure
 

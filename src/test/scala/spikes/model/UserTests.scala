@@ -41,31 +41,34 @@ object TestUser {
 class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with TestUser {
 
   private val testkit = ActorTestKit()
-  private val probe = testkit.createTestProbe[StatusReply[Response.User]]().ref
+  private val probe = testkit.createTestProbe[StatusReply[User.Response]]().ref
 
   implicit val ec: ExecutionContextExecutor = testkit.system.executionContext
 
 
   "Validate RequestCreateUser" should "correctly check" in {
-    val rcu = Request.CreateUser(name, email, password, born)
-    rcu.valid should be (true)
 
-    rcu.copy(name, "").valid should be (false)
-    rcu.copy(email = "").valid should be (false)
-    validate(rcu, Rules.createUser) shouldBe empty
-    rcu.copy(email = "!!!@???.nl").valid should be (false)
+    val rules = Rules.createUser
 
-    Request.CreateUser("", "testerdetest", password, born).valid should be (false)
-    Request.CreateUser(name, "invalid email address", password, born).valid should be (false)
-    Request.CreateUser(name, email, "niet_welkom", born).valid should be (false)
+    val rcu = User.Post(name, email, password, born)
+    validate(rcu, rules) shouldBe empty
+
+    validate(rcu.copy(name, ""), rules) should have size 1
+    validate(rcu.copy(email = ""), rules) should have size 1
+    validate(rcu.copy(name = ""), rules) should have size 1
+    validate(rcu.copy(email = "!!!@???.nl"), Rules.createUser) should have size 1
+
+    validate(User.Post("", "testerdetest", password, born), rules) should have size 2
+    validate(User.Post(name, "invalid email address", password, born), rules) should have size 1
+    validate(User.Post(name, email, "niet_welkom", born), rules) should have size 1
 
     List("no-digits!", "sh0rt", "no-special-chars12").foreach(s =>
-      Request.CreateUser(name, email, s, born).valid should be (false)
+      validate(User.Post(name, email, s, born), rules) should have size 1
     )
   }
 
   "a RequestCreateUser" should "transform to a CreateUser Command" in {
-    val rcu = Request.CreateUser(name, email, password, born)
+    val rcu = User.Post(name, email, password, born)
     val cmd = rcu.asCmd(probe)
     cmd.name shouldEqual rcu.name
     cmd.email shouldEqual rcu.email
@@ -80,7 +83,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   }
 
   "a RequestUpdateUser" should "transform to a UpdateUser command" in {
-    val ruu = Request.UpdateUser(ulid, name, password, born)
+    val ruu = User.Put(ulid, name, password, born)
     val cmd = ruu.asCmd(probe)
     assert(cmd.name == ruu.name)
     assert(cmd.born == ruu.born)
@@ -88,15 +91,15 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   }
 
   "a RequestDeleteUser" should "transform to a DeleteUser command" in {
-    val rdu = Request.DeleteUser(email)
+    val rdu = User.Delete(email)
     val cmd = rdu.asCmd(probe)
     assert(cmd.email == rdu.email)
   }
 
   "a CreateUser command" should "transform to a UserCreated event" in {
     val born = LocalDate.now().minusYears(42)
-    val cmd = Command.CreateUser(ULID.newULID, name, email, born, password, probe)
-    val evt = cmd.into[Event.UserCreated].transform
+    val cmd = User.Create(ULID.newULID, name, email, password, born, probe)
+    val evt = cmd.into[User.Created].transform
     assert(evt.name == cmd.name)
     assert(evt.id == cmd.id)
     assert(evt.email == cmd.email)

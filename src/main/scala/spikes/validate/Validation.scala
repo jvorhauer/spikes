@@ -9,7 +9,7 @@ import io.circe.generic.auto._
 import io.circe.syntax.EncoderOps
 import wvlet.airframe.ulid.ULID
 
-import java.time.LocalDate
+import java.time.{LocalDate, LocalDateTime}
 import scala.util.{Failure, Success, Try}
 
 
@@ -71,9 +71,13 @@ object Rules {
     FieldRule("born", (born: LocalDate) => born.isAfter(LocalDate.now().minusYears(121)), "too old")
   )
   private val idFieldRule = FieldRule("id", (id: ULID) => id != null, "no id specified")
+  private val titleRule = FieldRule("title", (title: String) => !title.isBlank, "title cannot be blank")
+  private val bodyRule = FieldRule("body", (body: String) => !body.isBlank, "body cannot be blank")
+  private val dueRule = FieldRule("due", (due: LocalDateTime) => due.isAfter(LocalDateTime.now()), "due cannot be in the past")
 
   val createUser: Set[FieldRule[LocalDate with String]] = Set(nameFieldRule, emailFieldRule, passwordFieldRule) ++ bornFieldRules
   val updateUser: Set[FieldRule[LocalDate with String with ULID]] = Set(nameFieldRule, passwordFieldRule, idFieldRule) ++ bornFieldRules
   val deleteUser: Set[FieldRule[String]] = Set(emailFieldRule)
   val login: Set[FieldRule[String]]      = Set(emailFieldRule, passwordFieldRule)
+  val task: Set[FieldRule[String with LocalDateTime]] = Set(titleRule, bodyRule, dueRule)
 }

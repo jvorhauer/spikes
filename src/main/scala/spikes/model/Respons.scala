@@ -1,3 +1,3 @@
 package spikes.model
 
-trait Command
+trait Respons

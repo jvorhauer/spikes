@@ -1,5 +1,7 @@
 package spikes
 
+import wvlet.airframe.ulid.ULID
+
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.LocalDateTime
@@ -12,4 +14,6 @@ package object model {
   def hash(s: String): String = toHex(md.digest(s.getBytes(StandardCharsets.UTF_8)))
 
   def now: LocalDateTime = LocalDateTime.now()
+
+  def next = ULID.newULID
 }

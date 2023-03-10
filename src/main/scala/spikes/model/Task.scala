@@ -3,28 +3,40 @@ package spikes.model
 import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
+import org.owasp.encoder.Encode
 import spikes.model.Status.Status
-import spikes.validate.Rules
+import spikes.validate.Validation.FieldErrorInfo
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
+import scala.collection.mutable
 
 object Task {
 
   type ReplyToActor = ActorRef[StatusReply[Task.Response]]
 
   case class Post(title: String, body: String, due: LocalDateTime, status: Status = Status.New) extends Request {
-    val rules = Rules.task
-    def asCmd(owner: ULID, replyTo: ActorRef[StatusReply[Task.Response]]): Create = Task.Create(ULID.newULID, owner, title, body, due, status, replyTo)
+    lazy val validated: Set[FieldErrorInfo] = {
+      val errors: mutable.Set[FieldErrorInfo] = mutable.Set.empty
+      if (title.isBlank) errors += FieldErrorInfo("title", "title should not be blank")
+      if (body.isBlank) errors += FieldErrorInfo("body", "body should not be blank")
+      if (due.isBefore(now)) errors += FieldErrorInfo("due", "due should not be in the past")
+      errors.toSet[FieldErrorInfo]
+    }
+    def asCmd(owner: ULID, replyTo: ActorRef[StatusReply[Task.Response]]): Create = Task.Create(ULID.newULID, owner, Encode.forHtml(title), Encode.forHtml(body), due, status, replyTo)
   }
   case class Put(id: ULID, title: String, body: String, due: LocalDateTime, status: Status) extends Request {
-    val rules = Rules.task
-    def asCmd(owner: ULID, replyTo: ReplyToActor): Task.Update = this.into[Task.Update]
-      .withFieldComputed(_.replyTo, _ => replyTo)
-      .withFieldComputed(_.owner, _ => owner)
-      .transform
+    lazy val validated: Set[FieldErrorInfo] = {
+      val errors: mutable.Set[FieldErrorInfo] = mutable.Set.empty
+      if (title.isBlank) errors += FieldErrorInfo("title", "title should not be blank")
+      if (body.isBlank) errors += FieldErrorInfo("body", "body should not be blank")
+      if (due.isBefore(now)) errors += FieldErrorInfo("due", "due should not be in the past")
+      errors.toSet[FieldErrorInfo]
+    }
+    def asCmd(owner: ULID, replyTo: ReplyToActor): Task.Update = Task.Update(id, owner, Encode.forHtml(title), Encode.forHtml(body), due, status, replyTo)
   }
   case class Delete(id: ULID) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.empty
     def asCmd(owner: ULID, replyTo: ReplyToActor): Remove = Task.Remove(id, owner, replyTo)
   }
 

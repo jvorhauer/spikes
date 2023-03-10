@@ -4,34 +4,15 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
-import net.datafaker.Faker
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.validate.Rules
-import spikes.validate.Validation.validate
+import spikes.behavior.TestUser
 import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
-import java.util.Locale
 import scala.collection.immutable.HashSet
 import scala.concurrent.ExecutionContextExecutor
 
-trait TestUser {
-  val faker = new Faker(Locale.US)
-  val ulid = ULID.newULID
-  val name = "Tester"
-  val email = "tester@test.er"
-  val password = "Welkom123!"
-  val born: LocalDate = LocalDate.now().minusYears(21)
-
-  def fakeName: String = faker.name().fullName()
-  def fakeEmail: String = faker.internet().emailAddress().replace("@", s"-${System.nanoTime()}@")
-  def fakePassword: String = faker.internet().password(8, 64, true, true, true)
-}
-
-object TestUser {
-  val empty: User = User(ULID.newULID, "", "", "", LocalDate.now())
-}
 
 /*
  * These tests are not to assert that Chimney works but to guarantee no regressions can
@@ -48,22 +29,20 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
 
   "Validate RequestCreateUser" should "correctly check" in {
 
-    val rules = Rules.createUser
-
     val rcu = User.Post(name, email, password, born)
-    validate(rcu, rules) shouldBe empty
+    rcu.validated shouldBe empty
 
-    validate(rcu.copy(name, ""), rules) should have size 1
-    validate(rcu.copy(email = ""), rules) should have size 1
-    validate(rcu.copy(name = ""), rules) should have size 1
-    validate(rcu.copy(email = "!!!@???.nl"), Rules.createUser) should have size 1
+    rcu.copy(name, "").validated should have size 1
+    rcu.copy(email = "").validated should have size 1
+    rcu.copy(name = "").validated should have size 1
+    rcu.copy(email = "!!!@???.nl").validated should have size 1
 
-    validate(User.Post("", "testerdetest", password, born), rules) should have size 2
-    validate(User.Post(name, "invalid email address", password, born), rules) should have size 1
-    validate(User.Post(name, email, "niet_welkom", born), rules) should have size 1
+    User.Post("", "testerdetest", password, born).validated should have size 2
+    User.Post(name, "invalid email address", password, born).validated should have size 1
+    User.Post(name, email, "niet_welkom", born).validated should have size 1
 
     List("no-digits!", "sh0rt", "no-special-chars12").foreach(s =>
-      validate(User.Post(name, email, s, born), rules) should have size 1
+      User.Post(name, email, s, born).validated should have size 1
     )
   }
 
@@ -72,14 +51,13 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
     val cmd = rcu.asCmd(probe)
     cmd.name shouldEqual rcu.name
     cmd.email shouldEqual rcu.email
-    cmd.id should not be null
     cmd.password should not equal rcu.password
 
     val mod = rcu.copy(name = "Other")
     val too = mod.asCmd(probe)
-    assert(too.name == mod.name)
-    assert(too.email == mod.email)
-    assert(too.id != null && too.id != cmd.id)
+    too.name should be (mod.name)
+    too.email should be (mod.email)
+    too.id should not be cmd.id
   }
 
   "a RequestUpdateUser" should "transform to a UpdateUser command" in {

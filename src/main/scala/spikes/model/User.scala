@@ -3,9 +3,13 @@ package spikes.model
 import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
 import io.scalaland.chimney.dsl.TransformerOps
+import org.owasp.encoder.Encode
+import spikes.validate.Validation.FieldErrorInfo
+import spikes.validate.{remail, rname, rpassw}
 import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
+import scala.collection.mutable
 
 case class User(
   id: ULID, name: String, email: String, password: String, born: LocalDate,
@@ -23,17 +27,46 @@ object User {
   type ReplySessionTo = ActorRef[Option[UserSession]]
   type ReplyAnyTo = ActorRef[StatusReply[Any]]
 
+  private def validate(field: String, isValid: Boolean) = if (isValid) None else Some(FieldErrorInfo(field, s"$field is not valid"))
+  private def validate(isValid: Boolean, error: String) = if (isValid) None else Some(FieldErrorInfo("born", s"born is $error" ))
+
   case class Post(name: String, email: String, password: String, born: LocalDate) extends Request {
-    def asCmd(replyTo: ReplyTo): Create = Create(ULID.newULID, name, email, hash(password), born, replyTo)
+    lazy val validated: Set[FieldErrorInfo] = {
+      val now = LocalDate.now()
+      Set.apply(
+        validate("name", rname.matches(name)),
+        validate("email", remail.matches(email)),
+        validate("password", rpassw.matches(password)),
+        validate(born.isBefore(now.minusYears(8)), "too young"),
+        validate(born.isAfter(now.minusYears(123)), "too old")
+      ).flatten
+    }
+    def asCmd(replyTo: ReplyTo): Create = Create(ULID.newULID, Encode.forHtml(name), email, hash(password), born, replyTo)
   }
   case class Put(id: ULID, name: String, password: String, born: LocalDate) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = {
+      val now = LocalDate.now()
+      Set.apply(
+        validate("name", rname.matches(name)),
+        validate("password", rpassw.matches(password)),
+        validate(born.isBefore(now.minusYears(8)), "too young"),
+        validate(born.isAfter(now.minusYears(123)), "too old")
+      ).flatten
+    }
     def asCmd(replyTo: ReplyTo): Update = Update(id, name, hash(password), born, replyTo)
   }
   case class Delete(email: String) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.apply(validate("email", remail.matches(email))).flatten
     def asCmd(replyTo: ReplyTo): Remove = Remove(email, replyTo)
   }
 
   case class ReqLogin(email: String, password: String) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = {
+      val errors: mutable.Set[FieldErrorInfo] = mutable.Set.empty
+      if (!remail.matches(email)) errors += FieldErrorInfo("email", s"$email is not valid email address")
+      if (!rpassw.matches(password)) errors += FieldErrorInfo("password", "password is not valid")
+      errors.toSet[FieldErrorInfo]
+    }
     def asCmd(replyTo: ReplyTokenTo): Login = Login(email, hash(password), replyTo)
   }
 

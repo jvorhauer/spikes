@@ -1,4 +1,4 @@
-import ReleaseTransformations._
+import ReleaseTransformations.*
 
 ThisBuild / scalaVersion := "2.13.10"
 ThisBuild / organization := "nl.miruvor"
@@ -12,6 +12,7 @@ lazy val root = (project in file("."))
     name := "spikes",
     scalacOptions ++= Seq(
       "-encoding", "utf8",
+      "-Xsource:3",
       "-deprecation",
       "-feature",
       "-unchecked",
@@ -45,10 +46,10 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-http-testkit"        % "10.5.0",
       "net.datafaker"     %  "datafaker"                % "1.8.0",
     ).map(_ % "test") ++ Seq(
-      "io.scalaland"           %% "chimney"                   % "0.7.0",
+      "io.scalaland"           %% "chimney"                   % "0.7.1",
       "ch.qos.logback"         %  "logback-classic"           % "1.4.5",
       "io.circe"               %% "circe-generic"             % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.5",
+      "org.wvlet.airframe"     %% "airframe-ulid"             % "23.3.0",
       "org.scala-lang.modules" %% "scala-collection-contrib"  % "0.3.0",
       "org.owasp.encoder"      %  "encoder"                   % "1.2.3",
     ) ++ Seq(

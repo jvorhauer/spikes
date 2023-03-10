@@ -2,18 +2,18 @@ package spikes.route
 
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
-import io.circe.generic.auto._
-import io.circe.syntax._
+import io.circe.generic.auto.*
+import io.circe.syntax.*
 import spikes.model.{Command, Respons}
 
 import scala.concurrent.ExecutionContextExecutor
 
 case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router(handlers) {
 
-  import InfoRouter._
+  import InfoRouter.*
 
   implicit val ec: ExecutionContextExecutor = system.executionContext
 

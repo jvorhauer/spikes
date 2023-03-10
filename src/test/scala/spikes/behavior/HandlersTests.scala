@@ -1,17 +1,16 @@
 package spikes.behavior
 
-import akka.actor.testkit.typed.scaladsl.ActorTestKit
+import akka.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
+import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
 import com.typesafe.config.ConfigFactory
 import org.scalatest.BeforeAndAfterAll
 import spikes.SpikesTest
-import spikes.model._
+import spikes.model.*
 import spikes.route.InfoRouter
 
 import java.time.LocalDate
 import java.util.UUID
-import akka.actor.testkit.typed.scaladsl.TestProbe
-import akka.actor.typed.ActorRef
 
 class HandlersTests extends SpikesTest with BeforeAndAfterAll {
 
@@ -71,7 +70,7 @@ class HandlersTests extends SpikesTest with BeforeAndAfterAll {
     handlers ! User.Login(s"test-$id@miruvor.nl", password, loginProbe.ref)
     val loggedin = loginProbe.receiveMessage()
     loggedin.isSuccess should be(true)
-    loggedin.getValue.access_token should not be null
+    loggedin.getValue.access_token should not be empty
   }
 
   "Create and Find" should "return the previously added User" in {

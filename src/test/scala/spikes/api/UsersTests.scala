@@ -3,26 +3,27 @@ package spikes.api
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
 import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import com.typesafe.config.ConfigFactory
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe.generic.auto._
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
-import spikes.behavior.Handlers
-import spikes.model._
+import spikes.behavior.{Handlers, TestUser}
+import spikes.model.*
+import spikes.model.User.Response
 import spikes.route.InfoRouter.Info
 import spikes.route.{InfoRouter, RequestError, UserRouter}
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
-import java.time.{LocalDate, LocalDateTime}
+import java.time.LocalDate
 import java.util.UUID
 import scala.util.Try
 
@@ -32,8 +33,6 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
   implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status)   // for Task
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status)   // for Task
-
-  case class Response(id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate)
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
   val testKit: ActorTestKit = ActorTestKit(

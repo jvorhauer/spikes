@@ -2,6 +2,7 @@ package spikes.model
 
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import spikes.behavior.TestUser
 import wvlet.airframe.ulid.ULID
 
 class UsersTests extends AnyFlatSpec with Matchers with TestUser {

@@ -1,17 +1,16 @@
 package spikes.route
 
 import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model._
+import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.headers.Location
-import akka.http.scaladsl.server.Directives._
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe.generic.auto._
-import io.circe.syntax._
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import io.circe.generic.auto.*
+import io.circe.syntax.*
 import io.circe.{Decoder, Encoder}
-import spikes.model._
-import spikes.validate.Rules
+import spikes.model.*
 import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
@@ -47,12 +46,12 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
       concat(
         (post & pathEndOrSingleSlash) {
           entity(as[User.Post]) {
-            validated(_, Rules.createUser) { valid =>
-              onSuccess(handlers.ask(valid.asCmd)) {
+            validated(_) { up =>
+              onSuccess(handlers.ask(up.asCmd)) {
                 case sur: StatusReply[User.Response] if sur.isSuccess => respondWithHeader(Location(s"/users/${sur.getValue.id}")) {
                   respond(StatusCodes.Created, sur.getValue.asJson.toString())
                 }
-                case sur: StatusReply[_] => respond(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson.toString())
+                case sur: StatusReply[?] => respond(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson.toString())
                 case _ => badRequest
               }
             }
@@ -61,17 +60,17 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
         put {
           authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
             entity(as[User.Put]) {
-              validated(_, Rules.updateUser) { valid =>
-                replier(handlers.ask(valid.asCmd), StatusCodes.OK)
+              validated(_) { up =>
+                replier(handlers.ask(up.asCmd), StatusCodes.OK)
               }
             }
           }
         },
         delete {
           authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
-            entity(as[User.Delete]) { rdu =>
-              validated(rdu, Rules.deleteUser) { valid =>
-                replier(handlers.ask(replyTo = valid.asCmd), StatusCodes.Accepted)
+            entity(as[User.Delete]) {
+              validated(_) { ud =>
+                replier(handlers.ask(replyTo = ud.asCmd), StatusCodes.Accepted)
               }
             }
           }
@@ -81,11 +80,11 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
           repliers(handlers.ask(User.All), StatusCodes.OK)
         },
         (post & path("login")) {
-          entity(as[User.ReqLogin]) { rl =>
-            validated(rl, Rules.login) { valid =>
-              onSuccess(handlers.ask(valid.asCmd)) {
+          entity(as[User.ReqLogin]) {
+            validated(_) { ul =>
+              onSuccess(handlers.ask(ul.asCmd)) {
                 case ss: StatusReply[OAuthToken] if ss.isSuccess => respond(StatusCodes.OK, ss.getValue.asJson.toString())
-                case ss: StatusReply[_] => respond(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson.toString())
+                case ss: StatusReply[?] => respond(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson.toString())
                 case _ => badRequest
               }
             }
@@ -94,7 +93,7 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
         (put & path("logout")) {
           authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
             onSuccess(handlers.ask(ref => User.Logout(us.token, ref))) {
-              case sr: StatusReply[_] if sr.isSuccess => complete(StatusCodes.OK)
+              case sr: StatusReply[?] if sr.isSuccess => complete(StatusCodes.OK)
               case _ => complete(StatusCodes.BadRequest)
             }
           }

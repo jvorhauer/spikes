@@ -73,6 +73,8 @@ class TasksTests extends AnyFlatSpec with Matchers {
     t3 should have size 999
     t3.mine(updated.owner) should have size 249
 
-
+    val t4 = t3.disown(updated.owner)
+    t4 should have size 750
+    t4.owners should have size 3
   }
 }

@@ -3,6 +3,9 @@
 Some spike stuff in preparation of the final solution to the Note/Blog/Bookmark product that will be the backend for 
 one or more Miruvor SaaS offerings.
 
+[![CodeCov](https://codecov.io/gh/jvorhauer/spikes/branch/main/graph/badge.svg?token=YVnjWS1wc8)](https://codecov.io/gh/jvorhauer/spikes)
+[![GitHub Actions](https://github.com/jvorhauer/spikes/actions/workflows/test.yaml/badge.svg)](https://github.com/jvorhauer/spikes/actions/workflows/test.yaml)
+
 ## Event Sourced
 
 Request -> Command -> Event -> Entity -> Response
@@ -19,7 +22,7 @@ Queries are defined later and return a response of the required entity or a list
 
 ## Tech Stack
 
-* Akka Typed
+* [Akka Typed](https://doc.akka.io/docs/akka/current/typed/index.html)
 * [Akka http](https://doc.akka.io/docs/akka-http/current/index.html)
   * [Circe](https://circe.github.io/circe/) for http/json stuff via [Heiko's lib](https://github.com/hseeberger/akka-http-json)
 * [Akka Typed persistence](https://doc.akka.io/docs/akka/current/typed/persistence.html) for Event Sourcing
@@ -70,6 +73,7 @@ other external systems is not included yet.
 * [sbt release](https://github.com/sbt/sbt-release)
 * [sbt-jib](https://index.scala-lang.org/sbt-jib/sbt-jib) / [jib](https://github.com/GoogleContainerTools/jib/tree/master/jib-cli#supported-commands)
 * [ScalaTest](https://www.scalatest.org/user_guide)
+* [SCoverage](https://github.com/scoverage/sbt-scoverage) ==> [Report](target/scala-2.13/scoverage-report/index.html)
 
 Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
 focus and cleaner process. Also update this document when applicable.

@@ -102,7 +102,7 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
       responseAs[User.Response].name shouldEqual "Created"
     }
 
-    val rl = User.ReqLogin(user.get.email, password)
+    val rl = User.Authenticate(user.get.email, password)
     var resp: Option[OAuthToken] = None
     Post("/users/login", rl) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
@@ -144,7 +144,7 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
       responseAs[User.Response].name shouldEqual rcu.name
     }
 
-    val rl = User.ReqLogin(eeeemail, password)
+    val rl = User.Authenticate(eeeemail, password)
     var resp: Option[OAuthToken] = None
     Post("/users/login", rl) ~> route ~> check {
       status shouldEqual StatusCodes.OK
@@ -193,7 +193,7 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
       responseAs[User.Response].name shouldEqual rcu.name
     }
 
-    val rl = User.ReqLogin(eeeemail, password)
+    val rl = User.Authenticate(eeeemail, password)
     var resp: Option[OAuthToken] = None
     Post("/users/login", rl) ~> route ~> check {
       status shouldEqual StatusCodes.OK

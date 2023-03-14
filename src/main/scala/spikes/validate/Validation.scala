@@ -15,6 +15,8 @@ object Validation {
   case class FieldErrorInfo(field: String, error: String)
   case class ModelValidationRejection(fields: Set[FieldErrorInfo]) extends Rejection
 
+  def validate[T](rule: Rule[T], value: T, name: String): Option[FieldErrorInfo] = if (rule.isValid(value)) None else Some(FieldErrorInfo(name, rule.msg))
+
   def validated[T <: Request](model: T): Directive1[T] = {
     model.validated match {
       case set if set.nonEmpty => reject(ModelValidationRejection(set))

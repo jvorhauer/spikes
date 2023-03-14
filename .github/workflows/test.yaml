@@ -18,11 +18,13 @@ jobs:
           check-latest: true
           cache: 'sbt'
       - name: Tests
-        run: sbt test
+        run: sbt scalafixAll test
         env:
           ASTRA_USERNAME: ${{ secrets.ASTRA_USERNAME }}
           ASTRA_PASSWORD: ${{ secrets.ASTRA_PASSWORD }}
           ASTRA_SCB: ${{ secrets.ASTRA_SCB }}
           KAMON_TOKEN: ${{ secrets.KAMON_TOKEN }}
       - name: Upload dependency graph
-        uses: scalacenter/sbt-dependency-submission@ab086b50c947c9774b70f39fc7f6e20ca2706c91
+        uses: scalacenter/sbt-dependency-submission@v2
+      - name: Upload coverage to CodeCov
+        uses: codecov/codecov-action@v3

@@ -80,7 +80,7 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
           repliers(handlers.ask(User.All), StatusCodes.OK)
         },
         (post & path("login")) {
-          entity(as[User.ReqLogin]) {
+          entity(as[User.Authenticate]) {
             validated(_) { ul =>
               onSuccess(handlers.ask(ul.asCmd)) {
                 case ss: StatusReply[OAuthToken] if ss.isSuccess => respond(StatusCodes.OK, ss.getValue.asJson.toString())

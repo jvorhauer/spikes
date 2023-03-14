@@ -45,5 +45,5 @@ case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
 object InfoRouter {
   case class GetInfo(replyTo: ActorRef[StatusReply[Info]]) extends Command
 
-  case class Info(users: Int, sessions: Int, entries: Int, recovered: Boolean = false) extends Respons
+  case class Info(users: Int, sessions: Int, tasks: Int, recovered: Boolean = false) extends Respons
 }

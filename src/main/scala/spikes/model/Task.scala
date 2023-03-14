@@ -23,7 +23,7 @@ object Task {
       if (due.isBefore(now)) errors += FieldErrorInfo("due", "due should not be in the past")
       errors.toSet[FieldErrorInfo]
     }
-    def asCmd(owner: ULID, replyTo: ActorRef[StatusReply[Task.Response]]): Create = Task.Create(ULID.newULID, owner, Encode.forHtml(title), Encode.forHtml(body), due, status, replyTo)
+    def asCmd(owner: ULID, replyTo: ReplyToActor): Create = Task.Create(ULID.newULID, owner, Encode.forHtml(title), Encode.forHtml(body), due, status, replyTo)
   }
   case class Put(id: ULID, title: String, body: String, due: LocalDateTime, status: Status) extends Request {
     lazy val validated: Set[FieldErrorInfo] = {

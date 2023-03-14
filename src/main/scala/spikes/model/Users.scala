@@ -1,5 +1,6 @@
 package spikes.model
 
+import org.scalactic.TripleEquals.*
 import wvlet.airframe.ulid.ULID
 
 case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, User] = Map.empty) {
@@ -11,5 +12,5 @@ case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, User] = M
   def all(): List[User] = ids.values.toList
 
   def size: Int = ids.size
-  def valid: Boolean = ids.size == emails.size
+  def valid: Boolean = ids.size === emails.size
 }

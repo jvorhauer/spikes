@@ -6,6 +6,7 @@ import akka.pattern.StatusReply.{error, success}
 import akka.persistence.typed.scaladsl.Effect.{none, persist}
 import akka.persistence.typed.scaladsl.{EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
 import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
+import org.scalactic.TripleEquals.*
 import spikes.model.{Command, Event, State, Task, User, Users, now}
 import spikes.route.InfoRouter.{GetInfo, Info}
 import wvlet.airframe.ulid.ULID
@@ -39,7 +40,7 @@ object Handlers {
           }
 
         case User.Login(email, passwd, replyTo) => state.findUser(email) match {
-          case Some(user) if user.password == passwd =>
+          case Some(user) if user.password === passwd =>
             persist(User.LoggedIn(user.id)).thenReply(replyTo) { state =>
               state.authorize(user.id) match {
                 case Some(au) => success(au.asOAuthToken)
@@ -48,7 +49,7 @@ object Handlers {
             }
           case _ => none.thenReply(replyTo) { _ => error("invalid credentials") }
         }
-        case User.Authenticate(token, replyTo) => none.thenReply(replyTo)(_ => state.authorize(token))
+        case User.Authorize(token, replyTo) => none.thenReply(replyTo)(_ => state.authorize(token))
         case User.Logout(token, replyTo) => state.authorize(token) match {
           case Some(us) => persist(User.LoggedOut(us.id)).thenReply(replyTo)(_ => success("Yeah"))
           case None => none.thenReply(replyTo)(_ => error("User was not logged in"))
@@ -75,7 +76,7 @@ object Handlers {
             case count => persist(Reaper.Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => Reaper.Done)
           }
 
-        case GetInfo(replyTo) => none.thenReply(replyTo)(state => success(Info(state.users.size, state.sessions.size, 0, recovered)))
+        case GetInfo(replyTo) => none.thenReply(replyTo)(state => success(Info(state.users.size, state.sessions.size, state.tasks.size, recovered)))
       }
 
     val eventHandler: (State, Event) => State = (state, evt) =>
@@ -102,7 +103,7 @@ object Handlers {
       .receiveSignal {
         case (_, PreRestart) => ctx.log.info("pre-restart signal received")
         case (state, RecoveryCompleted) =>
-          ctx.log.info(s"recovered: users: ${state.users.size}, sessions: ${state.sessions.size}")
+          ctx.log.info(s"recovered: users: ${state.users.size}, sessions: ${state.sessions.size}, tasks: ${state.tasks.size}")
           recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
       }

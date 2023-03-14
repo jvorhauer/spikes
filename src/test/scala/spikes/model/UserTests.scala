@@ -63,27 +63,27 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   "a RequestUpdateUser" should "transform to a UpdateUser command" in {
     val ruu = User.Put(ulid, name, password, born)
     val cmd = ruu.asCmd(probe)
-    assert(cmd.name == ruu.name)
-    assert(cmd.born == ruu.born)
-    assert(cmd.id == ruu.id)
+    assert(cmd.name === ruu.name)
+    assert(cmd.born === ruu.born)
+    assert(cmd.id === ruu.id)
   }
 
   "a RequestDeleteUser" should "transform to a DeleteUser command" in {
     val rdu = User.Delete(email)
     val cmd = rdu.asCmd(probe)
-    assert(cmd.email == rdu.email)
+    assert(cmd.email === rdu.email)
   }
 
   "a CreateUser command" should "transform to a UserCreated event" in {
     val born = LocalDate.now().minusYears(42)
     val cmd = User.Create(ULID.newULID, name, email, password, born, probe)
     val evt = cmd.into[User.Created].transform
-    assert(evt.name == cmd.name)
-    assert(evt.id == cmd.id)
-    assert(evt.email == cmd.email)
-    assert(evt.created == LocalDateTime.ofInstant(evt.id.toInstant, ZoneId.of("UTC")))
-    assert(evt.born == cmd.born && evt.born == born)
-    assert(evt.password == cmd.password)
+    assert(evt.name === cmd.name)
+    assert(evt.id === cmd.id)
+    assert(evt.email === cmd.email)
+    assert(evt.created === LocalDateTime.ofInstant(evt.id.toInstant, ZoneId.of("UTC")))
+    assert(evt.born === cmd.born && evt.born === born)
+    assert(evt.password === cmd.password)
   }
 
   "Set" should "allow removal of not-there element" in {

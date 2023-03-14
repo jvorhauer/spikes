@@ -24,8 +24,9 @@ jobs:
           ASTRA_PASSWORD: ${{ secrets.ASTRA_PASSWORD }}
           ASTRA_SCB: ${{ secrets.ASTRA_SCB }}
           KAMON_TOKEN: ${{ secrets.KAMON_TOKEN }}
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Upload dependency graph
         uses: scalacenter/sbt-dependency-submission@v2
       - name: Upload coverage to CodeCov
         uses: codecov/codecov-action@v3
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

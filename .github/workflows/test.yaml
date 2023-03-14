@@ -18,7 +18,7 @@ jobs:
           check-latest: true
           cache: 'sbt'
       - name: Tests
-        run: sbt scalafixAll coverage test coverageReport
+        run: sbt -Dsbt.color=false scalafixAll coverage test coverageReport
         env:
           ASTRA_USERNAME: ${{ secrets.ASTRA_USERNAME }}
           ASTRA_PASSWORD: ${{ secrets.ASTRA_PASSWORD }}

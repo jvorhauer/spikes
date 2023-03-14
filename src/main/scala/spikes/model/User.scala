@@ -14,7 +14,7 @@ case class User(
   id: ULID, name: String, email: String, password: String, born: LocalDate,
 ) extends Entity {
   lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
-  def asResponse: User.Response = this.into[User.Response].withFieldComputed(_.tasks, _ => Seq.empty).transform
+  def asResponse: User.Response = this.into[User.Response].withFieldComputed(_.tasks, _ => Set.empty[Task.Response]).transform
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires)
 }
 
@@ -57,7 +57,7 @@ object User {
 
   case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, replyTo: ReplyTo) extends Command {
     lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
-    def asResponse: User.Response = this.into[User.Response].withFieldComputed(_.tasks, _ => Seq.empty).transform
+    def asResponse: User.Response = this.into[User.Response].withFieldComputed(_.tasks, _ => Set.empty[Task.Response]).transform
     def asEvent: Created = this.into[Created].transform
   }
   case class Update(id: ULID, name: String, password: String, born: LocalDate, replyTo: ReplyTo) extends Command {
@@ -81,5 +81,5 @@ object User {
   case class LoggedIn(id: ULID, expires: LocalDateTime = now.plusHours(2)) extends Event
   case class LoggedOut(id: ULID) extends Event
 
-  case class Response(id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, tasks: Seq[Task.Response]) extends Respons
+  case class Response(id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, tasks: Set[Task.Response]) extends Respons
 }

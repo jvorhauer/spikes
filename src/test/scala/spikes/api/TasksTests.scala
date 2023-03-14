@@ -16,7 +16,7 @@ import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
 import spikes.behavior.{Handlers, TestUser}
-import spikes.model.{Command, OAuthToken, Status, Task, User}
+import spikes.model.{Command, OAuthToken, Status, Task, User, next}
 import spikes.route.{InfoRouter, TaskRouter, UserRouter}
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
@@ -49,7 +49,7 @@ class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
     Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, TaskRouter(handlers).route)
   }
 
-  "Create and Update User" should "return updated User" in {
+  "Create and Update Task" should "return updated Task" in {
     val up = User.Post("Created", fakeEmail, password, born)
     var user: Option[User.Response] = None
     var location: String = "-"
@@ -81,9 +81,26 @@ class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
       responseAs[Task.Response].title should be ("Test Title")
     }
 
+    var id: ULID = next
     Get(location) ~> Route.seal(route) ~> check {
       status should be (StatusCodes.OK)
-      responseAs[User.Response].tasks should have size 1
+      val resp = responseAs[User.Response]
+      resp.tasks should have size 1
+      id = resp.tasks.head.id
+    }
+
+    val tu = Task.Put(id, "Updated Title", "Updated Test Body", LocalDateTime.now().plusDays(3), Status.ToDo)
+    Put("/tasks", tu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.OK)
+      val resp = responseAs[Task.Response]
+      resp.title should be ("Updated Title")
+    }
+
+    Get(location) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.OK)
+      val resp = responseAs[User.Response]
+      resp.tasks should have size 1
+      resp.tasks.head.title should be ("Updated Title")
     }
   }
 }

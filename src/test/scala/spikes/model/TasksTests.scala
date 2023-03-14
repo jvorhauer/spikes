@@ -50,7 +50,7 @@ class TasksTests extends AnyFlatSpec with Matchers {
     found.get.title should be ("Updated Task")
   }
 
-  "Adding loads of Tasks" should "still be ok" in {
+  "Adding loads of Tasks" should "be ok" in {
     val limit = 1000
     val tasks = (1 to limit).toList.map(i =>
       Task(next, owners(i % owners.length), fakeTitle, fakeBody, LocalDateTime.now().plusDays(i), Status.ToDo)

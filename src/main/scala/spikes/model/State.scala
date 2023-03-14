@@ -27,6 +27,6 @@ case class State(
 
   def save(t: Task): State = this.copy(tasks = tasks.save(t))
   def findTask(id: ULID): Option[Task] = tasks.find(id)
-  def findTasks(owner: ULID): Seq[Task] = tasks.mine(owner).toSeq
+  def findTasks(owner: ULID): Set[Task] = tasks.mine(owner)
   def remTask(id: ULID): State = findTask(id).map(_ => this.copy(tasks = tasks.remove(id))).getOrElse(this)
 }

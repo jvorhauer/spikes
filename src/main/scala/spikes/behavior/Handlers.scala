@@ -67,7 +67,11 @@ object Handlers {
         }
         case tu: Task.Update => state.findTask(tu.id) match {
           case Some(_) => persist(tu.asEvent).thenReply(tu.replyTo)(us => success(us.findTask(tu.id).get.asResponse))
-          case None => none.thenReply(tu.replyTo)(_ => error(s"Task ${tu.id} not found"))
+          case None => none.thenReply(tu.replyTo)(_ => error(s"Task ${tu.id} not found for update"))
+        }
+        case tr: Task.Remove => state.findTask(tr.id) match {
+          case Some(t) => persist(tr.asEvent).thenReply(tr.replyTo)(_ => success(t.asResponse))
+          case None => none.thenReply(tr.replyTo)(_ => error(s"Task ${tr.id} not found for deletion"))
         }
 
         case Reaper.Reap(replyTo) =>
@@ -90,6 +94,7 @@ object Handlers {
 
         case tc: Task.Created => state.save(tc.asTask)
         case tu: Task.Updated => state.save(tu.asTask)
+        case tr: Task.Removed => state.remTask(tr.id)
 
         case _: Reaper.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(now)))
       }

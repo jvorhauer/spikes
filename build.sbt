@@ -6,6 +6,7 @@ ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
+ThisBuild / coverageEnabled := true
 
 lazy val root = (project in file("."))
   .settings(

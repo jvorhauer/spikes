@@ -9,7 +9,7 @@ import scala.collection.immutable.HashSet
 case class State(
   users: Users               = Users(),
   sessions: Set[UserSession] = HashSet.empty,
-  tasks: Map[ULID, Task]     = Map.empty
+  tasks: Tasks               = Tasks()
 ) {
   def save(u: User): State =  this.copy(users = users.save(u))
   def findUser(email: String): Option[User] = users.find(email)
@@ -25,8 +25,8 @@ case class State(
   def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id === id && us.expires.isAfter(now))
   def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id === id))
 
-  def save(t: Task): State = this.copy(tasks = tasks + (t.id -> t))
-  def findTask(id: ULID): Option[Task] = tasks.get(id)
-  def findTasks(owner: ULID): Seq[Task] = tasks.values.filter(_.owner === owner).toSeq
-  def remTask(id: ULID): State = findTask(id).map(_ => this.copy(tasks = tasks - id)).getOrElse(this)
+  def save(t: Task): State = this.copy(tasks = tasks.save(t))
+  def findTask(id: ULID): Option[Task] = tasks.find(id)
+  def findTasks(owner: ULID): Seq[Task] = tasks.mine(owner).toSeq
+  def remTask(id: ULID): State = findTask(id).map(_ => this.copy(tasks = tasks.remove(id))).getOrElse(this)
 }

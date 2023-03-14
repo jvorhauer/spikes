@@ -20,13 +20,14 @@ Queries are defined later and return a response of the required entity or a list
 ## Tech Stack
 
 * Akka Typed
-* Akka http
-  * Circe for http/json stuff via Heiko's lib
-* Akka Typed persistence
-  * Jackson for Cbor serialization
-  * Cassandra for Akka persistence
-* ULIDs for unique, sortable IDs
-* Chimney for case class transformations
+* [Akka http](https://doc.akka.io/docs/akka-http/current/index.html)
+  * [Circe](https://circe.github.io/circe/) for http/json stuff via [Heiko's lib](https://github.com/hseeberger/akka-http-json)
+* [Akka Typed persistence](https://doc.akka.io/docs/akka/current/typed/persistence.html) for Event Sourcing
+  * [Kryo](https://github.com/altoo-ag/akka-kryo-serialization) for serialization
+  * [Cassandra for Akka persistence](https://doc.akka.io/docs/akka-persistence-cassandra/current/index.html)
+* [ULIDs](https://wvlet.org/airframe/docs/airframe-ulid) for unique, sortable IDs
+* [Chimney](https://scalalandio.github.io/chimney/) for case class transformations
+* [Scalactic](https://www.javadoc.io/doc/org.scalactic/scalactic_2.13/latest/org/scalactic/index.html) for triple equals with type safety  
 
 See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/akka-guide/microservices-tutorial/index.html)
 

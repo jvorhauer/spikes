@@ -32,8 +32,8 @@ Content-Type: application/json
 Authorization: Bearer {{ authorized }}
 
 {
-  "title": "Deployed and Running on k8s",
-  "body": "This completes the MVP, version 1.0.2. Now on to version 2 with the complete functionality as required by me",
+  "title": "test with html encoding",
+  "body": "Encoded <script> tags should not allow <h1>crap</h1>",
   "status": "Blank"
 }
 

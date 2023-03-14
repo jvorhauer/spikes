@@ -1,4 +1,4 @@
-import ReleaseTransformations._
+import ReleaseTransformations.*
 
 ThisBuild / scalaVersion := "2.13.10"
 ThisBuild / organization := "nl.miruvor"
@@ -6,17 +6,14 @@ ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 ThisBuild / semanticdbEnabled := true
 ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
-
-val AkkaVersion = "2.7.0"
-val AkkaHttpVersion = "10.4.0"
-val ScalaTestVersion = "3.2.15"
-val Test = "test"
+ThisBuild / coverageEnabled := true
 
 lazy val root = (project in file("."))
   .settings(
     name := "spikes",
     scalacOptions ++= Seq(
       "-encoding", "utf8",
+      "-Xsource:3",
       "-deprecation",
       "-feature",
       "-unchecked",
@@ -33,45 +30,41 @@ lazy val root = (project in file("."))
       "-Xlint:unused"
     ),
     libraryDependencies ++= Seq(
-      "com.typesafe.akka"  %% "akka-actor-typed"             % AkkaVersion,
-      "com.typesafe.akka"  %% "akka-stream"                  % AkkaVersion,
-      "com.typesafe.akka"  %% "akka-http"                    % AkkaHttpVersion,
-      "com.typesafe"       %% "ssl-config-core"              % "0.6.1",
-      "com.typesafe.akka"  %% "akka-persistence-typed"       % AkkaVersion,
-      "com.typesafe.akka"  %% "akka-serialization-jackson"   % AkkaVersion,
-      "com.typesafe.akka"  %% "akka-persistence-cassandra"   % "1.1.0",
-      "de.heikoseeberger"  %% "akka-http-circe"              % "1.39.2",
+      "com.typesafe.akka" %% "akka-actor-typed"            % "2.7.0",
+      "com.typesafe.akka" %% "akka-stream"                 % "2.7.0",
+      "com.typesafe.akka" %% "akka-http"                   % "10.5.0",
+      "com.typesafe"      %% "ssl-config-core"             % "0.6.1",
+      "com.typesafe.akka" %% "akka-persistence-typed"      % "2.7.0",
+      "com.typesafe.akka" %% "akka-persistence-query"      % "2.7.0",
+      "com.typesafe.akka" %% "akka-persistence-cassandra"  % "1.1.0",
+      "de.heikoseeberger" %% "akka-http-circe"             % "1.39.2",
     ) ++ Seq(
-      "org.scalatest"     %% "scalatest"                % ScalaTestVersion,
-      "com.typesafe.akka" %% "akka-actor-testkit-typed" % AkkaVersion,
-      "com.typesafe.akka" %% "akka-stream-testkit"      % AkkaVersion,
-      "com.typesafe.akka" %% "akka-persistence-testkit" % AkkaVersion,
-      "com.typesafe.akka" %% "akka-http-testkit"        % AkkaHttpVersion,
-      "net.datafaker"     %  "datafaker"                % "1.8.0",
-    ).map(_ % Test) ++ Seq(
-      "io.scalaland"           %% "chimney"                   % "0.6.2",
-      "ch.qos.logback"         %  "logback-classic"           % "1.4.5",
-      "io.circe"               %% "circe-generic"             % "0.14.4",
-      "org.scalactic"          %% "scalactic"                 % ScalaTestVersion,
-      "org.wvlet.airframe"     %% "airframe-ulid"             % "23.2.4",
-      "fr.davit"               %% "akka-http-metrics-datadog" % "1.7.1",
-      "org.scala-lang.modules" %% "scala-collection-contrib"  % "0.3.0",
-      "org.owasp.encoder"      %  "encoder"                   % "1.2.3"
+      "org.scalatest"       %% "scalatest"                % "3.2.15",
+      "com.typesafe.akka"   %% "akka-actor-testkit-typed" % "2.7.0",
+      "com.typesafe.akka"   %% "akka-stream-testkit"      % "2.7.0",
+      "com.typesafe.akka"   %% "akka-persistence-testkit" % "2.7.0",
+      "com.typesafe.akka"   %% "akka-http-testkit"        % "10.5.0",
+      "net.datafaker"       %  "datafaker"                % "1.8.0",
+      "com.danielasfregola" %% "random-data-generator"    % "2.9",
+    ).map(_ % "test") ++ Seq(
+      "io.scalaland"           %% "chimney"                       % "0.7.1",
+      "ch.qos.logback"         %  "logback-classic"               % "1.4.5",
+      "io.circe"               %% "circe-generic"                 % "0.14.5",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.3.0",
+      "org.scala-lang.modules" %% "scala-collection-contrib"      % "0.3.0",
+      "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
+      "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
+      "org.scalactic"          %% "scalactic"                     % "3.2.15",
+      "org.yaml"               %  "snakeyaml"                     % "2.0",
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % "2.6.0",
       "io.kamon" %% "kamon-apm-reporter" % "2.6.0"
     ),
     releaseProcess := Seq[ReleaseStep](
-      checkSnapshotDependencies,
-      inquireVersions,
-      runClean,
-      runTest,
-      setReleaseVersion,
-      commitReleaseVersion,
-      tagRelease,
-      setNextVersion,
-      commitNextVersion,
-      pushChanges
+      checkSnapshotDependencies, inquireVersions,
+      runClean, runTest,
+      setReleaseVersion, commitReleaseVersion, tagRelease,
+      setNextVersion, commitNextVersion, pushChanges
     ),
     jibBaseImage := "openjdk:17",
     jibRegistry := "ghcr.io",

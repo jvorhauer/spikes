@@ -1,0 +1,80 @@
+@startuml
+
+abstract class Party {
+  id: ULID
+  name: String
+  email: String
+}
+class User {
+  born: LocalDate
+  password: String
+}
+class Company {
+  kvkNr: String
+  btwNr: String
+}
+class Employee {
+  born: Option[LocalDate]
+}
+class Address {
+  street: String
+  houseNr: Int
+  addition: String
+  zipCode: String
+  city: String
+  country: String
+}
+enum ChannelType {
+  EMAIL, TELEPHONE, WHATSAPP, SIGNAL, TELEGRAM
+}
+class Channel {
+  type: ChannelType
+  content: String
+}
+Party <|-- User
+Party <|-- Company
+Party <|-- Employee
+Party *-- Address
+Party *-- Channel
+Company *-- Employee : has
+User -- Employee : communicates with
+Channel -- ChannelType
+
+abstract class Entry {
+  id: ULID
+  title: String,
+}
+class Document
+class Task {
+  due: LocalDateTime
+  priority: Int
+  status: TaskStatus
+}
+class Appointment {
+  start: LocalDateTime
+  end: LocalDateTime
+}
+class Journal
+Entry <|-- Document
+Entry <|-- Task
+Entry <|-- Appointment
+Entry <|-- Journal
+
+User *-- Entry
+Task *-- Party
+
+class Comment
+Entry *-- Comment
+User *-- Comment
+
+abstract class Paragraph
+class Text
+class Link
+class Image
+Paragraph <|-- Text
+Paragraph <|-- Link
+Paragraph <|-- Image
+
+Entry *-- Paragraph
+
+@enduml

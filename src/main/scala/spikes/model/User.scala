@@ -1,165 +1,85 @@
 package spikes.model
 
-import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server.directives.Credentials
-import akka.http.scaladsl.server.{PathMatcher, PathMatcher1, Route}
+import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
-import akka.util.Timeout
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe.generic.auto._
-import io.circe.syntax._
-import io.circe.{Decoder, Encoder}
 import io.scalaland.chimney.dsl.TransformerOps
-import spikes.validate.Validation.validated
+import org.owasp.encoder.Encode
+import spikes.validate.Validation.{FieldErrorInfo, validate}
+import spikes.validate.{bornRule, emailRule, nameRule, passwordRule}
 import wvlet.airframe.ulid.ULID
 
-import java.time.{LocalDate, LocalDateTime}
-import scala.collection.immutable.HashSet
-import scala.concurrent.duration.DurationInt
-import scala.concurrent.{ExecutionContextExecutor, Future}
-import scala.util.Try
+import java.time.{LocalDate, LocalDateTime, ZoneId}
 
-
-
-final case class User(id: ULID, name: String, email: String, password: String, born: LocalDate, entries: Seq[Entry] = Seq.empty) extends Entity {
-  def this(t: (ULID, String, String, String, LocalDate)) = this(t._1, t._2, t._3, t._4, t._5)
-  def this(t: (ULID, String, String, String, LocalDate), es: Seq[Entry]) = this(t._1, t._2, t._3, t._4, t._5, entries = es)
-  lazy val asResponse: Response.User = this.into[Response.User].transform
-  lazy val joined: LocalDateTime = created
-  lazy val asTuple: (ULID, String, String, String, LocalDate) = (id, name, email, password, born)
-  def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires, this)
+case class User(
+  id: ULID, name: String, email: String, password: String, born: LocalDate,
+) extends Entity {
+  lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
+  def asResponse: User.Response = this.into[User.Response].withFieldComputed(_.tasks, _ => Set.empty[Task.Response]).transform
+  def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires)
 }
 
-final case class Users(ids: Map[ULID, User] = Map.empty, emails: Map[String, User] = Map.empty) {
-  def save(u: User): Users = Users(ids + (u.id -> u), emails + (u.email -> u))
-  def find(id: ULID): Option[User] = ids.get(id)
-  def find(email: String): Option[User] = emails.get(email)
-  def remove(id: ULID): Users = find(id).map(u => Users(ids - u.id, emails - u.email)).getOrElse(this)
-  def concat(other: Users): Users = Users(ids ++ other.ids, emails ++ other.emails)
-  def all(): List[User] = ids.values.toList
+object User {
 
-  lazy val size: Int = ids.size
-  lazy val valid: Boolean = ids.size == emails.size
-}
+  type ReplyTo = ActorRef[StatusReply[User.Response]]
+  type ReplyListTo = ActorRef[StatusReply[List[User.Response]]]
+  type ReplyTokenTo = ActorRef[StatusReply[OAuthToken]]
+  type ReplySessionTo = ActorRef[Option[UserSession]]
+  type ReplyAnyTo = ActorRef[StatusReply[Any]]
 
-final case class OAuthToken(access_token: String, token_type: String = "bearer", expires_in: Int = 7200) extends Response
-
-final case class UserSession(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2), user: User) {
-  lazy val asOAuthToken: OAuthToken = OAuthToken(token)
-}
-
-final case class State(
-  users: Users = Users(),
-  sessions: Set[UserSession] = HashSet.empty,
-  entries: Set[Entry] = HashSet.empty
-) {
-  def findUser(email: String): Option[User] = users.find(email)
-  def findUser(id: ULID): Option[User] = users.find(id).map(u => u.copy(entries = findEntries(u.id)))
-  def findUsers(): List[User] = users.ids.values.map(u => u.copy(entries = findEntries(u.id))).toList
-
-  def save(u: User): State =  this.copy(users = users.save(u))
-  def deleteUser(id: ULID): State = this.copy(users = users.remove(id), sessions = sessions.filterNot(_.id == id))
-
-  def login(u: User, expires: LocalDateTime): State = this.copy(sessions = sessions + u.asSession(expires))
-  def authorize(token: String): Option[UserSession] = sessions.find(us => us.token == token && us.expires.isAfter(now))
-  def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id == id && us.expires.isAfter(now))
-  def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id == id))
-
-  def save(e: Entry): State = this.copy(entries = entries + e)
-  def findEntries(id: ULID): Seq[Entry] = entries.filter(_.owner == id).toSeq
-}
-
-
-final case class RequestError(message: String)
-
-final case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[_]) {
-
-  implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
-  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
-
-  import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
-
-  implicit val ec: ExecutionContextExecutor = system.executionContext
-  implicit val timeout: Timeout = 3.seconds
-
-  private def respond(sc: StatusCode, body: String) =
-    complete(HttpResponse(sc, entity = HttpEntity(ContentTypes.`application/json`, body)))
-
-  private val badRequest = complete(StatusCodes.BadRequest)
-
-  private def replier(fut: Future[StatusReply[Response.User]], sc: StatusCode) =
-    onSuccess(fut) {
-      case sur: StatusReply[Response.User] if sur.isSuccess => respond(sc, sur.getValue.asJson.toString())
-      case sur: StatusReply[Response.User] => respond(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson.toString())
-      case _ => badRequest
-    }
-
-  private def repliers(fut: Future[StatusReply[List[Response.User]]], sc: StatusCode) =
-    onSuccess(fut) {
-      case sur: StatusReply[List[Response.User]] if sur.isSuccess => respond(sc, sur.getValue.asJson.toString())
-      case sur: StatusReply[List[Response.User]] => respond(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson.toString())
-      case _ => badRequest
-    }
-
-  private val authenticator: AsyncAuthenticator[UserSession] = {
-    case Credentials.Provided(token) => handlers.ask(Command.Authenticate(token, _))
-    case _ => Future.successful(None)
+  case class Post(name: String, email: String, password: String, born: LocalDate) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.apply(
+      validate(nameRule(name), name, "name"),
+      validate(emailRule(email), email, "email"),
+      validate(passwordRule(password), password, "password"),
+      validate(bornRule(born), born, "born")
+    ).flatten
+    def asCmd(replyTo: ReplyTo): Create = Create(ULID.newULID, Encode.forHtml(name), email, hash(password), born, replyTo)
+  }
+  case class Put(id: ULID, name: String, password: String, born: LocalDate) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.apply(
+      validate(nameRule(name), name, "name"),
+      validate(passwordRule(password), password, "password"),
+      validate(bornRule(born), born, "born")
+    ).flatten
+    def asCmd(replyTo: ReplyTo): Update = Update(id, name, hash(password), born, replyTo)
+  }
+  case class Delete(email: String) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.apply(validate(emailRule(email), email, "email")).flatten
+    def asCmd(replyTo: ReplyTo): Remove = Remove(email, replyTo)
+  }
+  case class Authenticate(email: String, password: String) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.apply(
+      validate(emailRule(email), email, "email"),
+      validate(passwordRule(password), password, "password")
+    ).flatten
+    def asCmd(replyTo: ReplyTokenTo): Login = Login(email, hash(password), replyTo)
   }
 
-  val pULID: PathMatcher1[ULID] = PathMatcher("""[A-HJKMNP-TV-Z0-9]{26}""".r).map(ULID.fromString)
+  case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, replyTo: ReplyTo) extends Command {
+    lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
+    def asResponse: User.Response = this.into[User.Response].withFieldComputed(_.tasks, _ => Set.empty[Task.Response]).transform
+    def asEvent: Created = this.into[Created].transform
+  }
+  case class Update(id: ULID, name: String, password: String, born: LocalDate, replyTo: ReplyTo) extends Command {
+    def asEvent: Updated = this.into[Updated].transform
+  }
+  case class Remove(email: String, replyTo: ReplyTo) extends Command
 
+  case class Find(id: ULID, replyTo: ReplyTo) extends Command
+  case class All(replyTo: ReplyListTo) extends Command
 
-  val route: Route =
-    pathPrefix("users") {
-      concat(
-        (post & pathEndOrSingleSlash) {
-          entity(as[Request.CreateUser]) { rcu =>
-            validated(rcu, rcu.rules) { valid =>
-              replier(handlers.ask(valid.asCmd), StatusCodes.Created)
-            }
-          }
-        },
-        put {
-          authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
-            entity(as[Request.UpdateUser]) { ruu =>
-              validated(ruu, ruu.rules) { valid =>
-                replier(handlers.ask(valid.asCmd), StatusCodes.OK)
-              }
-            }
-          }
-        },
-        delete {
-          authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
-            entity(as[Request.DeleteUser]) { rdu =>
-              validated(rdu, rdu.rules) { valid =>
-                replier(handlers.ask(valid.asCmd), StatusCodes.Accepted)
-              }
-            }
-          }
-        },
-        (get & path(pULID)) { id => replier(handlers.ask(Command.FindUser(id, _)), StatusCodes.OK) },
-        (get & pathEndOrSingleSlash) { repliers(handlers.ask(Command.FindUsers), StatusCodes.OK) },
-        (post & path("login")) {
-          entity(as[Request.Login]) { rl =>
-            validated(rl, rl.rules) { valid =>
-              onSuccess(handlers.ask(valid.asCmd)) {
-                case ss: StatusReply[OAuthToken] if ss.isSuccess => respond(StatusCodes.OK, ss.getValue.asJson.toString())
-                case ss: StatusReply[_] => respond(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson.toString())
-                case _ => badRequest
-              }
-            }
-          }
-        },
-        (put & path("logout")) {
-          authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-            onSuccess(handlers.ask(ref => Command.Logout(us.token, ref))) {
-              case sr: StatusReply[_] if sr.isSuccess => complete(StatusCodes.OK)
-              case _ => complete(StatusCodes.BadRequest)
-            }
-          }
-        }
-      )
-    }
+  case class Login(email: String, password: String, replyTo: ReplyTokenTo) extends Command
+  case class Authorize(token: String, replyTo: ReplySessionTo) extends Command
+  case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
+
+  case class Created(id: ULID, name: String, email: String, password: String, born: LocalDate) extends Event {
+    def asEntity: User = this.into[User].transform
+  }
+  case class Updated(id: ULID, name: String, password: String, born: LocalDate) extends Event
+  case class Removed(id: ULID) extends Event
+
+  case class LoggedIn(id: ULID, expires: LocalDateTime = now.plusHours(2)) extends Event
+  case class LoggedOut(id: ULID) extends Event
+
+  case class Response(id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, tasks: Set[Task.Response]) extends Respons
 }

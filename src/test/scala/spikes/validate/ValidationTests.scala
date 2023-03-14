@@ -1,38 +1,48 @@
 package spikes.validate
 
-import akka.http.scaladsl.server.Directives._
-import akka.http.scaladsl.server._
+import akka.http.scaladsl.server.*
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport._
-import io.circe.generic.auto._
+import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import io.circe.generic.auto.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.validate.Validation.validated
+import spikes.model.Request
+import spikes.validate.Validation.{FieldErrorInfo, ModelValidationRejection, validated}
+
+import java.time.LocalDate
 
 
 class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
-  case class Book(title: String, author: String, pages: Int)
+  case class Book(title: String, author: String, pages: Int) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set(
+      Validation.validate(titleRule(title), title, "title"),
+      if (author.length > 3) None else Some(FieldErrorInfo("author", "author must be longer than 3")),
+      if (pages < 11) Some(FieldErrorInfo("pages", "page count must be greater than 10")) else None,
+    ).flatten
+  }
 
-  val titleRule: FieldRule[String] = FieldRule("title", (_: String).nonEmpty, "title cannot be empty")
-  val authorRule: FieldRule[String] = FieldRule("author", (_: String).length > 3, "author must be longer than 3")
-  val pagesRule: FieldRule[Int] = FieldRule("pages", (_: Int) > 10, "page count must be greater than 10")
-  val failRule: FieldRule[String] = FieldRule("thingy", (_: String) == "oink", "fail")
-  val rules: Set[FieldRule[Int with String]] = Set(titleRule, authorRule, pagesRule)
+  case class Improved(title: String, name: String, when: LocalDate) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.apply(
+      Validation.validate(titleRule(title), title, "title"),
+      Validation.validate(nameRule(name), name, "name"),
+      Validation.validate(bornRule(when), when, "when")
+    ).flatten
+  }
 
-  val routes: Route =  {
+  case class Account(name: String, password: String) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.apply(
+      Validation.validate(nameRule(name), name, "name"),
+      Validation.validate(passwordRule(password), password, "password")
+    ).flatten
+  }
+
+  val routes: Route = {
     pathPrefix("books") {
       post {
         entity(as[Book]) { book =>
-          validated(book, rules) { _ =>
+          validated(book) { _ =>
             complete("ok")
-          }
-        }
-      } ~ {
-        put {
-          entity(as[Book]) { book =>
-            validated(book, Set(failRule)) { _ =>
-              complete("ok")
-            }
           }
         }
       }
@@ -42,16 +52,26 @@ class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest 
   "Invalid Book" should "return model validation rejection set" in {
     Post("/books", Book("", "", 5)) ~> routes ~> check {
       assert(rejection === ModelValidationRejection(Set(
-        FieldErrorInfo("title", "title cannot be empty"),
+        FieldErrorInfo("title", "\"\" is not a valid title"),
         FieldErrorInfo("author", "author must be longer than 3"),
         FieldErrorInfo("pages", "page count must be greater than 10")
       )))
     }
   }
 
-  "Valid Book with invalid rule" should "reject validation" in {
-    Put("/books", Book("Nice book", "Scott Tiger", 42)) ~> routes ~> check {
-      assert(rejection === ValidationRejection("No such field for validation: thingy"))
-    }
+  "Improved" should "validate" in {
+    val when = LocalDate.now.minusYears(23)
+
+    Improved("title", "name", when).validated should have size 0
+    Improved("", "name", when).validated should have size 1
+    Improved("", "", when).validated should have size 2
+    Improved("", "", LocalDate.now).validated should have size 3
+
+    Improved("title", "Howdy 2", when).validated should have size 1
+  }
+
+  "Password" should "validate" in {
+    Account("name", "Welkom123!").validated should have size 0
+    Account("nämé", "WasDah5#$").validated should have size 0
   }
 }

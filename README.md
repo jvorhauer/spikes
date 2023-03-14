@@ -3,6 +3,9 @@
 Some spike stuff in preparation of the final solution to the Note/Blog/Bookmark product that will be the backend for 
 one or more Miruvor SaaS offerings.
 
+[![CodeCov](https://codecov.io/gh/jvorhauer/spikes/branch/main/graph/badge.svg?token=YVnjWS1wc8)](https://codecov.io/gh/jvorhauer/spikes)
+[![GitHub Actions](https://github.com/jvorhauer/spikes/actions/workflows/test.yaml/badge.svg)](https://github.com/jvorhauer/spikes/actions/workflows/test.yaml)
+
 ## Event Sourced
 
 Request -> Command -> Event -> Entity -> Response
@@ -19,13 +22,15 @@ Queries are defined later and return a response of the required entity or a list
 
 ## Tech Stack
 
-* Akka Typed
-* Akka http
-* Akka Typed persistence
-  * * Jackson for Cbor serialization
-  * * Cassandra for Akka persistence
-* ULIDs for unique, sortable IDs
-* Circe for http/json stuff via Heiko's lib
+* [Akka Typed](https://doc.akka.io/docs/akka/current/typed/index.html)
+* [Akka http](https://doc.akka.io/docs/akka-http/current/index.html)
+  * [Circe](https://circe.github.io/circe/) for http/json stuff via [Heiko's lib](https://github.com/hseeberger/akka-http-json)
+* [Akka Typed persistence](https://doc.akka.io/docs/akka/current/typed/persistence.html) for Event Sourcing
+  * [Kryo](https://github.com/altoo-ag/akka-kryo-serialization) for serialization
+  * [Cassandra for Akka persistence](https://doc.akka.io/docs/akka-persistence-cassandra/current/index.html)
+* [ULIDs](https://wvlet.org/airframe/docs/airframe-ulid) for unique, sortable IDs
+* [Chimney](https://scalalandio.github.io/chimney/) for case class transformations
+* [Scalactic](https://www.javadoc.io/doc/org.scalactic/scalactic_2.13/latest/org/scalactic/index.html) for triple equals with type safety  
 
 See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/akka-guide/microservices-tutorial/index.html)
 
@@ -42,6 +47,7 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [Akka http OAuth2](https://www.jannikarndt.de/blog/2018/10/oauth2-akka-http/)
 * [AirFrame ULID](https://wvlet.org/airframe/docs/airframe-ulid)
 * [Circe and ULID](https://circe.github.io/circe/codecs/custom-codecs.html)
+* [Complete Example](https://blog.rockthejvm.com/akka-cassandra-project/)
 
 ### Infrastructure
 
@@ -65,7 +71,9 @@ other external systems is not included yet.
 
 * [GitHub project](https://github.com/jvorhauer/spikes)
 * [sbt release](https://github.com/sbt/sbt-release)
-* [sbt-jib](https://index.scala-lang.org/sbt-jib/sbt-jib) and [jib](https://github.com/GoogleContainerTools/jib/tree/master/jib-cli#supported-commands)
+* [sbt-jib](https://index.scala-lang.org/sbt-jib/sbt-jib) / [jib](https://github.com/GoogleContainerTools/jib/tree/master/jib-cli#supported-commands)
+* [ScalaTest](https://www.scalatest.org/user_guide)
+* [SCoverage](https://github.com/scoverage/sbt-scoverage) ==> [Report](target/scala-2.13/scoverage-report/index.html)
 
 Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
 focus and cleaner process. Also update this document when applicable.

@@ -8,11 +8,10 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives.handleRejections
 import akka.http.scaladsl.server.{Directives, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
+import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
-import com.typesafe.config.ConfigFactory
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
 import spikes.behavior.{Handlers, TestUser}
@@ -25,7 +24,7 @@ import java.time.LocalDateTime
 import java.util.UUID
 import scala.util.Try
 
-class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
+class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }

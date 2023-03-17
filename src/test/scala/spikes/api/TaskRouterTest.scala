@@ -8,7 +8,6 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives.handleRejections
 import akka.http.scaladsl.server.{Directives, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
@@ -21,10 +20,9 @@ import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
-import java.util.UUID
 import scala.util.Try
 
-class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
+class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -32,24 +30,14 @@ class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Task
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
-  val testKit: ActorTestKit = ActorTestKit(
-    ConfigFactory.parseString(
-      s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
-          akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
-          akka.persistence.snapshot-store.local.dir = "target/snapshot-${UUID.randomUUID()}"
-          akka.loggers = ["akka.event.Logging$$DefaultLogger"]
-          akka.loglevel = DEBUG
-      """
-    )
-  )
-
+  val testKit: ActorTestKit = ActorTestKit(cfg)
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, TaskRouter(handlers).route)
   }
 
   "Create and Update Task" should "return updated Task" in {
-    val up = User.Post("Created", fakeEmail, password, born)
+    val up = User.Post("Created", "task-router@miruvor.nl", password, born)
     var user: Option[User.Response] = None
     var location: String = "-"
     Post("/users", up) ~> Route.seal(route) ~> check {
@@ -101,5 +89,17 @@ class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
       resp.tasks should have size 1
       resp.tasks.head.title should be ("Updated Title")
     }
+
+    Delete("/tasks", Task.Delete(id)) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.OK)
+    }
+
+    Get(location) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.OK)
+      val resp = responseAs[User.Response]
+      resp.tasks should have size 0
+    }
   }
+
+  override def afterAll(): Unit = testKit.shutdownTestKit()
 }

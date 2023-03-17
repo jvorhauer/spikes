@@ -23,7 +23,7 @@ class BookmarkTransformerTests extends AnyFlatSpec with Matchers with ScalatestR
     command.owner should be (owner)
     command.title should be (Encode.forHtml(post.title))
     command.body should be (Encode.forHtml(post.body))
-    command.url should be (Encode.forUriComponent(post.url))
+    command.url should be (post.url)
 
     val event = command.asEvent
     event.title should be (command.title)

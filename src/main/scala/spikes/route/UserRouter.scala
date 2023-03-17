@@ -71,13 +71,19 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
             }
           }
         },
-        (get & path(pULID))(id => replier(handlers.ask(User.Find(id, _)), StatusCodes.OK)),
-        (get & path("me")) {
-          authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-            replier(handlers.ask(User.Find(us.id, _)), StatusCodes.OK)
-          }
+        get {
+          concat(
+            path(pULID) { id =>
+              replier(handlers.ask(User.Find(id, _)), StatusCodes.OK)
+            },
+            path("me") {
+              authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
+                replier(handlers.ask(User.Find(us.id, _)), StatusCodes.OK)
+              }
+            },
+            pathEndOrSingleSlash(repliers(handlers.ask(User.All), StatusCodes.OK))
+          )
         },
-        (get & pathEndOrSingleSlash)(repliers(handlers.ask(User.All), StatusCodes.OK)),
         (post & path("login")) {
           entity(as[User.Authenticate]) {
             validated(_) { ul =>

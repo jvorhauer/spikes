@@ -26,15 +26,27 @@ Content-Type: application/json
 
 > {% client.global.set("authorized", response.body.access_token); %}
 
-### post-entry-for-jurjen
-POST {{ host }}/entries
+### post-task
+POST {{ host }}/tasks
 Content-Type: application/json
 Authorization: Bearer {{ authorized }}
 
 {
   "title": "test with html encoding",
   "body": "Encoded <script> tags should not allow <h1>crap</h1>",
+  "due": "2023-04-01T10:00:00",
   "status": "Blank"
+}
+
+### post-bookmark
+POST {{ host }}/bookmarks
+Content-Type: application/json
+Authorization: Bearer {{ authorized }}
+
+{
+  "url": "http://localhost:8080/users",
+  "title": "test with html encoding",
+  "body": "Encoded <script> tags should not allow <h1>crap</h1>"
 }
 
 ### invalid-name-and-password

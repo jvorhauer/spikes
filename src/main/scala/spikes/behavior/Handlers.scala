@@ -19,7 +19,7 @@ import scala.concurrent.duration.DurationInt
 
 object Handlers {
 
-  private val pid = PersistenceId.of("spikes", "3", "|")
+  private val pid = PersistenceId.of("spikes", "4", "|")
 
   implicit private val graph: ScalaGraph = TinkerGraph.open().asScala()
 

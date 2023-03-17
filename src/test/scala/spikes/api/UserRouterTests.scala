@@ -8,11 +8,9 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
-import org.scalatest.BeforeAndAfterAll
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
 import spikes.behavior.{Handlers, TestUser}
@@ -24,10 +22,9 @@ import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
-import java.util.UUID
 import scala.util.Try
 
-class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with BeforeAndAfterAll with TestUser {
+class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -35,17 +32,8 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status)   // for Task
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
-  val testKit: ActorTestKit = ActorTestKit(
-    ConfigFactory.parseString(
-      s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
-          akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
-          akka.persistence.snapshot-store.local.dir = "target/snapshot-${UUID.randomUUID()}"
-          akka.loggers = ["akka.event.Logging$$DefaultLogger"]
-          akka.loglevel = DEBUG
-      """
-    )
-  )
 
+  val testKit: ActorTestKit = ActorTestKit(cfg)
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     concat(UserRouter(handlers).route, InfoRouter(handlers).route)
@@ -129,7 +117,7 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
     val eeeemail = "create.delete@test.er"
     val rcu = User.Post("CreateAndDelete", eeeemail, password, born)
 
-    var userCount = 0
+    var userCount: Long = 0
     var sessionCount = 0
 
     Get("/info") ~> route ~> check {
@@ -175,10 +163,10 @@ class UsersTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
   }
 
   "Create user, login and logout" should "reset session count" in {
-    val eeeemail = "create.delete@test.er"
+    val eeeemail = "login.logout@test.er"
     val rcu = User.Post("CreateAndDelete", eeeemail, password, born)
 
-    var userCount = 0
+    var userCount: Long = 0
     var sessionCount = 0
 
     Get("/info") ~> route ~> check {

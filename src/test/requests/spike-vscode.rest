@@ -1,0 +1,68 @@
+POST {{host}}/users HTTP/1.1
+Content-Type: application/json
+
+{
+  "name": "Jurjen",
+  "email": "jurjen@vorhauer.nl",
+  "password": "Welkom123!",
+  "born": "1967-04-01"
+}
+
+### GET all users
+GET {{host}}/users HTTP/1.1
+
+
+
+### POST login
+# @name login
+POST {{host}}/users/login
+Content-Type: application/json
+
+{ "email": "jurjen@vorhauer.nl", "password": "Welkom123!" }
+
+###
+
+@authorized = {{login.response.body.access_token}}
+
+
+### GET info
+GET {{host}}/info
+
+
+### POST task
+POST {{host}}/tasks
+Content-Type: application/json
+Authorization: Bearer {{ authorized }}
+
+{
+  "title": "test with html encoding",
+  "body": "Encoded <script> tags should not allow <h1>crap</h1>",
+  "due": "2023-04-01T10:00:00",
+  "status": "ToDo"
+}
+
+
+### invalid-email
+POST {{ host }}/users
+Content-Type: application/json
+
+{
+  "name": "Tester",
+  "email": "weet-niet.het",
+  "password": "Welkom0123!",
+  "born": "2001-11-09"
+}
+
+
+### invalid-name-and-password
+POST {{ host }}/users
+Content-Type: application/json
+
+{
+  "name": "welkom123",
+  "email": "weet@niet.het",
+  "password": "welkom0123!",
+  "born": "2001-11-09"
+}
+
+### End

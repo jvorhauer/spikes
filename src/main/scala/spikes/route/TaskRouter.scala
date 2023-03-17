@@ -4,8 +4,6 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import akka.pattern.StatusReply
-import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.syntax.*
 import spikes.model.*
@@ -19,10 +17,10 @@ case class TaskRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
-  private def replier(fut: Future[StatusReply[Task.Response]], sc: StatusCode) =
+  private def replier(fut: Future[Task.Reply], sc: StatusCode) =
     onSuccess(fut) {
-      case srre: StatusReply[Task.Response] if srre.isSuccess => respond(sc, srre.getValue.asJson.toString())
-      case srre: StatusReply[Task.Response] => respond(StatusCodes.Conflict, RequestError(srre.getError.getMessage).asJson.toString())
+      case srre: Task.Reply if srre.isSuccess => complete(sc, srre.getValue.asJson)
+      case srre: Task.Reply => complete(StatusCodes.Conflict, RequestError(srre.getError.getMessage).asJson)
       case _ => badRequest
     }
 
@@ -49,9 +47,9 @@ case class TaskRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
             }
           },
           delete {
-            authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
+            authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
               entity(as[Task.Delete]) { rdt =>
-                replier(handlers.ask(rdt.asCmd(us.id, _)), StatusCodes.OK)
+                replier(handlers.ask(rdt.asCmd(_)), StatusCodes.OK)
               }
             }
           }

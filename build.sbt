@@ -1,12 +1,17 @@
 import ReleaseTransformations.*
 
-ThisBuild / scalaVersion := "2.13.10"
-ThisBuild / organization := "nl.miruvor"
+ThisBuild / scalaVersion           := "2.13.10"
+ThisBuild / organization           := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
-ThisBuild / semanticdbEnabled := true
-ThisBuild / semanticdbVersion := scalafixSemanticdb.revision
+
+ThisBuild / semanticdbEnabled          := true
+ThisBuild / semanticdbVersion          := scalafixSemanticdb.revision
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
+
 ThisBuild / coverageEnabled := true
+
+Compile / compileOrder := CompileOrder.JavaThenScala
+Test / compileOrder    := CompileOrder.JavaThenScala
 
 lazy val root = (project in file("."))
   .settings(
@@ -44,11 +49,11 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"   %% "akka-stream-testkit"      % "2.7.0",
       "com.typesafe.akka"   %% "akka-persistence-testkit" % "2.7.0",
       "com.typesafe.akka"   %% "akka-http-testkit"        % "10.5.0",
-      "net.datafaker"       %  "datafaker"                % "1.8.0",
+      "net.datafaker"       %  "datafaker"                % "1.8.1",
       "com.danielasfregola" %% "random-data-generator"    % "2.9",
     ).map(_ % "test") ++ Seq(
       "io.scalaland"           %% "chimney"                       % "0.7.1",
-      "ch.qos.logback"         %  "logback-classic"               % "1.4.5",
+      "ch.qos.logback"         %  "logback-classic"               % "1.4.6",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
       "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.3.0",
       "org.scala-lang.modules" %% "scala-collection-contrib"      % "0.3.0",
@@ -59,6 +64,9 @@ lazy val root = (project in file("."))
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % "2.6.0",
       "io.kamon" %% "kamon-apm-reporter" % "2.6.0"
+    ) ++ Seq(
+      "com.michaelpollmeier" %% "gremlin-scala"       % "3.5.3.7",
+      "org.apache.tinkerpop" %  "tinkergraph-gremlin" % "3.6.2",
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies, inquireVersions,

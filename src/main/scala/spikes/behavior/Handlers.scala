@@ -1,14 +1,17 @@
 package spikes.behavior
 
+import akka.actor.typed.{ Behavior, PreRestart, SupervisorStrategy }
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{Behavior, PreRestart, SupervisorStrategy}
-import akka.pattern.StatusReply.{error, success}
-import akka.persistence.typed.scaladsl.Effect.{none, persist}
-import akka.persistence.typed.scaladsl.{EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
-import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
+import akka.pattern.StatusReply.{ error, success }
+import akka.persistence.typed.{ PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria }
+import akka.persistence.typed.scaladsl.Effect.{ persist, reply }
+import akka.persistence.typed.scaladsl.{ EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria }
+import gremlin.scala.*
+import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph
 import org.scalactic.TripleEquals.*
-import spikes.model.{Command, Event, State, Task, User, Users, now}
-import spikes.route.InfoRouter.{GetInfo, Info}
+import spikes.model.*
+import spikes.model.now
+import spikes.route.InfoRouter.{ GetInfo, Info }
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.duration.DurationInt
@@ -18,25 +21,27 @@ object Handlers {
 
   private val pid = PersistenceId.of("spikes", "3", "|")
 
-  def apply(state: State = State(Users())): Behavior[Command] = Behaviors.setup { ctx =>
+  implicit private val graph: ScalaGraph = TinkerGraph.open().asScala()
+
+  def apply(state: State = State()): Behavior[Command] = Behaviors.setup { ctx =>
     var recovered = false
 
     val commandHandler: (State, Command) => ReplyEffect[Event, State] = (state, cmd) =>
       cmd match {
         case cu: User.Create =>
           state.findUser(cu.email) match {
-            case Some(_) => none.thenReply(cu.replyTo)(_ => error(s"email ${cu.email} already in use"))
+            case Some(_) => reply(cu.replyTo)(error(s"email ${cu.email} already in use"))
             case None    => persist(cu.asEvent).thenReply(cu.replyTo)(_ => success(cu.asResponse))
           }
         case uu: User.Update =>
           state.findUser(uu.id) match {
             case Some(_) => persist(uu.asEvent).thenReply(uu.replyTo)(us => success(us.findUser(uu.id).get.asResponse))
-            case None    => none.thenReply(uu.replyTo)(_ => error(s"user with id ${uu.id} not found"))
+            case None    => reply(uu.replyTo)(error(s"user with id ${uu.id} not found"))
           }
         case User.Remove(email, replyTo) =>
           state.findUser(email) match {
             case Some(user) => persist(User.Removed(user.id)).thenReply(replyTo)(_ => success(user.asResponse))
-            case None       => none.thenReply(replyTo)(_ => error(s"user with email $email not found"))
+            case None       => reply(replyTo)(error(s"user with email $email not found"))
           }
 
         case User.Login(email, passwd, replyTo) => state.findUser(email) match {
@@ -47,40 +52,53 @@ object Handlers {
                 case None     => error(s"!!!: user[${user.email}] is authenticated but no session found")
               }
             }
-          case _ => none.thenReply(replyTo) { _ => error("invalid credentials") }
+          case _ => reply(replyTo)(error("invalid credentials"))
         }
-        case User.Authorize(token, replyTo) => none.thenReply(replyTo)(_ => state.authorize(token))
+        case User.Authorize(token, replyTo) => reply(replyTo)(state.authorize(token))
         case User.Logout(token, replyTo) => state.authorize(token) match {
           case Some(us) => persist(User.LoggedOut(us.id)).thenReply(replyTo)(_ => success("Yeah"))
-          case None => none.thenReply(replyTo)(_ => error("User was not logged in"))
+          case None => reply(replyTo)(error("User was not logged in"))
         }
 
         case User.Find(id, replyTo) => state.getUserResponse(id) match {
-          case Some(user) => none.thenReply(replyTo)(_ => success(user))
-          case None => none.thenReply(replyTo)(_ => error(s"User $id not found"))
+          case Some(user) => reply(replyTo)(success(user))
+          case None => reply(replyTo)(error(s"User $id not found"))
         }
-        case User.All(replyTo) => none.thenReply(replyTo)(state => success(state.findUsers().map(_.asResponse)))
+        case User.All(replyTo) => reply(replyTo)(success(state.findUsers().map(_.asResponse)))
 
         case tc: Task.Create => state.findUser(tc.owner) match {
           case Some(_) => persist(tc.asEvent).thenReply(tc.replyTo)(_ => success(tc.asResponse))
-          case None => none.thenReply(tc.replyTo)(_ => error(s"Owner ${tc.owner} for new Task not found"))
+          case None => reply(tc.replyTo)(error(s"Owner ${tc.owner} for new Task not found"))
         }
         case tu: Task.Update => state.findTask(tu.id) match {
           case Some(_) => persist(tu.asEvent).thenReply(tu.replyTo)(us => success(us.findTask(tu.id).get.asResponse))
-          case None => none.thenReply(tu.replyTo)(_ => error(s"Task ${tu.id} not found for update"))
+          case None => reply(tu.replyTo)(error(s"Task ${tu.id} not found for update"))
         }
-        case tr: Task.Remove => state.findTask(tr.id) match {
-          case Some(t) => persist(tr.asEvent).thenReply(tr.replyTo)(_ => success(t.asResponse))
-          case None => none.thenReply(tr.replyTo)(_ => error(s"Task ${tr.id} not found for deletion"))
+        case Task.Remove(id, replyTo) => state.findTask(id) match {
+          case Some(t) => persist(Task.Removed(id)).thenReply(replyTo)(_ => success(t.asResponse))
+          case None => reply(replyTo)(error(s"Task $id not found for deletion"))
+        }
+
+        case bc: Bookmark.Create => state.findUser(bc.owner) match {
+          case Some(_) => persist(bc.asEvent).thenReply(bc.replyTo)(_ => success(bc.asResponse))
+          case None => reply(bc.replyTo)(error(s"Owner ${bc.owner} for new Bookmark not found"))
+        }
+        case bu: Bookmark.Update => state.findBookmark(bu.id) match {
+          case Some(bm) => persist(bu.asEvent).thenReply(bu.replyTo)(us => success(us.findBookmark(bu.id).get.asResponse))
+          case None => reply(bu.replyTo)(error(s"Bookmark ${bu.id} not found for update"))
+        }
+        case Bookmark.Remove(id, replyTo) => state.findBookmark(id) match {
+          case Some(bm) => persist(Bookmark.Removed(id)).thenReply(replyTo)(_ => success(bm.asResponse))
+          case None => reply(replyTo)(error(s"Bookmark $id not found for deletion"))
         }
 
         case Reaper.Reap(replyTo) =>
           state.sessions.count(_.expires.isBefore(now)) match {
-            case 0 => none.thenReply(replyTo)(_ => Reaper.Done)
+            case 0 => reply(replyTo)(Reaper.Done)
             case count => persist(Reaper.Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => Reaper.Done)
           }
 
-        case GetInfo(replyTo) => none.thenReply(replyTo)(state => success(Info(state.users.size, state.sessions.size, state.tasks.size, recovered)))
+        case GetInfo(replyTo) => reply(replyTo)(success(Info(state.userCount, state.sessions.size, state.taskCount, state.bookmarkCount, recovered)))
       }
 
     val eventHandler: (State, Event) => State = (state, evt) =>
@@ -94,7 +112,11 @@ object Handlers {
 
         case tc: Task.Created => state.save(tc.asTask)
         case tu: Task.Updated => state.save(tu.asTask)
-        case tr: Task.Removed => state.remTask(tr.id)
+        case tr: Task.Removed => state.deleteTask(tr.id)
+
+        case bc: Bookmark.Created => state.save(bc.asBookmark)
+        case bu: Bookmark.Updated => state.save(bu.asBookmark)
+        case br: Bookmark.Removed => state.deleteBookmark(br.id)
 
         case _: Reaper.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(now)))
       }
@@ -108,7 +130,7 @@ object Handlers {
       .receiveSignal {
         case (_, PreRestart) => ctx.log.info("pre-restart signal received")
         case (state, RecoveryCompleted) =>
-          ctx.log.info(s"recovered: users: ${state.users.size}, sessions: ${state.sessions.size}, tasks: ${state.tasks.size}")
+          ctx.log.info(s"recovered: users: ${state.userCount}, sessions: ${state.sessions.size}, tasks: ${state.taskCount}, bookmarks: ${state.bookmarkCount}")
           recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
       }

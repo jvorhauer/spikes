@@ -1,7 +1,7 @@
 package spikes.route
 
 import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
+import akka.http.scaladsl.model.StatusCodes.{BadRequest, OK}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
@@ -21,29 +21,27 @@ case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
 
   val route: Route = concat(
     (path("info") & get) {
-      onSuccess(handlers.ask(GetInfo)) {
-        case sr: StatusReply[Info] =>
-          complete(HttpResponse(StatusCodes.OK, entity = HttpEntity(ContentTypes.`application/json`, sr.getValue.asJson.toString())))
-        case _ => complete(StatusCodes.BadRequest)
-      }
+      complete(handlers.ask(GetInfo).map {
+        case info: StatusReply[Info] if info.isSuccess => OK -> info.getValue.asJson
+        case _                                         => BadRequest -> None.asJson
+      })
     },
     (path("liveness") & get) {
-      onSuccess(handlers.ask(GetInfo)) {
-        case info: StatusReply[Info] if info.isSuccess && info.getValue.recovered => complete(StatusCodes.OK)
-        case _ => complete(StatusCodes.ServiceUnavailable)
-      }
+      complete(handlers.ask(GetInfo).map {
+        case info: StatusReply[Info] if info.isSuccess && info.getValue.recovered => OK -> info.getValue.asJson
+        case _                                                                    => BadRequest -> None.asJson
+      })
     },
     (path("readiness") & get) {
-      onSuccess(handlers.ask(GetInfo)) {
-        case info: StatusReply[Info] if info.isSuccess && info.getValue.recovered => complete(StatusCodes.OK)
-        case _ => complete(StatusCodes.ServiceUnavailable)
-      }
+      complete(handlers.ask(GetInfo).map {
+        case info: StatusReply[Info] if info.isSuccess && info.getValue.recovered => OK -> info.getValue.asJson
+        case _                                                                    => BadRequest -> None.asJson
+      })
     }
   )
 }
 
 object InfoRouter {
   case class GetInfo(replyTo: ActorRef[StatusReply[Info]]) extends Command
-
-  case class Info(users: Int, sessions: Int, tasks: Int, recovered: Boolean = false) extends Respons
+  case class Info(users: Long, sessions: Int, tasks: Long, bookmarks: Long, recovered: Boolean = false) extends Respons
 }

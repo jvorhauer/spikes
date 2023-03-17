@@ -3,29 +3,18 @@ package spikes.behavior
 import akka.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
-import com.typesafe.config.ConfigFactory
 import spikes.SpikesTest
 import spikes.model.*
 import spikes.route.InfoRouter
 
 import java.time.{LocalDate, LocalDateTime}
-import java.util.UUID
 
 class HandlersTests extends SpikesTest {
 
   private val born = LocalDate.now().minusYears(21)
   private val password = "Welkom123!"
 
-  val testKit: ActorTestKit = ActorTestKit(
-    ConfigFactory.parseString(
-      s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
-          akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
-          akka.persistence.snapshot-store.local.dir = "target/snapshot-${UUID.randomUUID()}"
-          akka.loggers = ["akka.event.Logging$$DefaultLogger"]
-          akka.loglevel = DEBUG
-      """
-    )
-  )
+  val testKit: ActorTestKit = ActorTestKit(cfg)
   val probe: TestProbe[StatusReply[User.Response]] = testKit.createTestProbe[StatusReply[User.Response]]("probe")
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "handlers-test")
 
@@ -120,6 +109,48 @@ class HandlersTests extends SpikesTest {
     res3.isSuccess should be(true)
     res3.getValue.tasks should have size 1
     res3.getValue.tasks.head.title should be("Updated Title")
+
+    handlers ! Task.Remove(res1.getValue.tasks.head.id, prb.ref)
+    prb.receiveMessage().isSuccess should be (true)
+
+    handlers ! User.Find(id, probe.ref)
+    val res4 = probe.receiveMessage()
+    res4.isSuccess should be(true)
+    res4.getValue.tasks should have size 0
+  }
+
+  "A Bookmark" should "CRUD" in {
+    val id = next
+    handlers ! User.Create(id, s"test-task-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    probe.receiveMessage().isSuccess should be (true)
+
+    val prb = testKit.createTestProbe[StatusReply[Bookmark.Response]]()
+    handlers ! Bookmark.Create(next, id, "http://localhost:8080/users", "Test Title", "Test Body", prb.ref)
+    prb.receiveMessage().isSuccess should be (true)
+
+    handlers ! User.Find(id, probe.ref)
+    val res1 = probe.receiveMessage()
+    res1.isSuccess should be (true)
+    res1.getValue.bookmarks should have size 1
+    res1.getValue.bookmarks.head.title should be ("Test Title")
+
+    handlers ! Bookmark.Update(res1.getValue.bookmarks.head.id, id, "http://updated:9090/bookmarks", "Updated Title", "Updated Body", prb.ref)
+    prb.receiveMessage().isSuccess should be (true)
+
+    handlers ! User.Find(id, probe.ref)
+    val res2 = probe.receiveMessage()
+    res2.isSuccess should be (true)
+    res2.getValue.bookmarks should have size 1
+    res2.getValue.bookmarks.head.title should be ("Updated Title")
+
+    handlers ! Bookmark.Remove(res1.getValue.bookmarks.head.id, prb.ref)
+    prb.receiveMessage().isSuccess should be (true)
+
+    handlers ! User.Find(id, probe.ref)
+    val res3 = probe.receiveMessage()
+    res3.isSuccess should be (true)
+    res3.getValue.bookmarks should have size 0
+
   }
 
 

@@ -8,7 +8,6 @@ import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives.handleRejections
 import akka.http.scaladsl.server.{Directives, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
-import com.typesafe.config.ConfigFactory
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
@@ -21,10 +20,9 @@ import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
-import java.util.UUID
 import scala.util.Try
 
-class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
+class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -32,17 +30,7 @@ class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Task
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
-  val testKit: ActorTestKit = ActorTestKit(
-    ConfigFactory.parseString(
-      s"""akka.persistence.journal.plugin = "akka.persistence.journal.inmem"
-          akka.persistence.snapshot-store.plugin = "akka.persistence.snapshot-store.local"
-          akka.persistence.snapshot-store.local.dir = "target/snapshot-${UUID.randomUUID()}"
-          akka.loggers = ["akka.event.Logging$$DefaultLogger"]
-          akka.loglevel = DEBUG
-      """
-    )
-  )
-
+  val testKit: ActorTestKit = ActorTestKit(cfg)
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, TaskRouter(handlers).route)
@@ -102,4 +90,6 @@ class TasksTests extends SpikesTest with ScalaFutures with ScalatestRouteTest wi
       resp.tasks.head.title should be ("Updated Title")
     }
   }
+
+  override def afterAll(): Unit = testKit.shutdownTestKit()
 }

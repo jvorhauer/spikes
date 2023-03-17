@@ -1,32 +1,74 @@
 package spikes.model
 
+import gremlin.scala.*
 import org.scalactic.TripleEquals.*
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
 import scala.collection.immutable.HashSet
 
-case class State(
-  users: Users               = Users(),
-  sessions: Set[UserSession] = HashSet.empty,
-  tasks: Tasks               = Tasks()
-) {
-  def save(u: User): State =  this.copy(users = users.save(u))
-  def findUser(email: String): Option[User] = users.find(email)
-  def findUser(id: ULID): Option[User] = users.find(id)
-  def findUsers(): List[User] = users.ids.values.toList
-  def deleteUser(id: ULID): State = this.copy(users = users.remove(id), sessions = sessions.filterNot(_.id === id))
-  def getUserResponse(id: ULID): Option[User.Response] = findUser(id)
-    .map(_.asResponse)
-    .map(ur => ur.copy(tasks = findTasks(ur.id).map(_.asResponse)))
+case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph: ScalaGraph) {
+  private def trav   = graph.traversal.V()
+  private def userVs = trav.hasLabel[User]()
+  private def taskVs = trav.hasLabel[Task]()
+  private def bmVs   = trav.hasLabel[Bookmark]()
+
+  private val emailKey = Key[String]("email")
+  private val idKey = Key[ULID]("id")
+
+  def save(u: User): State =  {
+    findUser(u.id) match {
+      case Some(user) => user.vertex.foreach(_.updateAs[User](_ => u))
+      case None => graph.addVertex(u)
+    }
+    this
+  }
+  def findUser(email: String): Option[User] = userVs.has(emailKey, email).headOption().map(_.asScala().toCC[User])
+  def findUser(id: ULID): Option[User] = userVs.has(idKey, id).headOption().map(_.asScala().toCC[User])
+  def findUsers(): List[User] = userVs.toList().map(_.asScala().toCC[User])
+  def deleteUser(id: ULID): State = {
+    userVs.has(idKey, id).drop().iterate()
+    this.copy(sessions = sessions.filterNot(_.id === id))
+  }
+  def getUserResponse(id: ULID): Option[User.Response] = findUser(id).map(_.asResponse)
+  def userCount: Long = trav.hasLabel[User]().count().head()
 
   def login(u: User, expires: LocalDateTime): State = this.copy(sessions = sessions + u.asSession(expires))
   def authorize(token: String): Option[UserSession] = sessions.find(us => us.token === token && us.expires.isAfter(now))
   def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id === id && us.expires.isAfter(now))
   def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id === id))
 
-  def save(t: Task): State = this.copy(tasks = tasks.save(t))
-  def findTask(id: ULID): Option[Task] = tasks.find(id)
-  def findTasks(owner: ULID): Set[Task] = tasks.mine(owner)
-  def remTask(id: ULID): State = findTask(id).map(_ => this.copy(tasks = tasks.remove(id))).getOrElse(this)
+  def save(t: Task): State = {
+    findTask(t.id) match {
+      case Some(task) => task.vertex.foreach(_.updateAs[Task](_ => t))
+      case None => {
+        val vtask = graph.addVertex(t)
+        findUser(t.owner).foreach(_.vertex.foreach(_.addEdge("created", vtask)))
+      }
+    }
+    this
+  }
+  def findTask(id: ULID): Option[Task] = taskVs.has(idKey, id).headOption().map(_.asScala().toCC[Task])
+  def deleteTask(id: ULID): State = {
+    taskVs.has(idKey, id).drop().iterate()
+    this
+  }
+  def taskCount: Long = taskVs.count().head()
+
+  def save(b: Bookmark): State = {
+    findBookmark(b.id) match {
+      case Some(bookmark) => bookmark.vertex.foreach(_.updateAs[Bookmark](_ => b))
+      case None => {
+        val vbm = graph.addVertex(b)
+        findUser(b.owner).foreach(_.vertex.foreach(_.addEdge("created", vbm)))
+      }
+    }
+    this
+  }
+  def findBookmark(id: ULID): Option[Bookmark] = bmVs.has(idKey, id).headOption().map(_.asScala().toCC[Bookmark])
+  def deleteBookmark(id: ULID): State = {
+    bmVs.has(idKey, id).drop().iterate()
+    this
+  }
+  def bookmarkCount: Long = bmVs.count().head()
 }

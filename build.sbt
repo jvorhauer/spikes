@@ -49,7 +49,6 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"   %% "akka-stream-testkit"      % "2.7.0",
       "com.typesafe.akka"   %% "akka-persistence-testkit" % "2.7.0",
       "com.typesafe.akka"   %% "akka-http-testkit"        % "10.5.0",
-      "net.datafaker"       %  "datafaker"                % "1.8.1",
       "com.danielasfregola" %% "random-data-generator"    % "2.9",
     ).map(_ % "test") ++ Seq(
       "io.scalaland"           %% "chimney"                       % "0.7.1",

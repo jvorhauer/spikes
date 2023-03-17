@@ -74,7 +74,7 @@ class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
   }
 
   "Create and Update User" should "return updated User" in {
-    val rcu = User.Post("Created", fakeEmail, password, born)
+    val rcu = User.Post("Created", "user-router@miruvor.nl", password, born)
     var user: Option[User.Response] = None
     var location: String = "-"
     Post("/users", rcu) ~> Route.seal(route) ~> check {

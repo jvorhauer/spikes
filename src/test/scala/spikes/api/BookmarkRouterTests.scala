@@ -36,7 +36,7 @@ class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRou
   }
 
   "A Bookmark" should "be cruddable" in {
-    val up = User.Post("Created for Bookmark", fakeEmail, password, born)
+    val up = User.Post("Created for Bookmark", "bookamrk-router@miruvor.nl", password, born)
     var user: Option[User.Response] = None
     var location: String = "-"
     Post("/users", up) ~> Route.seal(route) ~> check {
@@ -52,7 +52,7 @@ class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRou
       responseAs[User.Response].name shouldEqual "Created for Bookmark"
     }
 
-    val rl = User.Authenticate(user.get.email, password)
+    val rl = User.Authenticate(up.email, password)
     var resp: Option[OAuthToken] = None
     Post("/users/login", rl) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK

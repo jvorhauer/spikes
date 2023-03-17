@@ -37,7 +37,7 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
   }
 
   "Create and Update Task" should "return updated Task" in {
-    val up = User.Post("Created", fakeEmail, password, born)
+    val up = User.Post("Created", "task-router@miruvor.nl", password, born)
     var user: Option[User.Response] = None
     var location: String = "-"
     Post("/users", up) ~> Route.seal(route) ~> check {

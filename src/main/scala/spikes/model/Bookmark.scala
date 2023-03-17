@@ -16,7 +16,8 @@ case class Bookmark(id: ULID, owner: ULID, url: String, title: String, body: Str
 
 object Bookmark {
 
-  type ReplyToActor = ActorRef[StatusReply[Bookmark.Response]]
+  type Reply = StatusReply[Bookmark.Response]
+  type ReplyToActor = ActorRef[Reply]
 
   case class Post(url: String, title: String, body: String) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set.apply(
@@ -24,14 +25,14 @@ object Bookmark {
       validate(bodyRule(body), body, "body")
     ).flatten
     lazy val asCmd: (ULID, ReplyToActor) => Create =
-      (owner, replyTo) => Create(next, owner, Encode.forUriComponent(url), Encode.forHtml(title), Encode.forHtml(body), replyTo)
+      (owner, replyTo) => Create(next, owner, url, Encode.forHtml(title), Encode.forHtml(body), replyTo)
   }
-  case class Put(id: ULID, owner: ULID, url: String, title: String, body: String, replyTo: ReplyToActor) extends Request {
+  case class Put(id: ULID, url: String, title: String, body: String) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set.apply(
       validate(titleRule(title), title, "title"),
       validate(bodyRule(body), body, "body")
     ).flatten
-    lazy val asCmd: ReplyToActor => Update = replyTo => Update(id, owner, url, title, body, replyTo)
+    lazy val asCmd: (ULID, ReplyToActor) => Bookmark.Update = (owner, replyTo) => Update(id, owner, url, title, body, replyTo)
   }
   case class Delete(id: ULID) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set.empty

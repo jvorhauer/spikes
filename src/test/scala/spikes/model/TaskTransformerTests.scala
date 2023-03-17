@@ -12,7 +12,7 @@ class TaskTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
   private val testkit = ActorTestKit()
   private val probe = testkit.createTestProbe[StatusReply[Task.Response]]().ref
 
-  "Task.ReqCreate" should "transform into Task.Command" in {
+  "Task.Post" should "transform into Task.Command" in {
     val req = Task.Post("title", "body", now, Status.Blank)
     val id  = ULID.newULID
     val cmd = req.asCmd(id, probe)
@@ -61,7 +61,7 @@ class TaskTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
     resp.status should be (Status.Doing)
   }
 
-  "Task.ReqCreate" should "transform into Task.Response" in {
+  "Task.Post" should "transform into Task.Response" in {
     val req = Task.Post("title", "body", now, Status.Blank)
     val id = ULID.newULID
     val cmd = req.asCmd(id, probe)

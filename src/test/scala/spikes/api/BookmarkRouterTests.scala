@@ -14,15 +14,14 @@ import io.circe.{Decoder, Encoder}
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
 import spikes.behavior.{Handlers, TestUser}
-import spikes.model.{Command, OAuthToken, Status, Task, User, next}
-import spikes.route.{InfoRouter, TaskRouter, UserRouter}
+import spikes.model.{Bookmark, Command, OAuthToken, Status, User, next}
+import spikes.route.{BookmarkRouter, InfoRouter, TaskRouter, UserRouter}
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
-import java.time.LocalDateTime
 import scala.util.Try
 
-class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
+class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
@@ -33,11 +32,11 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
   val testKit: ActorTestKit = ActorTestKit(cfg)
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
-    Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, TaskRouter(handlers).route)
+    Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, TaskRouter(handlers).route, BookmarkRouter(handlers).route)
   }
 
-  "Create and Update Task" should "return updated Task" in {
-    val up = User.Post("Created", fakeEmail, password, born)
+  "A Bookmark" should "be cruddable" in {
+    val up = User.Post("Created for Bookmark", fakeEmail, password, born)
     var user: Option[User.Response] = None
     var location: String = "-"
     Post("/users", up) ~> Route.seal(route) ~> check {
@@ -50,7 +49,7 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
 
     Get(s"/users/${user.get.id}") ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
-      responseAs[User.Response].name shouldEqual "Created"
+      responseAs[User.Response].name shouldEqual "Created for Bookmark"
     }
 
     val rl = User.Authenticate(user.get.email, password)
@@ -62,44 +61,47 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
     resp should not be empty
     val token = resp.get.access_token
 
-    val tp = Task.Post("Test Title", "Test Body", LocalDateTime.now().plusDays(1), Status.New)
-    Post("/tasks", tp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
-      status should be (StatusCodes.Created)
-      responseAs[Task.Response].title should be ("Test Title")
+    val tp = Bookmark.Post("http://localhost:8080/users", "Test Title", "Test Body")
+    Post("/bookmarks", tp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.Created)
+      val res1 = responseAs[Bookmark.Response]
+      res1.title should be ("Test Title")
+      res1.url should be ("http://localhost:8080/users")
+      res1.body should be ("Test Body")
     }
 
     var id: ULID = next
     Get(location) ~> Route.seal(route) ~> check {
-      status should be (StatusCodes.OK)
+      status should be(StatusCodes.OK)
       val resp = responseAs[User.Response]
-      resp.tasks should have size 1
-      id = resp.tasks.head.id
+      resp.bookmarks should have size 1
+      id = resp.bookmarks.head.id
     }
 
-    val tu = Task.Put(id, "Updated Title", "Updated Test Body", LocalDateTime.now().plusDays(3), Status.ToDo)
-    Put("/tasks", tu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+    val bmp = Bookmark.Put(id, "http://updated:9090/bookmarks", "Updated Title", "Updated Body")
+    Put("/bookmarks", bmp) ~> Authorization (OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
-      val resp = responseAs[Task.Response]
-      resp.title should be ("Updated Title")
+      val res1 = responseAs[Bookmark.Response]
+      res1.title should be("Updated Title")
+      res1.url should be("http://updated:9090/bookmarks")
+      res1.body should be("Updated Body")
     }
 
     Get(location) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
       val resp = responseAs[User.Response]
-      resp.tasks should have size 1
-      resp.tasks.head.title should be ("Updated Title")
+      resp.bookmarks should have size 1
+      resp.bookmarks.head.title should be ("Updated Title")
     }
 
-    Delete("/tasks", Task.Delete(id)) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+    Delete("/bookmarks", Bookmark.Delete(id)) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
     }
 
     Get(location) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
       val resp = responseAs[User.Response]
-      resp.tasks should have size 0
+      resp.bookmarks should have size 0
     }
   }
-
-  override def afterAll(): Unit = testKit.shutdownTestKit()
 }

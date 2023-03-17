@@ -29,7 +29,7 @@ case class BookmarkRouter(handlers: ActorRef[Command])(implicit system: ActorSys
       (pathPrefix("bookmarks") & pathEndOrSingleSlash) {
         concat(
           post {
-            authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
+            authenticateOAuth2Async("spikes", authenticator) { us =>
               entity(as[Bookmark.Post]) {
                 validated(_) { rce =>
                   replier(handlers.ask(rce.asCmd(us.id, _)), StatusCodes.Created)
@@ -38,7 +38,7 @@ case class BookmarkRouter(handlers: ActorRef[Command])(implicit system: ActorSys
             }
           },
           put {
-            authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
+            authenticateOAuth2Async("spikes", authenticator) { us =>
               entity(as[Bookmark.Put]) {
                 validated(_) { rue =>
                   replier(handlers.ask(rue.asCmd(us.id, _)), StatusCodes.OK)
@@ -47,7 +47,7 @@ case class BookmarkRouter(handlers: ActorRef[Command])(implicit system: ActorSys
             }
           },
           delete {
-            authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
+            authenticateOAuth2Async("spikes", authenticator) { _ =>
               entity(as[Bookmark.Delete]) { rde =>
                 replier(handlers.ask(rde.asCmd(_)), StatusCodes.OK)
               }

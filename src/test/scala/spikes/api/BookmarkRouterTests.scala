@@ -2,20 +2,20 @@ package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.actor.typed.{ ActorRef, ActorSystem }
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.http.scaladsl.model.headers.{ Authorization, OAuth2BearerToken }
 import akka.http.scaladsl.server.Directives.handleRejections
-import akka.http.scaladsl.server.{Directives, Route}
+import akka.http.scaladsl.server.{ Directives, Route }
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
-import io.circe.{Decoder, Encoder}
+import io.circe.{ Decoder, Encoder }
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
-import spikes.behavior.{Handlers, TestUser}
-import spikes.model.{Bookmark, Command, OAuthToken, Status, User, next}
-import spikes.route.{BookmarkRouter, InfoRouter, TaskRouter, UserRouter}
+import spikes.behavior.{ Handlers, TestUser }
+import spikes.model.{ next, Bookmark, Command, OAuthToken, Status, User }
+import spikes.route.{ BookmarkRouter, InfoRouter, TaskRouter, UserRouter }
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
@@ -24,7 +24,7 @@ import scala.util.Try
 class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
-  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
+  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
   implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Task
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Task
 
@@ -52,9 +52,14 @@ class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRou
       responseAs[User.Response].name shouldEqual "Created for Bookmark"
     }
 
+    Get("/users") ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[List[User.Response]].size should be >= 1
+    }
+
     val rl = User.Authenticate(user.get.email, password)
     var resp: Option[OAuthToken] = None
-    Post("/users/login", rl) ~> Route.seal(route) ~> check {
+    Post("/users/login", rl) ~> route ~> check {
       status shouldEqual StatusCodes.OK
       resp = Some(responseAs[OAuthToken])
     }
@@ -65,9 +70,9 @@ class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRou
     Post("/bookmarks", tp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.Created)
       val res1 = responseAs[Bookmark.Response]
-      res1.title should be ("Test Title")
-      res1.url should be ("http://localhost:8080/users")
-      res1.body should be ("Test Body")
+      res1.title should be("Test Title")
+      res1.url should be("http://localhost:8080/users")
+      res1.body should be("Test Body")
     }
 
     var id: ULID = next
@@ -79,7 +84,7 @@ class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRou
     }
 
     val bmp = Bookmark.Put(id, "http://updated:9090/bookmarks", "Updated Title", "Updated Body")
-    Put("/bookmarks", bmp) ~> Authorization (OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+    Put("/bookmarks", bmp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
       val res1 = responseAs[Bookmark.Response]
       res1.title should be("Updated Title")
@@ -91,7 +96,7 @@ class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRou
       status should be(StatusCodes.OK)
       val resp = responseAs[User.Response]
       resp.bookmarks should have size 1
-      resp.bookmarks.head.title should be ("Updated Title")
+      resp.bookmarks.head.title should be("Updated Title")
     }
 
     Delete("/bookmarks", Bookmark.Delete(id)) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {

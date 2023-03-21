@@ -213,5 +213,16 @@ class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
     }
   }
 
+  "Login with unkown credentials" should "be rejected" in {
+    val ua = User.Authenticate("unknown@nonexiste.nt", "Welkom123!")
+    Post("/users/login", ua) ~> route ~> check {
+      status should be (StatusCodes.BadRequest)
+    }
+
+    Post("/users/login", """{"emai":"misformed@no.no", "password", "Welokm123!"}""") ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.BadRequest)
+    }
+  }
+
   override def afterAll(): Unit = testKit.shutdownTestKit()
 }

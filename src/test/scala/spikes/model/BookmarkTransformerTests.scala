@@ -16,7 +16,6 @@ class BookmarkTransformerTests extends AnyFlatSpec with Matchers with ScalatestR
   "All Post transformations" should "pass on data without corruption" in {
     val owner = ULID.newULID
     val post = Bookmark.Post("https://www.miruvor.nl/index.php", "### == \\! This is a test titlé! ***", "The body can be small enough as long as the validation rule for body and title are the same")
-    testkit.system.log.info(s"bm1: $post")
     post.validated should have size 0
 
     val command = post.asCmd(owner, probe)

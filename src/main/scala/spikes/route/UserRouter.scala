@@ -1,19 +1,21 @@
 package spikes.route
 
-import akka.actor.typed.{ ActorRef, ActorSystem }
+import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.event.{Logging, LoggingAdapter}
 import akka.http.scaladsl.model.*
 import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.server.Directives.*
-import akka.http.scaladsl.server.Route
+import akka.http.scaladsl.server.{Route, RouteResult}
+import akka.http.scaladsl.server.directives.{DebuggingDirectives, LogEntry}
 import akka.pattern.StatusReply
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import io.circe.{ Decoder, Encoder }
+import io.circe.{Decoder, Encoder}
 import spikes.model.*
 import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
-import scala.concurrent.{ ExecutionContextExecutor, Future }
+import scala.concurrent.{ExecutionContextExecutor, Future}
 import scala.util.Try
 
 case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router(handlers) {
@@ -23,6 +25,8 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
   implicit val ec: ExecutionContextExecutor = system.executionContext
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
+
+  private val logger: LoggingAdapter = system.classicSystem.log
 
   private def replier(fut: Future[StatusReply[User.Response]], sc: StatusCode) =
     onSuccess(fut) {
@@ -37,6 +41,11 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
       case sur: StatusReply[List[User.Response]]                  => complete(StatusCodes.Conflict, RequestError(sur.getError.getMessage).asJson)
       case _                                                      => badRequest
     }
+
+  private val rejectionLogger: HttpRequest => RouteResult => Option[LogEntry] = req => {
+    case RouteResult.Rejected(rejections) => Some(LogEntry(s"Request ${req.entity} was rejected:\n$rejections", Logging.ErrorLevel))
+    case RouteResult.Complete(response)   => Some(LogEntry(s"Request ${req.entity} was completed: ${response.status}", Logging.InfoLevel))
+  }
 
   val route: Route =
     pathPrefix("users") {
@@ -85,12 +94,16 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
           )
         },
         (post & path("login")) {
-          entity(as[User.Authenticate]) {
-            validated(_) { ul =>
-              onSuccess(handlers.ask(ul.asCmd)) {
-                case ss: StatusReply[OAuthToken] if ss.isSuccess => complete(StatusCodes.OK, ss.getValue.asJson)
-                case ss: StatusReply[?]                          => complete(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson)
-                case _                                           => badRequest
+          withLog(logger) {
+            DebuggingDirectives.logRequestResult(rejectionLogger) {
+              entity(as[User.Authenticate]) { li =>
+                validated(li) { ul =>
+                  onSuccess(handlers.ask(ul.asCmd)) {
+                    case ss: StatusReply[OAuthToken] if ss.isSuccess => complete(StatusCodes.OK, ss.getValue.asJson)
+                    case ss: StatusReply[?] => complete(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson)
+                    case xx => complete(StatusCodes.BadRequest, RequestError(s"WTF? ${xx}"))
+                  }
+                }
               }
             }
           }

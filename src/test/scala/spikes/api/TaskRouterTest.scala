@@ -2,20 +2,20 @@ package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ActorRef, ActorSystem}
+import akka.actor.typed.{ ActorRef, ActorSystem }
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
+import akka.http.scaladsl.model.headers.{ Authorization, OAuth2BearerToken }
 import akka.http.scaladsl.server.Directives.handleRejections
-import akka.http.scaladsl.server.{Directives, Route}
+import akka.http.scaladsl.server.{ Directives, Route }
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
-import io.circe.{Decoder, Encoder}
+import io.circe.{ Decoder, Encoder }
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
-import spikes.behavior.{Handlers, TestUser}
-import spikes.model.{Command, OAuthToken, Status, Task, User, next}
-import spikes.route.{InfoRouter, TaskRouter, UserRouter}
+import spikes.behavior.{ Handlers, TestUser }
+import spikes.model.{ next, Command, OAuthToken, Status, Task, User }
+import spikes.route.{ InfoRouter, TaskRouter, UserRouter }
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
@@ -25,7 +25,7 @@ import scala.util.Try
 class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
-  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry { str => Try(ULID.fromString(str)) }
+  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
   implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Task
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Task
 
@@ -53,9 +53,14 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
       responseAs[User.Response].name shouldEqual "Created"
     }
 
+    Get("/users") ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[List[User.Response]].size should be >= 1
+    }
+
     val rl = User.Authenticate(user.get.email, password)
     var resp: Option[OAuthToken] = None
-    Post("/users/login", rl) ~> Route.seal(route) ~> check {
+    Post("/users/login", rl) ~> route ~> check {
       status shouldEqual StatusCodes.OK
       resp = Some(responseAs[OAuthToken])
     }
@@ -64,13 +69,13 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
 
     val tp = Task.Post("Test Title", "Test Body", LocalDateTime.now().plusDays(1), Status.New)
     Post("/tasks", tp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
-      status should be (StatusCodes.Created)
-      responseAs[Task.Response].title should be ("Test Title")
+      status should be(StatusCodes.Created)
+      responseAs[Task.Response].title should be("Test Title")
     }
 
     var id: ULID = next
     Get(location) ~> Route.seal(route) ~> check {
-      status should be (StatusCodes.OK)
+      status should be(StatusCodes.OK)
       val resp = responseAs[User.Response]
       resp.tasks should have size 1
       id = resp.tasks.head.id
@@ -80,14 +85,14 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
     Put("/tasks", tu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
       val resp = responseAs[Task.Response]
-      resp.title should be ("Updated Title")
+      resp.title should be("Updated Title")
     }
 
     Get(location) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
       val resp = responseAs[User.Response]
       resp.tasks should have size 1
-      resp.tasks.head.title should be ("Updated Title")
+      resp.tasks.head.title should be("Updated Title")
     }
 
     Delete("/tasks", Task.Delete(id)) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {

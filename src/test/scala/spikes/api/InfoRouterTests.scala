@@ -2,7 +2,7 @@ package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ ActorRef, ActorSystem }
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives.handleRejections
 import akka.http.scaladsl.server.Route
@@ -12,6 +12,7 @@ import io.circe.generic.auto.*
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
 import spikes.behavior.Handlers
+import spikes.build.BuildInfo
 import spikes.model.Command
 import spikes.route.InfoRouter
 import spikes.route.InfoRouter.Info
@@ -34,6 +35,8 @@ class InfoRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
       info.tasks should be >= 0L
       info.bookmarks should be >= 0L
       info.recovered should be(true)
+      info.build should startWith(BuildInfo.version)
+      println(s"build info: ${info.build}")
     }
   }
 

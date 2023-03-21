@@ -7,6 +7,7 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
 import io.circe.generic.auto.*
 import io.circe.syntax.*
+import spikes.build.BuildInfo
 import spikes.model.{Command, Respons}
 
 import scala.concurrent.ExecutionContextExecutor
@@ -43,5 +44,12 @@ case class InfoRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
 
 object InfoRouter {
   case class GetInfo(replyTo: ActorRef[StatusReply[Info]]) extends Command
-  case class Info(users: Long, sessions: Int, tasks: Long, bookmarks: Long, recovered: Boolean = false) extends Respons
+  case class Info(
+      users: Long,
+      sessions: Int,
+      tasks: Long,
+      bookmarks: Long,
+      recovered: Boolean = false,
+      build: String = s"${BuildInfo.version} @ ${BuildInfo.buildTime} (${BuildInfo.scalaVersion})"
+  ) extends Respons
 }

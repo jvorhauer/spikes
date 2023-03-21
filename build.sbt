@@ -55,7 +55,7 @@ lazy val root = (project in file("."))
       "io.scalaland"           %% "chimney"                       % "0.7.1",
       "ch.qos.logback"         %  "logback-classic"               % "1.4.6",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.3.0",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.3.2",
       "org.scala-lang.modules" %% "scala-collection-contrib"      % "0.3.0",
       "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
       "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
@@ -80,5 +80,9 @@ lazy val root = (project in file("."))
     jibTcpPorts := List(8080),
     jibUseCurrentTimestamp := true,
     jibName := "spikes",
-    jibTargetImageCredentialHelper := Some("docker-credential-osxkeychain")
+    jibTargetImageCredentialHelper := Some("docker-credential-osxkeychain"),
+  )
+  .enablePlugins(BuildInfoPlugin).settings(
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, BuildInfoKey.action("buildTime") { java.time.LocalDateTime.now() }),
+    buildInfoPackage := "spikes.build"
   )

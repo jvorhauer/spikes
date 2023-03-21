@@ -59,7 +59,7 @@ class BookmarkRouterTests extends SpikesTest with ScalaFutures with ScalatestRou
 
     val rl = User.Authenticate(user.get.email, password)
     var resp: Option[OAuthToken] = None
-    Post("/users/login", rl) ~> route ~> check {
+    Post("/users/login", rl) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
       resp = Some(responseAs[OAuthToken])
     }

@@ -35,8 +35,7 @@ class InfoRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
       info.tasks should be >= 0L
       info.bookmarks should be >= 0L
       info.recovered should be(true)
-      info.build should startWith(BuildInfo.version)
-      println(s"build info: ${info.build}")
+      info.version should be(BuildInfo.version)
     }
   }
 

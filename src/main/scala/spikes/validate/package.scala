@@ -1,5 +1,6 @@
 package spikes
 
+import io.lemonlabs.uri.AbsoluteUrl
 import org.owasp.encoder.Encode
 
 import java.time.{LocalDate, LocalDateTime}
@@ -28,4 +29,5 @@ package object validate {
   val dueRule: LocalDateTime => Rule[LocalDateTime] = ldt => Rule("due", ldt => ldt.isAfter(LocalDateTime.now()), s"due is $ldt, but should be in the future")
   val titleRule: String => Rule[String] = s => Rule("title", s => rtitle.matches(clean(s)), s"\"${s}\" is not a valid title")
   val bodyRule: String => Rule[String] = s => Rule("body", s => rbody.matches(clean(s)), s"\"${s}\" is not a valid body")
+  val urlRule: String => Rule[String] = s => Rule("url", s => AbsoluteUrl.parseTry(s).isSuccess, s"\"${s}\" is not a valid URL")
 }

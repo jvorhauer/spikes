@@ -1,4 +1,4 @@
-import ReleaseTransformations.*
+import sbtrelease.ReleaseStateTransformations.*
 
 ThisBuild / scalaVersion           := "2.13.10"
 ThisBuild / organization           := "nl.miruvor"
@@ -12,6 +12,9 @@ ThisBuild / parallelExecution := false
 
 Compile / compileOrder := CompileOrder.JavaThenScala
 Test / compileOrder    := CompileOrder.JavaThenScala
+
+val akka_version = "2.8.2"
+val akka_http_version = "10.5.2"
 
 lazy val root = (project in file("."))
   .settings(
@@ -35,31 +38,33 @@ lazy val root = (project in file("."))
       "-Xlint:unused"
     ),
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-actor-typed"            % "2.7.0",
-      "com.typesafe.akka" %% "akka-stream"                 % "2.7.0",
-      "com.typesafe.akka" %% "akka-http"                   % "10.5.0",
+      "com.typesafe.akka" %% "akka-actor-typed"            % akka_version,
+      "com.typesafe.akka" %% "akka-stream"                 % akka_version,
+      "com.typesafe.akka" %% "akka-coordination"           % akka_version,
+      "com.typesafe.akka" %% "akka-cluster"                % akka_version,
+      "com.typesafe.akka" %% "akka-cluster-tools"          % akka_version,
+      "com.typesafe.akka" %% "akka-http"                   % akka_http_version,
       "com.typesafe"      %% "ssl-config-core"             % "0.6.1",
-      "com.typesafe.akka" %% "akka-persistence-typed"      % "2.7.0",
-      "com.typesafe.akka" %% "akka-persistence-query"      % "2.7.0",
-      "com.typesafe.akka" %% "akka-persistence-cassandra"  % "1.1.0",
+      "com.typesafe.akka" %% "akka-persistence-typed"      % akka_version,
+      "com.typesafe.akka" %% "akka-persistence-query"      % akka_version,
+      "com.typesafe.akka" %% "akka-persistence-cassandra"  % "1.1.1",
       "de.heikoseeberger" %% "akka-http-circe"             % "1.39.2",
     ) ++ Seq(
       "org.scalatest"       %% "scalatest"                % "3.2.15",
-      "com.typesafe.akka"   %% "akka-actor-testkit-typed" % "2.7.0",
-      "com.typesafe.akka"   %% "akka-stream-testkit"      % "2.7.0",
-      "com.typesafe.akka"   %% "akka-persistence-testkit" % "2.7.0",
-      "com.typesafe.akka"   %% "akka-http-testkit"        % "10.5.0",
-      "com.danielasfregola" %% "random-data-generator"    % "2.9",
+      "com.typesafe.akka"   %% "akka-actor-testkit-typed" % akka_version,
+      "com.typesafe.akka"   %% "akka-stream-testkit"      % akka_version,
+      "com.typesafe.akka"   %% "akka-persistence-testkit" % akka_version,
+      "com.typesafe.akka"   %% "akka-http-testkit"        % akka_http_version,
     ).map(_ % "test") ++ Seq(
-      "io.scalaland"           %% "chimney"                       % "0.7.1",
-      "ch.qos.logback"         %  "logback-classic"               % "1.4.6",
+      "io.scalaland"           %% "chimney"                       % "0.7.4",
+      "ch.qos.logback"         %  "logback-classic"               % "1.4.7",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.3.3",
-      "org.scala-lang.modules" %% "scala-collection-contrib"      % "0.3.0",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.5.2",
       "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
       "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
       "org.scalactic"          %% "scalactic"                     % "3.2.15",
       "org.yaml"               %  "snakeyaml"                     % "2.0",
+      "io.lemonlabs"           %% "scala-uri"                     % "4.0.3",
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % "2.6.0",
       "io.kamon" %% "kamon-apm-reporter" % "2.6.0"

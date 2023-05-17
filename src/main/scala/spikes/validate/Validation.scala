@@ -24,6 +24,9 @@ object Validation {
   }
 
   def rejectionHandler: RejectionHandler = RejectionHandler.newBuilder()
-    .handle { case mvr@ModelValidationRejection(_) => complete(StatusCodes.BadRequest, mvr.fields.asJson) }
+    .handle {
+      case mvr@ModelValidationRejection(_) => complete(StatusCodes.BadRequest, mvr.fields.asJson)
+//      case xyz: Rejection => complete(StatusCodes.InternalServerError, xyz.)
+    }
     .result()
 }

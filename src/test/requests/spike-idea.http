@@ -24,10 +24,7 @@ Authorization: Bearer {{ authorized }}
 POST {{ host }}/users/login
 Content-Type: application/json
 
-{
-  "email": "jurjen@vorhauer.nl",
-  "password": "Welkom123!"
-}
+{"email": "jurjen@vorhauer.nl", "password": "Welkom123!"}
 
 > {% client.global.set("authorized", response.body.access_token); %}
 
@@ -89,7 +86,7 @@ Content-Type: application/json
 }
 
 ### get-temp-user
-GET {{ host }}/users/01GSFXYNST540H44H170JQNQJB
+GET {{ host }}/users/01GW28MS05S3M5XSV5NYADRCPA
 
 ### delete-temp-user
 DELETE {{ host }}/users
@@ -101,4 +98,4 @@ Content-Type: application/json
 
 
 ### get-info
-GET {{ host }}/info
+GET {{host}}/info

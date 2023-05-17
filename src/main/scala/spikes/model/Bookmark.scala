@@ -7,7 +7,7 @@ import io.scalaland.chimney.dsl.TransformerOps
 import org.owasp.encoder.Encode
 import spikes.model.Bookmark.Response
 import spikes.validate.Validation.{FieldErrorInfo, validate}
-import spikes.validate.{bodyRule, titleRule}
+import spikes.validate.{bodyRule, titleRule, urlRule}
 import wvlet.airframe.ulid.ULID
 
 case class Bookmark(id: ULID, owner: ULID, url: String, title: String, body: String, @underlying vertex: Option[Vertex] = None) extends Entity {
@@ -22,17 +22,17 @@ object Bookmark {
   case class Post(url: String, title: String, body: String) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set.apply(
       validate(titleRule(title), title, "title"),
-      validate(bodyRule(body), body, "body")
+      validate(bodyRule(body), body, "body"),
+      validate(urlRule(url), url, "url")
     ).flatten
-    lazy val asCmd: (ULID, ReplyToActor) => Create =
-      (owner, replyTo) => Create(next, owner, url, Encode.forHtml(title), Encode.forHtml(body), replyTo)
+    lazy val asCmd: (ULID, ReplyToActor) => Create = (owner, replyTo) => Create(next, owner, url, encode(title), encode(body), replyTo)
   }
   case class Put(id: ULID, url: String, title: String, body: String) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set.apply(
       validate(titleRule(title), title, "title"),
       validate(bodyRule(body), body, "body")
     ).flatten
-    lazy val asCmd: (ULID, ReplyToActor) => Bookmark.Update = (owner, replyTo) => Update(id, owner, url, title, body, replyTo)
+    lazy val asCmd: (ULID, ReplyToActor) => Bookmark.Update = (owner, replyTo) => Update(id, owner, url, encode(title), encode(body), replyTo)
   }
   case class Delete(id: ULID) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set.empty
@@ -59,4 +59,7 @@ object Bookmark {
   case class Removed(id: ULID) extends Event
 
   case class Response(id: ULID, url: String, title: String, body: String) extends Respons
+
+
+  private def encode(s: String): String = Encode.forHtml(s)
 }

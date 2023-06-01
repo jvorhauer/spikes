@@ -88,6 +88,12 @@ lazy val root = (project in file("."))
     jibTargetImageCredentialHelper := Some("docker-credential-osxkeychain"),
   )
   .enablePlugins(BuildInfoPlugin).settings(
-    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, BuildInfoKey.action("buildTime") { java.time.LocalDateTime.now() }),
+    buildInfoKeys := Seq[BuildInfoKey](
+      name,
+      version,
+      scalaVersion,
+      sbtVersion,
+      BuildInfoKey.action("buildTime") { java.time.LocalDateTime.now() }
+    ),
     buildInfoPackage := "spikes.build"
   )

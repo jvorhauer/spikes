@@ -99,6 +99,8 @@ object Handlers {
           }
 
         case GetInfo(replyTo) => reply(replyTo)(success(Info(state.userCount, state.sessions.size, state.taskCount, state.bookmarkCount, recovered)))
+
+        case ec: External.Create => persist(ec.asEvent).thenReply(ec.replyTo)(_ => success(ec.asResponse))
       }
 
     val eventHandler: (State, Event) => State = (state, evt) =>
@@ -119,6 +121,8 @@ object Handlers {
         case br: Bookmark.Removed => state.deleteBookmark(br.id)
 
         case _: Reaper.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(now)))
+
+        case ee: External.Created => state.save(ee.asEntity)
       }
 
 

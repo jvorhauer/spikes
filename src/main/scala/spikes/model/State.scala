@@ -12,6 +12,7 @@ case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph:
   private def userVs = trav.hasLabel[User]()
   private def taskVs = trav.hasLabel[Task]()
   private def bmVs   = trav.hasLabel[Bookmark]()
+  private def extVs  = trav.hasLabel[External]()
 
   private val emailKey = Key[String]("email")
   private val idKey = Key[ULID]("id")
@@ -71,4 +72,10 @@ case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph:
     this
   }
   def bookmarkCount: Long = bmVs.count().head()
+
+  def save(e: External): State = {
+    graph.addVertex(e)
+    this
+  }
+  def findExternal(id: ULID): Option[External] = extVs.has(idKey, id).headOption().map(_.asScala().toCC[External])
 }

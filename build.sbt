@@ -1,6 +1,6 @@
 import sbtrelease.ReleaseStateTransformations.*
 
-ThisBuild / scalaVersion           := "2.13.11"
+ThisBuild / scalaVersion           := "2.13.10"
 ThisBuild / organization           := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 

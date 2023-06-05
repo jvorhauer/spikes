@@ -8,7 +8,7 @@ import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
 case class External( id: ULID, body: String, @underlying vertex: Option[Vertex] = None ) extends Entity {
-  def asResponse = External.Response(id, body)
+  def asResponse: External.Response = External.Response(id, body)
 }
 
 object External {
@@ -17,12 +17,12 @@ object External {
 
   case class Post( body: String ) extends Request {
     lazy val validated: Set[Validation.FieldErrorInfo] = Set()
-    def asCmd( replyTo: ReplyTo ) = Create( ULID.newULID, body, replyTo )
+    def asCmd( replyTo: ReplyTo ): Create = Create( ULID.newULID, body, replyTo )
   }
 
   case class Create( id: ULID, body: String, replyTo: ReplyTo ) extends Command {
     def asResponse: Response = Response( id, body )
-    def asEvent = Created( id, body )
+    def asEvent: Created = Created( id, body )
   }
   case class Find(i: ULID, replyTo: ReplyTo) extends Command
 

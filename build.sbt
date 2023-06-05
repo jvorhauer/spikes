@@ -1,11 +1,11 @@
 import sbtrelease.ReleaseStateTransformations.*
 
-ThisBuild / scalaVersion           := "2.13.10"
+ThisBuild / scalaVersion           := "2.13.11"
 ThisBuild / organization           := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 
 ThisBuild / semanticdbEnabled          := true
-ThisBuild / semanticdbVersion          := scalafixSemanticdb.revision
+ThisBuild / semanticdbVersion          := "4.7.8"
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
 
 ThisBuild / parallelExecution := false
@@ -15,6 +15,8 @@ Test / compileOrder    := CompileOrder.JavaThenScala
 
 val akka_version = "2.8.2"
 val akka_http_version = "10.5.2"
+val kamon_version = "2.6.1"
+val scala_test_version = "3.2.16"
 
 lazy val root = (project in file("."))
   .settings(
@@ -35,7 +37,8 @@ lazy val root = (project in file("."))
       "-Xlint:missing-interpolator",
       "-Xlint:private-shadow",
       "-Xlint:type-parameter-shadow",
-      "-Xlint:unused"
+      "-Xlint:unused",
+      "-Yrangepos"
     ),
     libraryDependencies ++= Seq(
       "com.typesafe.akka" %% "akka-actor-typed"            % akka_version,
@@ -50,27 +53,27 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-persistence-cassandra"  % "1.1.1",
       "de.heikoseeberger" %% "akka-http-circe"             % "1.39.2",
     ) ++ Seq(
-      "org.scalatest"       %% "scalatest"                % "3.2.15",
+      "org.scalatest"       %% "scalatest"                % scala_test_version,
       "com.typesafe.akka"   %% "akka-actor-testkit-typed" % akka_version,
       "com.typesafe.akka"   %% "akka-stream-testkit"      % akka_version,
       "com.typesafe.akka"   %% "akka-persistence-testkit" % akka_version,
       "com.typesafe.akka"   %% "akka-http-testkit"        % akka_http_version,
     ).map(_ % "test") ++ Seq(
-      "io.scalaland"           %% "chimney"                       % "0.7.4",
+      "io.scalaland"           %% "chimney"                       % "0.7.5",
       "ch.qos.logback"         %  "logback-classic"               % "1.4.7",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.5.2",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.5.6",
       "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
       "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
-      "org.scalactic"          %% "scalactic"                     % "3.2.15",
+      "org.scalactic"          %% "scalactic"                     % scala_test_version,
       "org.yaml"               %  "snakeyaml"                     % "2.0",
       "io.lemonlabs"           %% "scala-uri"                     % "4.0.3",
     ) ++ Seq(
-      "io.kamon" %% "kamon-bundle"       % "2.6.0",
-      "io.kamon" %% "kamon-apm-reporter" % "2.6.0"
+      "io.kamon" %% "kamon-bundle"       % kamon_version,
+      "io.kamon" %% "kamon-apm-reporter" % kamon_version
     ) ++ Seq(
       "com.michaelpollmeier" %% "gremlin-scala"       % "3.5.3.7",
-      "org.apache.tinkerpop" %  "tinkergraph-gremlin" % "3.6.2",
+      "org.apache.tinkerpop" %  "tinkergraph-gremlin" % "3.6.4",
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies, inquireVersions,

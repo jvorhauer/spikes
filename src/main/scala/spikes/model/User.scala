@@ -12,15 +12,18 @@ import wvlet.airframe.ulid.ULID
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 
 case class User(
-  id: ULID, name: String, email: String, password: String, born: LocalDate, @underlying vertex: Option[Vertex] = None
+  id: ULID,
+  name: String, email: String, password: String,
+  born: LocalDate,
+  bio: Option[String] = None,
+  @underlying vertex: Option[Vertex] = None
 ) extends Entity {
   val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
   val tasks: Set[Task] = vertex.map(_.asScala()).map(_.out().hasLabel[Task]().toSet()).getOrElse(Set.empty).map(_.toCC[Task])
   val bookmarks: Set[Bookmark] = vertex.map(_.asScala()).map(_.out().hasLabel[Bookmark]().toSet()).getOrElse(Set.empty).map(_.toCC[Bookmark])
-  def asResponse: User.Response = this.into[User.Response]
-    .withFieldComputed(_.tasks, _ => tasks.map(_.asResponse))
-    .withFieldComputed(_.bookmarks, _ => bookmarks.map(_.asResponse))
-    .transform
+  def asResponse: User.Response = User.Response(
+    id, name, email, joined, born, bio.getOrElse(""), tasks.map(_.asResponse), bookmarks.map(_.asResponse)
+  )
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires)
 }
 
@@ -32,16 +35,16 @@ object User {
   type ReplySessionTo = ActorRef[Option[UserSession]]
   type ReplyAnyTo = ActorRef[StatusReply[Any]]
 
-  case class Post(name: String, email: String, password: String, born: LocalDate) extends Request {
+  case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set(
       validate(nameRule(name), name, "name"),
       validate(emailRule(email), email, "email"),
       validate(passwordRule(password), password, "password"),
       validate(bornRule(born), born, "born")
     ).flatten
-    def asCmd(replyTo: ReplyTo): Create = Create(ULID.newULID, Encode.forHtml(name), email, hash(password), born, replyTo)
+    def asCmd(replyTo: ReplyTo): Create = Create(ULID.newULID, Encode.forHtml(name), email, hash(password), born, bio, replyTo)
   }
-  case class Put(id: ULID, name: String, password: String, born: LocalDate) extends Request {
+  case class Put(id: ULID, name: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set(
       validate(nameRule(name), name, "name"),
       validate(passwordRule(password), password, "password"),
@@ -61,12 +64,11 @@ object User {
     def asCmd(replyTo: ReplyTokenTo): Login = Login(email, hash(password), replyTo)
   }
 
-  case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, replyTo: ReplyTo) extends Command {
+  case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String], replyTo: ReplyTo) extends Command {
     lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
-    def asResponse: User.Response = this.into[User.Response]
-      .withFieldComputed(_.tasks, _ => Set.empty[Task.Response])
-      .withFieldComputed(_.bookmarks, _ => Set.empty[Bookmark.Response])
-      .transform
+    def asResponse: Response = Response(
+      id, name, email, joined, born, bio.getOrElse(""), Set[Task.Response](), Set[Bookmark.Response]()
+    )
     def asEvent: Created = this.into[Created].transform
   }
   case class Update(id: ULID, name: String, password: String, born: LocalDate, replyTo: ReplyTo) extends Command {
@@ -81,8 +83,8 @@ object User {
   case class Authorize(token: String, replyTo: ReplySessionTo) extends Command
   case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
 
-  case class Created(id: ULID, name: String, email: String, password: String, born: LocalDate) extends Event {
-    def asEntity: User = this.into[User].withFieldComputed(_.vertex, _ => None).transform
+  case class Created(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends Event {
+    def asEntity: User = User(id, name, email, password, born, bio)
   }
   case class Updated(id: ULID, name: String, password: String, born: LocalDate) extends Event
   case class Removed(id: ULID) extends Event
@@ -91,7 +93,7 @@ object User {
   case class LoggedOut(id: ULID) extends Event
 
   case class Response(
-    id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate,
+    id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: String,
     tasks: Set[Task.Response],
     bookmarks: Set[Bookmark.Response]
   ) extends Respons

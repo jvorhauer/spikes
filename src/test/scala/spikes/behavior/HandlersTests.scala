@@ -13,6 +13,7 @@ class HandlersTests extends SpikesTest {
 
   private val born = LocalDate.now().minusYears(21)
   private val password = "Welkom123!"
+  private val bio = Some("It's me!!")
 
   val testKit: ActorTestKit = ActorTestKit(cfg)
   val probe: TestProbe[StatusReply[User.Response]] = testKit.createTestProbe[StatusReply[User.Response]]("probe")
@@ -29,7 +30,7 @@ class HandlersTests extends SpikesTest {
 
   "Update a new User" should "persist updated information" in {
     val id = next
-    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
     val res = probe.receiveMessage()
     res.isSuccess should be(true)
     res.getValue.name should be(s"test-$id")
@@ -49,7 +50,7 @@ class HandlersTests extends SpikesTest {
 
   "Login" should "return a session token" in {
     val id = next
-    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
     val res = probe.receiveMessage()
     res.isSuccess should be(true)
     res.getValue.name should be(s"test-$id")
@@ -66,7 +67,7 @@ class HandlersTests extends SpikesTest {
 
   "Create and Find" should "return the previously added User" in {
     val id = next
-    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
     val res = probe.receiveMessage()
     res.isSuccess should be (true)
     res.getValue.name should be(s"test-$id")
@@ -86,7 +87,7 @@ class HandlersTests extends SpikesTest {
 
   "A Task" should "be workable" in {
     val id = next
-    handlers ! User.Create(id, s"test-task-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    handlers ! User.Create(id, s"test-task-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
     probe.receiveMessage().isSuccess should be (true)
 
     val prb = testKit.createTestProbe[StatusReply[Task.Response]]()
@@ -121,7 +122,7 @@ class HandlersTests extends SpikesTest {
 
   "A Bookmark" should "CRUD" in {
     val id = next
-    handlers ! User.Create(id, s"test-task-$id", s"test-$id@miruvor.nl", password, born, probe.ref)
+    handlers ! User.Create(id, s"test-task-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
     probe.receiveMessage().isSuccess should be (true)
 
     val prb = testKit.createTestProbe[StatusReply[Bookmark.Response]]()

@@ -76,7 +76,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
 
   "a CreateUser command" should "transform to a UserCreated event" in {
     val born = LocalDate.now().minusYears(42)
-    val cmd = User.Create(ULID.newULID, name, email, password, born, probe)
+    val cmd = User.Create(ULID.newULID, name, email, password, born, Some("It's me!!"), probe)
     val evt = cmd.into[User.Created].transform
     assert(evt.name === cmd.name)
     assert(evt.id === cmd.id)

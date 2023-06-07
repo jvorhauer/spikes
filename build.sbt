@@ -1,6 +1,6 @@
 import sbtrelease.ReleaseStateTransformations.*
 
-ThisBuild / scalaVersion           := "2.13.10"
+ThisBuild / scalaVersion           := "2.13.11"
 ThisBuild / organization           := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 
@@ -24,20 +24,12 @@ lazy val root = (project in file("."))
     scalacOptions ++= Seq(
       "-encoding", "utf8",
       "-Xsource:3",
-      "-deprecation",
-      "-feature",
-      "-unchecked",
-      "-explaintypes",
-      "-language:implicitConversions",
-      "-language:existentials",
-      "-language:higherKinds",
-      "-language:postfixOps",
-      "-Xlint:infer-any",
-      "-Xlint:inaccessible",
-      "-Xlint:missing-interpolator",
-      "-Xlint:private-shadow",
-      "-Xlint:type-parameter-shadow",
-      "-Xlint:unused",
+      "-deprecation", "-feature", "-explaintypes",
+      "-language:implicitConversions", "-language:existentials", "-language:higherKinds", "-language:postfixOps",
+      "-unchecked", "-Xcheckinit",
+      "-Xlint:infer-any", "-Xlint:inaccessible", "-Xlint:missing-interpolator", "-Xlint:private-shadow",
+      "-Xlint:type-parameter-shadow", "-Xlint:unused",
+      "-Wunused:implicits", "-Wunused:imports", "-Wunused:locals", "-Wunused:params",
       "-Yrangepos"
     ),
     libraryDependencies ++= Seq(

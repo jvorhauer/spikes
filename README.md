@@ -118,3 +118,12 @@ Apply these as:
 3. service.yaml
 4. deployment.yaml
 5. spikes-ingress.yaml
+
+
+## Truth
+
+The real reason I had to pick Cassandra as a database is that the Astra offering is extremely cool for small projects like this. it's been free for me due to very limited traffic can storage size. But Cassandra is not relational. Not that I like relational databases. Not at all. But that type of databases is convenient as there is a lot of experience, including my own, with rdbms's and orms. I also do not like orms. So, what's a good solution that can use C*? CQRS with Event Sourcing :-).
+
+That is the real reason for choosing this rather exotic setup. But after a while I really love Event Sourcing!! It's unbeatable for growing a backend service. It's unbeatable for separating concerns and as a basis for growth.
+
+Only thing I haven't figured out yet is scalability: I don't see how I can combine the advantages of ES with clustering. Clustering is a great method to guarantee uptime, for instance when a Kubernetes pod with one of the nodes of the app cluster goes down unexpectedly. Rolling updates is possible with one node, so that's covered by k8s.

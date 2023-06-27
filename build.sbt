@@ -15,7 +15,7 @@ Test / compileOrder    := CompileOrder.JavaThenScala
 
 val akka_version = "2.8.2"
 val akka_http_version = "10.5.2"
-val kamon_version = "2.6.1"
+val kamon_version = "2.6.3"
 val scala_test_version = "3.2.16"
 
 lazy val root = (project in file("."))
@@ -52,9 +52,9 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"   %% "akka-http-testkit"        % akka_http_version,
     ).map(_ % "test") ++ Seq(
       "io.scalaland"           %% "chimney"                       % "0.7.5",
-      "ch.qos.logback"         %  "logback-classic"               % "1.4.7",
+      "ch.qos.logback"         %  "logback-classic"               % "1.4.8",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.5.6",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.6.2",
       "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
       "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
       "org.scalactic"          %% "scalactic"                     % scala_test_version,

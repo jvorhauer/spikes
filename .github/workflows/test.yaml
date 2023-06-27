@@ -1,5 +1,14 @@
-name: CI
-on: [push, pull_request]
+name: test with coverage
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+      - 'k8s/**.yaml'
+  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'k8s/**.yaml'
+
 permissions:
   contents: write
 

@@ -19,10 +19,17 @@ case class User(
   @underlying vertex: Option[Vertex] = None
 ) extends Entity {
   val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
-  val tasks: Set[Task] = vertex.map(_.asScala()).map(_.out().hasLabel[Task]().toSet()).getOrElse(Set.empty).map(_.toCC[Task])
-  val bookmarks: Set[Bookmark] = vertex.map(_.asScala()).map(_.out().hasLabel[Bookmark]().toSet()).getOrElse(Set.empty).map(_.toCC[Bookmark])
+  private def vrtx = vertex.map(_.asScala())
+  def tasks: Set[Task] = vrtx.map(_.out().hasLabel[Task]().toSet()).getOrElse(Set.empty).map(_.toCC[Task])
+  def bookmarks: Set[Bookmark] = vrtx.map(_.out().hasLabel[Bookmark]().toSet()).getOrElse(Set.empty).map(_.toCC[Bookmark])
+  def following: Set[User] = vrtx.map(_.out().hasLabel[User]().toSet()).getOrElse(Set.empty).map(_.toCC[User])
+  def followedBy: Set[User] = vrtx.map(_.in().hasLabel[User]().toSet()).getOrElse(Set.empty).map(_.toCC[User])
   def asResponse: User.Response = User.Response(
-    id, name, email, joined, born, bio.getOrElse(""), tasks.map(_.asResponse), bookmarks.map(_.asResponse)
+    id, name, email, joined, born, bio.getOrElse(""),
+    tasks.map(_.asResponse),
+    bookmarks.map(_.asResponse),
+    following.map(_.id),
+    followedBy.map(_.id)
   )
   def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires)
 }
@@ -63,11 +70,16 @@ object User {
     ).flatten
     def asCmd(replyTo: ReplyTokenTo): Login = Login(email, hash(password), replyTo)
   }
+  case class RequestFollow(id: ULID, other: ULID) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set()
+    def asCmd(replyTo: ReplyAnyTo): Follow = Follow(id, other, replyTo)
+  }
 
   case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String], replyTo: ReplyTo) extends Command {
     lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
     def asResponse: Response = Response(
-      id, name, email, joined, born, bio.getOrElse(""), Set[Task.Response](), Set[Bookmark.Response]()
+      id, name, email, joined, born, bio.getOrElse(""),
+      Set[Task.Response](), Set[Bookmark.Response](), Set[ULID](), Set[ULID]()
     )
     def asEvent: Created = this.into[Created].transform
   }
@@ -83,6 +95,10 @@ object User {
   case class Authorize(token: String, replyTo: ReplySessionTo) extends Command
   case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
 
+  case class Follow(id: ULID, other: ULID, replyTo: ReplyAnyTo) extends Command {
+    def asEvent: Followed = Followed(id, other)
+  }
+
   case class Created(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends Event {
     def asEntity: User = User(id, name, email, password, born, bio)
   }
@@ -91,10 +107,13 @@ object User {
 
   case class LoggedIn(id: ULID, expires: LocalDateTime = now.plusHours(2)) extends Event
   case class LoggedOut(id: ULID) extends Event
+  case class Followed(id: ULID, other: ULID) extends Event
 
   case class Response(
     id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: String,
     tasks: Set[Task.Response],
-    bookmarks: Set[Bookmark.Response]
+    bookmarks: Set[Bookmark.Response],
+    following: Set[ULID],
+    followedBy: Set[ULID]
   ) extends Respons
 }

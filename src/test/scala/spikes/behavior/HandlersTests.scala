@@ -78,6 +78,36 @@ class HandlersTests extends SpikesTest {
     found.getValue.name should be (s"test-$id")
   }
 
+  "Follow" should "connect two Users" in {
+    val id1 = next
+    val id2 = next
+
+    handlers ! User.Create(id1, s"follow-$id1", s"follow-$id1@miruvor.nl", password, born, bio, probe.ref)
+    var res = probe.receiveMessage()
+    res.isSuccess should be(true)
+
+    handlers ! User.Create(id2, s"follow-$id2", s"follow-$id2@miruvor.nl", password, born, bio, probe.ref)
+    res = probe.receiveMessage()
+    res.isSuccess should be(true)
+
+    val fprobe: TestProbe[StatusReply[Any]] = testKit.createTestProbe[StatusReply[Any]]("fprobe")
+    handlers ! User.Follow(id1, id2, fprobe.ref)
+    val res2 = fprobe.receiveMessage()
+    res2.isSuccess should be(true)
+
+    handlers ! User.Find(id1, probe.ref)
+    res = probe.receiveMessage()
+    res.isSuccess should be(true)
+    res.getValue.following should have size 1
+    res.getValue.followedBy should have size 0
+
+    handlers ! User.Find(id2, probe.ref)
+    res = probe.receiveMessage()
+    res.isSuccess should be(true)
+    res.getValue.following should have size 0
+    res.getValue.followedBy should have size 1
+  }
+
   "Asking for Info" should "return Info" in {
     val prb = testKit.createTestProbe[StatusReply[InfoRouter.Info]]()
     handlers ! InfoRouter.GetInfo(prb.ref)

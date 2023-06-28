@@ -12,7 +12,6 @@ case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph:
   private def userVs = trav.hasLabel[User]()
   private def taskVs = trav.hasLabel[Task]()
   private def bmVs   = trav.hasLabel[Bookmark]()
-  private def extVs  = trav.hasLabel[External]()
 
   private val emailKey = Key[String]("email")
   private val idKey = Key[ULID]("id")
@@ -38,6 +37,15 @@ case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph:
   def authorize(token: String): Option[UserSession] = sessions.find(us => us.token === token && us.expires.isAfter(now))
   def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id === id && us.expires.isAfter(now))
   def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id === id))
+
+  def follow(id: ULID, other: ULID): State = {
+    val ou = findUser(id)
+    val oo = findUser(other)
+    if (ou.isDefined && oo.isDefined && ou.get.vertex.isDefined && oo.get.vertex.isDefined) {
+      ou.get.vertex.foreach(_ --- "follows" --> oo.get.vertex.get)
+    }
+    this
+  }
 
   def save(t: Task): State = {
     findTask(t.id) match {
@@ -72,10 +80,4 @@ case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph:
     this
   }
   def bookmarkCount: Long = bmVs.count().head()
-
-  def save(e: External): State = {
-    graph.addVertex(e)
-    this
-  }
-  def findExternal(id: ULID): Option[External] = extVs.has(idKey, id).headOption().map(_.asScala().toCC[External])
 }

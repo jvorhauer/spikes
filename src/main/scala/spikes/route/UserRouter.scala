@@ -115,6 +115,17 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
               case _                                  => complete(StatusCodes.BadRequest)
             }
           }
+        },
+        (post & path("follow")) {
+          authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
+            entity(as[User.RequestFollow]) { rf =>
+              onSuccess(handlers.ask(User.Follow(us.id, rf.other, _))) {
+                case sr: StatusReply[?] if sr.isSuccess => complete(StatusCodes.OK)
+                case _                                  => complete(StatusCodes.BadRequest)
+              }
+            }
+            complete(StatusCodes.OK)
+          }
         }
       )
     }

@@ -60,6 +60,14 @@ object Handlers {
           case None => reply(replyTo)(error("User was not logged in"))
         }
 
+        case User.Follow(id, other, replyTo) => state.findUser(id) match {
+          case Some(user) => state.findUser(other) match {
+            case Some(otherUser) => persist(User.Followed(user.id, otherUser.id)).thenReply(replyTo)(_ => success("Followed"))
+            case None => reply(replyTo)(error(s"can't follow user with id $other as that user can't be found"))
+          }
+          case None => reply(replyTo)(error(s"no user found for $id"))
+        }
+
         case User.Find(id, replyTo) => state.getUserResponse(id) match {
           case Some(user) => reply(replyTo)(success(user))
           case None => reply(replyTo)(error(s"User $id not found"))
@@ -84,7 +92,7 @@ object Handlers {
           case None => reply(bc.replyTo)(error(s"Owner ${bc.owner} for new Bookmark not found"))
         }
         case bu: Bookmark.Update => state.findBookmark(bu.id) match {
-          case Some(bm) => persist(bu.asEvent).thenReply(bu.replyTo)(us => success(us.findBookmark(bu.id).get.asResponse))
+          case Some(bm) => persist(bu.asEvent).thenReply(bu.replyTo)(us => success(us.findBookmark(bm.id).get.asResponse))
           case None => reply(bu.replyTo)(error(s"Bookmark ${bu.id} not found for update"))
         }
         case Bookmark.Remove(id, replyTo) => state.findBookmark(id) match {
@@ -99,8 +107,6 @@ object Handlers {
           }
 
         case GetInfo(replyTo) => reply(replyTo)(success(Info(state.userCount, state.sessions.size, state.taskCount, state.bookmarkCount, recovered)))
-
-        case ec: External.Create => persist(ec.asEvent).thenReply(ec.replyTo)(_ => success(ec.asResponse))
       }
 
     val eventHandler: (State, Event) => State = (state, evt) =>
@@ -112,6 +118,8 @@ object Handlers {
         case li: User.LoggedIn if li.expires.isAfter(now) => state.findUser(li.id).map(state.login(_, li.expires)).getOrElse(state)
         case lo: User.LoggedOut => state.logout(lo.id)
 
+        case uf: User.Followed => state.follow(uf.id, uf.other)
+
         case tc: Task.Created => state.save(tc.asTask)
         case tu: Task.Updated => state.save(tu.asTask)
         case tr: Task.Removed => state.deleteTask(tr.id)
@@ -121,8 +129,6 @@ object Handlers {
         case br: Bookmark.Removed => state.deleteBookmark(br.id)
 
         case _: Reaper.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(now)))
-
-        case ee: External.Created => state.save(ee.asEntity)
       }
 
 

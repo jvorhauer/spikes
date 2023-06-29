@@ -78,6 +78,36 @@ class HandlersTests extends SpikesTest {
     found.getValue.name should be (s"test-$id")
   }
 
+  "Find unknown User" should "reply with an error" in {
+    val id = next
+    handlers ! User.Find(id, probe.ref)
+    val found = probe.receiveMessage()
+    found.isSuccess should be(false)
+    found.getError.getMessage should be(s"User $id not found")
+  }
+
+  "Create and Remove" should "reply with removed User" in {
+    val id = next
+    val email = s"test-$id@miruvor.nl"
+    handlers ! User.Create(id, s"test-$id", email, password, born, bio, probe.ref)
+    val res = probe.receiveMessage()
+    res.isSuccess should be(true)
+    res.getValue.name should be(s"test-$id")
+
+    handlers ! User.Remove(email, probe.ref)
+    val rem = probe.receiveMessage()
+    rem.isSuccess should be(true)
+    rem.getValue.name should be(s"test-$id")
+  }
+
+  "Remove" should "reply with error" in {
+    val id = next
+    val email = s"test-$id@miruvor.nl"
+    handlers ! User.Remove(email, probe.ref)
+    val rem = probe.receiveMessage()
+    rem.isSuccess should be(false)
+  }
+
   "Follow" should "connect two Users" in {
     val id1 = next
     val id2 = next
@@ -108,11 +138,41 @@ class HandlersTests extends SpikesTest {
     res.getValue.followedBy should have size 1
   }
 
+  "Follow unknown user" should "reply with error" in {
+    val id1 = next
+    val id2 = next
+
+    handlers ! User.Create(id1, s"follow-$id1", s"follow-$id1@miruvor.nl", password, born, bio, probe.ref)
+    val res = probe.receiveMessage()
+    res.isSuccess should be(true)
+
+    val fprobe: TestProbe[StatusReply[Any]] = testKit.createTestProbe[StatusReply[Any]]("fprobe")
+    handlers ! User.Follow(id1, id2, fprobe.ref)
+    val res2 = fprobe.receiveMessage()
+    res2.isSuccess should be(false)
+  }
+
+  "Follow by unknown user" should "reply with error" in {
+    val id1 = next
+    val id2 = next
+
+    handlers ! User.Create(id2, s"follow-$id2", s"follow-$id2@miruvor.nl", password, born, bio, probe.ref)
+    val res = probe.receiveMessage()
+    res.isSuccess should be(true)
+
+    val fprobe: TestProbe[StatusReply[Any]] = testKit.createTestProbe[StatusReply[Any]]("fprobe")
+    handlers ! User.Follow(id1, id2, fprobe.ref)
+    val res2 = fprobe.receiveMessage()
+    res2.isSuccess should be(false)
+  }
+
   "Asking for Info" should "return Info" in {
     val prb = testKit.createTestProbe[StatusReply[InfoRouter.Info]]()
     handlers ! InfoRouter.GetInfo(prb.ref)
     val res = prb.receiveMessage()
     res.isSuccess should be (true)
+    res.getValue.users should be > 0L
+    res.getValue.sessions should be >= 0
   }
 
   "A Task" should "be workable" in {
@@ -181,7 +241,28 @@ class HandlersTests extends SpikesTest {
     val res3 = probe.receiveMessage()
     res3.isSuccess should be (true)
     res3.getValue.bookmarks should have size 0
+  }
 
+  "The Reaper" should "reap" in {
+    val cprobe: TestProbe[Command] = testKit.createTestProbe[Command]("fprobe")
+    handlers ! Reaper.Reap(cprobe.ref)
+    val res = cprobe.receiveMessage()
+    res should be(Reaper.Done)
+
+    val id = next
+    handlers ! User.Create(id, s"test-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
+    val res2 = probe.receiveMessage()
+    res2.isSuccess should be(true)
+
+    val loginProbe = testKit.createTestProbe[StatusReply[OAuthToken]]()
+    handlers ! User.Login(s"test-$id@miruvor.nl", password, loginProbe.ref)
+    val loggedin = loginProbe.receiveMessage()
+    loggedin.isSuccess should be(true)
+    loggedin.getValue.access_token should not be empty
+
+    handlers ! Reaper.Reap(cprobe.ref)
+    val res3 = cprobe.receiveMessage()
+    res3 should be(Reaper.Done)
   }
 
 

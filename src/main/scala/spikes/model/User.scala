@@ -95,9 +95,7 @@ object User {
   case class Authorize(token: String, replyTo: ReplySessionTo) extends Command
   case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
 
-  case class Follow(id: ULID, other: ULID, replyTo: ReplyAnyTo) extends Command {
-    def asEvent: Followed = Followed(id, other)
-  }
+  case class Follow(id: ULID, other: ULID, replyTo: ReplyAnyTo) extends Command
 
   case class Created(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends Event {
     def asEntity: User = User(id, name, email, password, born, bio)

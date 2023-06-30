@@ -224,5 +224,39 @@ class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
     }
   }
 
+  "Follow" should "connect two Users" in {
+    val rcu1 = User.Post("follower", "follower@test.nl", password, born)
+    var id1: Option[ULID] = None
+    var id2: Option[ULID] = None
+    Post("/users", rcu1) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Created
+      header("Location") should not be None
+      id1 = Some(responseAs[User.Response].id)
+    }
+    id1 should not be empty
+
+    val rcu2 = User.Post("following", "following@test.nl", password, born)
+    Post("/users", rcu2) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Created
+      header("Location") should not be None
+      id2 = Some(responseAs[User.Response].id)
+    }
+    id2 should not be empty
+
+    val rl = User.Authenticate("follower@test.nl", password)
+    var resp: Option[OAuthToken] = None
+    Post("/users/login", rl) ~> route ~> check {
+      status shouldEqual StatusCodes.OK
+      resp = Some(responseAs[OAuthToken])
+    }
+    resp should not be None
+    val token = resp.get.access_token
+
+    val urf = User.RequestFollow(id1.get, id2.get)
+    Post("/users/follow", urf) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+    }
+  }
+
   override def afterAll(): Unit = testKit.shutdownTestKit()
 }

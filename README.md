@@ -8,7 +8,9 @@ one or more Miruvor SaaS offerings.
 
 ## Event Sourced
 
+```
 Request -> Command -> Event -> Entity -> Response
+```
 
 1. Request is the instruction from the outside world to perform some task, but not yet a Command,
 2. After a Request is validated as suitable for a Command, it is transformed into a Command and the callback actor is added,
@@ -19,6 +21,23 @@ Request -> Command -> Event -> Entity -> Response
 
 Requests are either a **Create**, **Update** or **Delete** instruction with the required data.
 Queries are defined later and return a response of the required entity or a list of these responses.
+
+### Architecture
+
+From the above and with Akka Persistence we get an architecture that is basically a Handlers container with a Command Handler and 
+an Event Handler:
+
+```
+request via akka-http-route -> 
+  validator -> 
+  command-handler ->
+    reply to requestor 
+    event-handler
+```
+
+Akka Persistence is responsible for persisting the events created by the command handler.
+
+The `validator` and the `reply to requestor` is the reason for the Request instead of the requestor just sending a Command. 
 
 ## Tech Stack
 
@@ -127,3 +146,9 @@ The real reason I had to pick Cassandra as a database is that the Astra offering
 That is the real reason for choosing this rather exotic setup. But after a while I really love Event Sourcing!! It's unbeatable for growing a backend service. It's unbeatable for separating concerns and as a basis for growth.
 
 Only thing I haven't figured out yet is scalability: I don't see how I can combine the advantages of ES with clustering. Clustering is a great method to guarantee uptime, for instance when a Kubernetes pod with one of the nodes of the app cluster goes down unexpectedly. Rolling updates is possible with one node, so that's covered by k8s.
+
+## (Still) ToDo
+
+1. The Query/Read model side **MUST** be segregated from the Command/Event handler!!
+2. Notes
+3. External QA and Performance tests

@@ -120,11 +120,10 @@ case class UserRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
           authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
             entity(as[User.RequestFollow]) { rf =>
               onSuccess(handlers.ask(User.Follow(us.id, rf.other, _))) {
-                case sr: StatusReply[?] if sr.isSuccess => complete(StatusCodes.OK)
+                case sr: StatusReply[?] if sr.isSuccess => complete(StatusCodes.Created)
                 case _                                  => complete(StatusCodes.BadRequest)
               }
             }
-            complete(StatusCodes.OK)
           }
         }
       )

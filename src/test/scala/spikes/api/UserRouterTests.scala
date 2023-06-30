@@ -254,7 +254,7 @@ class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
 
     val urf = User.RequestFollow(id1.get, id2.get)
     Post("/users/follow", urf) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
-      status shouldEqual StatusCodes.OK
+      status shouldEqual StatusCodes.Created
     }
   }
 

@@ -52,6 +52,13 @@ case class TaskRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
                 replier(handlers.ask(rdt.asCmd), StatusCodes.OK)
               }
             }
+          },
+          get {
+            authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
+              entity(as[Task.Get]) { rgt =>
+                replier(handlers.ask(rgt.asCmd), StatusCodes.OK)
+              }
+            }
           }
         )
       }

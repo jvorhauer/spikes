@@ -19,7 +19,7 @@ import scala.concurrent.duration.DurationInt
 
 object Handlers {
 
-  val pid: PersistenceId = PersistenceId.of("spikes", "5", "|")
+  val pid: PersistenceId = PersistenceId.of("spikes", "6", "|")
 
   implicit private val graph: ScalaGraph = TinkerGraph.open().asScala()
 
@@ -30,18 +30,18 @@ object Handlers {
       cmd match {
         case cu: User.Create =>
           state.findUser(cu.email) match {
-            case Some(_) => reply(cu.replyTo)(error(s"email ${cu.email} already in use"))
+            case Some(u) => reply(cu.replyTo)(error(s"email ${u.email} already in use"))
             case None    => persist(cu.asEvent).thenReply(cu.replyTo)(_ => success(cu.asResponse))
           }
         case uu: User.Update =>
           state.findUser(uu.id) match {
             case Some(_) => persist(uu.asEvent).thenReply(uu.replyTo)(us => success(us.findUser(uu.id).get.asResponse))
-            case None    => reply(uu.replyTo)(error(s"user with id ${uu.id} not found"))
+            case None    => reply(uu.replyTo)(error(s"user with id ${uu.id} not found for update"))
           }
         case User.Remove(email, replyTo) =>
           state.findUser(email) match {
             case Some(user) => persist(User.Removed(user.id)).thenReply(replyTo)(_ => success(user.asResponse))
-            case None       => reply(replyTo)(error(s"user with email $email not found"))
+            case None       => reply(replyTo)(error(s"user with email $email not found for deletion"))
           }
 
         case User.Login(email, passwd, replyTo) => state.findUser(email) match {
@@ -85,6 +85,10 @@ object Handlers {
         case Task.Remove(id, replyTo) => state.findTask(id) match {
           case Some(t) => persist(Task.Removed(id)).thenReply(replyTo)(_ => success(t.asResponse))
           case None => reply(replyTo)(error(s"Task $id not found for deletion"))
+        }
+        case Task.Find(id, replyTo) => state.findTask(id) match {
+          case Some(t) => reply(replyTo)(success(t.asResponse))
+          case None => reply(replyTo)(error(s"Task $id not found"))
         }
 
         case bc: Bookmark.Create => state.findUser(bc.owner) match {

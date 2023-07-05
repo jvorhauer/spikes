@@ -22,6 +22,7 @@ object Task {
   type Reply = StatusReply[Task.Response]
   type ReplyToActor = ActorRef[Reply]
 
+
   case class Post(title: String, body: String, due: LocalDateTime, status: Status = Status.New) extends Request {
     lazy val validated: Set[FieldErrorInfo] = Set(
       validate(titleRule(title), title, "title"),
@@ -42,6 +43,10 @@ object Task {
     lazy val validated: Set[FieldErrorInfo] = Set.empty
     def asCmd(replyTo: ReplyToActor): Remove = Task.Remove(id, replyTo)
   }
+  case class Get(id: ULID) extends Request {
+    lazy val validated: Set[FieldErrorInfo] = Set.empty
+    def asCmd(replyTo: ReplyToActor): Find = Task.Find(id, replyTo)
+  }
 
   case class Create(id: ULID, owner: ULID, title: String, body: String, due: LocalDateTime, status: Status, replyTo: ReplyToActor) extends Command {
     lazy val asEvent: Task.Created = this.into[Task.Created].transform
@@ -54,6 +59,7 @@ object Task {
   case class Remove(id: ULID, replyTo: ReplyToActor) extends Command {
     lazy val asEvent: Task.Removed = this.into[Task.Removed].transform
   }
+  case class Find(id: ULID, replyTo: ReplyToActor) extends Command
 
   case class Created(id: ULID, owner: ULID, title: String, body: String, due: LocalDateTime, status: Status) extends Event {
     lazy val asTask: Task = this.into[Task].withFieldComputed(_.vertex, _ => None).transform

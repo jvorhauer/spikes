@@ -11,6 +11,7 @@ import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 
+@label("user")
 case class User(
   id: ULID,
   name: String, email: String, password: String,
@@ -31,7 +32,7 @@ case class User(
     following.map(_.id),
     followedBy.map(_.id)
   )
-  def asSession(expires: LocalDateTime): UserSession = UserSession(hash(ULID.newULIDString), id, expires)
+  def asSession(expires: LocalDateTime): User.Session = User.Session(hash(ULID.newULIDString), id, expires)
 }
 
 object User {
@@ -39,7 +40,7 @@ object User {
   type ReplyTo = ActorRef[StatusReply[User.Response]]
   type ReplyListTo = ActorRef[StatusReply[List[User.Response]]]
   type ReplyTokenTo = ActorRef[StatusReply[OAuthToken]]
-  type ReplySessionTo = ActorRef[Option[UserSession]]
+  type ReplySessionTo = ActorRef[Option[User.Session]]
   type ReplyAnyTo = ActorRef[StatusReply[Any]]
 
   case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
@@ -114,4 +115,8 @@ object User {
     following: Set[ULID],
     followedBy: Set[ULID]
   ) extends Respons
+
+  case class Session(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2)) {
+    lazy val asOAuthToken: OAuthToken = OAuthToken(token)
+  }
 }

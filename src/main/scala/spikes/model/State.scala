@@ -7,7 +7,7 @@ import wvlet.airframe.ulid.ULID
 import java.time.LocalDateTime
 import scala.collection.immutable.HashSet
 
-case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph: ScalaGraph) {
+case class State(sessions: Set[User.Session] = HashSet.empty)(implicit val graph: ScalaGraph) {
   private def trav   = graph.traversal.V()
   private def userVs = trav.hasLabel[User]()
   private def taskVs = trav.hasLabel[Task]()
@@ -34,8 +34,8 @@ case class State(sessions: Set[UserSession] = HashSet.empty)(implicit val graph:
   def userCount: Long = trav.hasLabel[User]().count().head()
 
   def login(u: User, expires: LocalDateTime): State = this.copy(sessions = sessions + u.asSession(expires))
-  def authorize(token: String): Option[UserSession] = sessions.find(us => us.token === token && us.expires.isAfter(now))
-  def authorize(id: ULID): Option[UserSession] = sessions.find(us => us.id === id && us.expires.isAfter(now))
+  def authorize(token: String): Option[User.Session] = sessions.find(_.token === token).filter(_.expires.isAfter(now))
+  def authorize(id: ULID): Option[User.Session] = sessions.find(_.id === id).filter(_.expires.isAfter(now))
   def logout(id: ULID): State = this.copy(sessions = sessions.filterNot(_.id === id))
 
   def follow(id: ULID, other: ULID): State = {

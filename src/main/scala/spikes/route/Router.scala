@@ -6,7 +6,7 @@ import akka.http.scaladsl.server.Directives.{AsyncAuthenticator, complete}
 import akka.http.scaladsl.server.directives.Credentials
 import akka.http.scaladsl.server.{PathMatcher, PathMatcher1, StandardRoute}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
-import spikes.model.{Command, User, UserSession}
+import spikes.model.{Command, User}
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.Future
@@ -15,7 +15,7 @@ abstract class Router(handlers: ActorRef[Command])(implicit val system: ActorSys
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
-  val authenticator: AsyncAuthenticator[UserSession] = {
+  val authenticator: AsyncAuthenticator[User.Session] = {
     case Credentials.Provided(token) => handlers.ask(User.Authorize(token, _))
     case _ => Future.successful(None)
   }

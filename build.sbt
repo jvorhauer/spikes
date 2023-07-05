@@ -13,7 +13,7 @@ ThisBuild / parallelExecution := false
 Compile / compileOrder := CompileOrder.JavaThenScala
 Test / compileOrder    := CompileOrder.JavaThenScala
 
-val akka_version = "2.8.2"
+val akka_version = "2.8.3"
 val akka_http_version = "10.5.2"
 val kamon_version = "2.6.3"
 val scala_test_version = "3.2.16"
@@ -43,6 +43,8 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-persistence-typed"      % akka_version,
       "com.typesafe.akka" %% "akka-persistence-query"      % akka_version,
       "com.typesafe.akka" %% "akka-persistence-cassandra"  % "1.1.1",
+      "com.datastax.oss"  %  "java-driver-core"            % "4.16.0",
+      "io.netty"          %  "netty-handler"               % "4.1.94.Final",
       "de.heikoseeberger" %% "akka-http-circe"             % "1.39.2",
     ) ++ Seq(
       "org.scalatest"       %% "scalatest"                % scala_test_version,
@@ -54,7 +56,7 @@ lazy val root = (project in file("."))
       "io.scalaland"           %% "chimney"                       % "0.7.5",
       "ch.qos.logback"         %  "logback-classic"               % "1.4.8",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.6.2",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.0",
       "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
       "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
       "org.scalactic"          %% "scalactic"                     % scala_test_version,

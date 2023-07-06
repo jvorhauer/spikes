@@ -81,6 +81,13 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
       id = resp.tasks.head.id
     }
 
+    Get(s"/tasks/$id") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.OK)
+      val resp = responseAs[Task.Response]
+      resp.title should be("Test Title")
+      resp.body should be("Test Body")
+    }
+
     val tu = Task.Put(id, "Updated Title", "Updated Test Body", LocalDateTime.now().plusDays(3), Status.ToDo)
     Put("/tasks", tu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)

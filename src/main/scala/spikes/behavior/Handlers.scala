@@ -1,17 +1,16 @@
 package spikes.behavior
 
-import akka.actor.typed.{ Behavior, PreRestart, SupervisorStrategy }
 import akka.actor.typed.scaladsl.Behaviors
-import akka.pattern.StatusReply.{ error, success }
-import akka.persistence.typed.{ PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria }
-import akka.persistence.typed.scaladsl.Effect.{ persist, reply }
-import akka.persistence.typed.scaladsl.{ EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria }
+import akka.actor.typed.{Behavior, PreRestart, SupervisorStrategy}
+import akka.pattern.StatusReply.{error, success}
+import akka.persistence.typed.scaladsl.Effect.{persist, reply}
+import akka.persistence.typed.scaladsl.{EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
+import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
 import gremlin.scala.*
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerGraph
 import org.scalactic.TripleEquals.*
 import spikes.model.*
-import spikes.model.now
-import spikes.route.InfoRouter.{ GetInfo, Info }
+import spikes.route.InfoRouter.{GetInfo, Info}
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.duration.DurationInt
@@ -30,13 +29,13 @@ object Handlers {
       cmd match {
         case cu: User.Create =>
           state.findUser(cu.email) match {
-            case Some(u) => reply(cu.replyTo)(error(s"email ${u.email} already in use"))
-            case None    => persist(cu.asEvent).thenReply(cu.replyTo)(_ => success(cu.asResponse))
+            case Some(user) => reply(cu.replyTo)(error(s"email ${user.email} already in use"))
+            case None       => persist(cu.asEvent).thenReply(cu.replyTo)(_ => success(cu.asResponse))
           }
         case uu: User.Update =>
           state.findUser(uu.id) match {
-            case Some(_) => persist(uu.asEvent).thenReply(uu.replyTo)(us => success(us.findUser(uu.id).get.asResponse))
-            case None    => reply(uu.replyTo)(error(s"user with id ${uu.id} not found for update"))
+            case Some(user) => persist(uu.asEvent).thenReply(uu.replyTo)(us => success(us.findUser(user.id).get.asResponse))
+            case None       => reply(uu.replyTo)(error(s"user with id ${uu.id} not found for update"))
           }
         case User.Remove(email, replyTo) =>
           state.findUser(email) match {
@@ -91,26 +90,13 @@ object Handlers {
           case None => reply(replyTo)(error(s"Task $id not found"))
         }
 
-        case bc: Bookmark.Create => state.findUser(bc.owner) match {
-          case Some(_) => persist(bc.asEvent).thenReply(bc.replyTo)(_ => success(bc.asResponse))
-          case None => reply(bc.replyTo)(error(s"Owner ${bc.owner} for new Bookmark not found"))
-        }
-        case bu: Bookmark.Update => state.findBookmark(bu.id) match {
-          case Some(bm) => persist(bu.asEvent).thenReply(bu.replyTo)(us => success(us.findBookmark(bm.id).get.asResponse))
-          case None => reply(bu.replyTo)(error(s"Bookmark ${bu.id} not found for update"))
-        }
-        case Bookmark.Remove(id, replyTo) => state.findBookmark(id) match {
-          case Some(bm) => persist(Bookmark.Removed(id)).thenReply(replyTo)(_ => success(bm.asResponse))
-          case None => reply(replyTo)(error(s"Bookmark $id not found for deletion"))
-        }
-
         case Reaper.Reap(replyTo) =>
           state.sessions.count(_.expires.isBefore(now)) match {
             case 0 => reply(replyTo)(Reaper.Done)
             case count => persist(Reaper.Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => Reaper.Done)
           }
 
-        case GetInfo(replyTo) => reply(replyTo)(success(Info(state.userCount, state.sessions.size, state.taskCount, state.bookmarkCount, recovered)))
+        case GetInfo(replyTo) => reply(replyTo)(success(Info(state.userCount, state.sessions.size, state.taskCount, recovered)))
       }
 
     val eventHandler: (State, Event) => State = (state, evt) =>
@@ -128,10 +114,6 @@ object Handlers {
         case tu: Task.Updated => state.save(tu.asTask)
         case tr: Task.Removed => state.deleteTask(tr.id)
 
-        case bc: Bookmark.Created => state.save(bc.asBookmark)
-        case bu: Bookmark.Updated => state.save(bu.asBookmark)
-        case br: Bookmark.Removed => state.deleteBookmark(br.id)
-
         case _: Reaper.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(now)))
       }
 
@@ -144,7 +126,7 @@ object Handlers {
       .receiveSignal {
         case (_, PreRestart) => ctx.log.info("pre-restart signal received")
         case (state, RecoveryCompleted) =>
-          ctx.log.info(s"recovered: users: ${state.userCount}, sessions: ${state.sessions.size}, tasks: ${state.taskCount}, bookmarks: ${state.bookmarkCount}")
+          ctx.log.info(s"recovered: users: ${state.userCount}, sessions: ${state.sessions.size}, tasks: ${state.taskCount}")
           recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
       }

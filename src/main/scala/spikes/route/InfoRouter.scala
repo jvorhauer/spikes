@@ -52,7 +52,6 @@ object InfoRouter {
       users: Long,
       sessions: Int,
       tasks: Long,
-      bookmarks: Long,
       recovered: Boolean = false,
       host: String = hostname,
       version: String = BuildInfo.version,

@@ -40,17 +40,6 @@ Authorization: Bearer {{ authorized }}
   "status": "Blank"
 }
 
-### post-bookmark
-POST {{ host }}/bookmarks
-Content-Type: application/json
-Authorization: Bearer {{ authorized }}
-
-{
-  "url": "http://localhost:8080/users",
-  "title": "test with html encoding",
-  "body": "Encoded <script> tags should not allow <h1>crap</h1>"
-}
-
 ### invalid-name-and-password
 POST {{ host }}/users
 Content-Type: application/json

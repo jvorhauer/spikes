@@ -11,7 +11,6 @@ case class State(sessions: Set[User.Session] = HashSet.empty)(implicit val graph
   private def trav   = graph.traversal.V()
   private def userVs = trav.hasLabel[User]()
   private def taskVs = trav.hasLabel[Task]()
-  private def bmVs   = trav.hasLabel[Bookmark]()
 
   private val emailKey = Key[String]("email")
   private val idKey = Key[ULID]("id")
@@ -63,21 +62,4 @@ case class State(sessions: Set[User.Session] = HashSet.empty)(implicit val graph
     this
   }
   def taskCount: Long = taskVs.count().head()
-
-  def save(b: Bookmark): State = {
-    findBookmark(b.id) match {
-      case Some(bookmark) => bookmark.vertex.foreach(_.updateAs[Bookmark](_ => b))
-      case None => {
-        val vbm = graph.addVertex(b)
-        findUser(b.owner).foreach(_.vertex.foreach(_.addEdge("created", vbm)))
-      }
-    }
-    this
-  }
-  def findBookmark(id: ULID): Option[Bookmark] = bmVs.has(idKey, id).headOption().map(_.asScala().toCC[Bookmark])
-  def deleteBookmark(id: ULID): State = {
-    bmVs.has(idKey, id).drop().iterate()
-    this
-  }
-  def bookmarkCount: Long = bmVs.count().head()
 }

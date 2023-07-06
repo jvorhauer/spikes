@@ -1,6 +1,6 @@
 # Spikes
 
-Some spike stuff in preparation of the final solution to the Note/Blog/Bookmark product that will be the backend for
+Some spike stuff in preparation of the final solution to the Note product that will be the backend for
 one or more Miruvor SaaS offerings.
 
 [![CodeCov](https://codecov.io/gh/jvorhauer/spikes/branch/main/graph/badge.svg?token=YVnjWS1wc8)](https://codecov.io/gh/jvorhauer/spikes)
@@ -50,7 +50,7 @@ The `validator` and the `reply to requestor` is the reason for the Request inste
 * [ULIDs](https://wvlet.org/airframe/docs/airframe-ulid) for unique, sortable IDs
 * [Chimney](https://scalalandio.github.io/chimney/) for case class transformations
 * [Scalactic](https://www.javadoc.io/doc/org.scalactic/scalactic_2.13/latest/org/scalactic/index.html) for triple equals with type safety
-* [Scala URI](https://index.scala-lang.org/lemonlabsuk/scala-uri) to validate URLs in Bookmarks
+* [Scala URI](https://index.scala-lang.org/lemonlabsuk/scala-uri) to validate URLs
 
 See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/akka-guide/microservices-tutorial/index.html)
 

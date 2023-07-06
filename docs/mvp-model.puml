@@ -12,26 +12,14 @@ class Entry {
   id: ULID
 }
 
-class Task {
+class Note {
   title: String
   body: String
   due: LocalDateTime
   priority: Int
   status: TaskStatus
 }
-Entry <|-- Task
-
-class Bookmark {
-  title: String
-  body: String
-  url: String
-}
-Entry <|-- Bookmark
-
-class WikiPage {
-  title: String
-  body: String
-}
+Entry <|-- Note
 
 class Comment {
   body: String

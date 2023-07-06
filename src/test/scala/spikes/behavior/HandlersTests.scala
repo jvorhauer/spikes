@@ -210,39 +210,6 @@ class HandlersTests extends SpikesTest {
     res4.getValue.tasks should have size 0
   }
 
-  "A Bookmark" should "CRUD" in {
-    val id = next
-    handlers ! User.Create(id, s"test-task-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
-    probe.receiveMessage().isSuccess should be (true)
-
-    val prb = testKit.createTestProbe[StatusReply[Bookmark.Response]]()
-    handlers ! Bookmark.Create(next, id, "http://localhost:8080/users", "Test Title", "Test Body", prb.ref)
-    prb.receiveMessage().isSuccess should be (true)
-
-    handlers ! User.Find(id, probe.ref)
-    val res1 = probe.receiveMessage()
-    res1.isSuccess should be (true)
-    res1.getValue.bookmarks should have size 1
-    res1.getValue.bookmarks.head.title should be ("Test Title")
-
-    handlers ! Bookmark.Update(res1.getValue.bookmarks.head.id, id, "http://updated:9090/bookmarks", "Updated Title", "Updated Body", prb.ref)
-    prb.receiveMessage().isSuccess should be (true)
-
-    handlers ! User.Find(id, probe.ref)
-    val res2 = probe.receiveMessage()
-    res2.isSuccess should be (true)
-    res2.getValue.bookmarks should have size 1
-    res2.getValue.bookmarks.head.title should be ("Updated Title")
-
-    handlers ! Bookmark.Remove(res1.getValue.bookmarks.head.id, prb.ref)
-    prb.receiveMessage().isSuccess should be (true)
-
-    handlers ! User.Find(id, probe.ref)
-    val res3 = probe.receiveMessage()
-    res3.isSuccess should be (true)
-    res3.getValue.bookmarks should have size 0
-  }
-
   "The Reaper" should "reap" in {
     val cprobe: TestProbe[Command] = testKit.createTestProbe[Command]("fprobe")
     handlers ! Reaper.Reap(cprobe.ref)

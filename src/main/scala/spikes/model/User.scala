@@ -22,13 +22,11 @@ case class User(
   val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
   private def vrtx = vertex.map(_.asScala())
   def tasks: Set[Task] = vrtx.map(_.out().hasLabel[Task]().toSet()).getOrElse(Set.empty).map(_.toCC[Task])
-  def bookmarks: Set[Bookmark] = vrtx.map(_.out().hasLabel[Bookmark]().toSet()).getOrElse(Set.empty).map(_.toCC[Bookmark])
   def following: Set[User] = vrtx.map(_.out().hasLabel[User]().toSet()).getOrElse(Set.empty).map(_.toCC[User])
   def followedBy: Set[User] = vrtx.map(_.in().hasLabel[User]().toSet()).getOrElse(Set.empty).map(_.toCC[User])
   def asResponse: User.Response = User.Response(
     id, name, email, joined, born, bio.getOrElse(""),
     tasks.map(_.asResponse),
-    bookmarks.map(_.asResponse),
     following.map(_.id),
     followedBy.map(_.id)
   )
@@ -80,7 +78,7 @@ object User {
     lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
     def asResponse: Response = Response(
       id, name, email, joined, born, bio.getOrElse(""),
-      Set[Task.Response](), Set[Bookmark.Response](), Set[ULID](), Set[ULID]()
+      Set[Task.Response](), Set[ULID](), Set[ULID]()
     )
     def asEvent: Created = this.into[Created].transform
   }
@@ -111,7 +109,6 @@ object User {
   case class Response(
     id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: String,
     tasks: Set[Task.Response],
-    bookmarks: Set[Bookmark.Response],
     following: Set[ULID],
     followedBy: Set[ULID]
   ) extends Respons

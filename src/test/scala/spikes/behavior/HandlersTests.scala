@@ -175,13 +175,13 @@ class HandlersTests extends SpikesTest {
     res.getValue.sessions should be >= 0
   }
 
-  "A Task" should "be workable" in {
+  "A Note" should "be workable" in {
     val id = next
     handlers ! User.Create(id, s"test-task-$id", s"test-$id@miruvor.nl", password, born, bio, probe.ref)
     probe.receiveMessage().isSuccess should be (true)
 
-    val prb = testKit.createTestProbe[StatusReply[Task.Response]]()
-    handlers ! Task.Create(next, id, "Test Title", "Test Body", LocalDateTime.now().plusDays(1), Status.ToDo, prb.ref)
+    val prb = testKit.createTestProbe[StatusReply[Note.Response]]()
+    handlers ! Note.Create(next, id, "Test Title", "Test Body", LocalDateTime.now().plusDays(1), Status.ToDo, prb.ref)
     prb.receiveMessage().isSuccess should be (true)
 
     handlers ! User.Find(id, probe.ref)
@@ -190,7 +190,7 @@ class HandlersTests extends SpikesTest {
     res1.getValue.tasks should have size 1
     res1.getValue.tasks.head.title should be ("Test Title")
 
-    handlers ! Task.Update(res1.getValue.tasks.head.id, id, "Updated Title", "Test Body", LocalDateTime.now().plusDays(3), Status.Doing, prb.ref)
+    handlers ! Note.Update(res1.getValue.tasks.head.id, id, "Updated Title", "Test Body", LocalDateTime.now().plusDays(3), Status.Doing, prb.ref)
     val res2 = prb.receiveMessage()
     res2.isSuccess should be (true)
     res2.getValue.title should be ("Updated Title")
@@ -201,7 +201,7 @@ class HandlersTests extends SpikesTest {
     res3.getValue.tasks should have size 1
     res3.getValue.tasks.head.title should be("Updated Title")
 
-    handlers ! Task.Remove(res1.getValue.tasks.head.id, prb.ref)
+    handlers ! Note.Remove(res1.getValue.tasks.head.id, prb.ref)
     prb.receiveMessage().isSuccess should be (true)
 
     handlers ! User.Find(id, probe.ref)

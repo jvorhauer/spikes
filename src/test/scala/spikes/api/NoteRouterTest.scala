@@ -14,29 +14,29 @@ import io.circe.{ Decoder, Encoder }
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
 import spikes.behavior.{ Handlers, TestUser }
-import spikes.model.{ next, Command, OAuthToken, Status, Task, User }
-import spikes.route.{ InfoRouter, TaskRouter, UserRouter }
+import spikes.model.{ next, Command, OAuthToken, Status, Note, User }
+import spikes.route.{ InfoRouter, NoteRouter, UserRouter }
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
 import scala.util.Try
 
-class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
+class NoteRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
-  implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Task
-  implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Task
+  implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Note
+  implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Note
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
   val testKit: ActorTestKit = ActorTestKit(cfg)
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
-    Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, TaskRouter(handlers).route)
+    Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, NoteRouter(handlers).route)
   }
 
-  "Create and Update Task" should "return updated Task" in {
+  "Create and Update Note" should "return updated Note" in {
     val up = User.Post("Created", "task-router@miruvor.nl", password, born)
     var user: Option[User.Response] = None
     var location: String = "-"
@@ -67,10 +67,10 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
     resp should not be empty
     val token = resp.get.access_token
 
-    val tp = Task.Post("Test Title", "Test Body", LocalDateTime.now().plusDays(1), Status.New)
-    Post("/tasks", tp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+    val tp = Note.Post("Test Title", "Test Body", LocalDateTime.now().plusDays(1), Status.New)
+    Post("/notes", tp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.Created)
-      responseAs[Task.Response].title should be("Test Title")
+      responseAs[Note.Response].title should be("Test Title")
     }
 
     var id: ULID = next
@@ -81,17 +81,17 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
       id = resp.tasks.head.id
     }
 
-    Get(s"/tasks/$id") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+    Get(s"/notes/$id") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
-      val resp = responseAs[Task.Response]
+      val resp = responseAs[Note.Response]
       resp.title should be("Test Title")
       resp.body should be("Test Body")
     }
 
-    val tu = Task.Put(id, "Updated Title", "Updated Test Body", LocalDateTime.now().plusDays(3), Status.ToDo)
-    Put("/tasks", tu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+    val tu = Note.Put(id, "Updated Title", "Updated Test Body", LocalDateTime.now().plusDays(3), Status.ToDo)
+    Put("/notes", tu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
-      val resp = responseAs[Task.Response]
+      val resp = responseAs[Note.Response]
       resp.title should be("Updated Title")
     }
 
@@ -102,7 +102,7 @@ class TaskRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
       resp.tasks.head.title should be("Updated Title")
     }
 
-    Delete("/tasks", Task.Delete(id)) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+    Delete("/notes", Note.Delete(id)) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
     }
 

@@ -18,7 +18,7 @@ import scala.concurrent.duration.DurationInt
 
 object Handlers {
 
-  val pid: PersistenceId = PersistenceId.of("spikes", "6", "|")
+  val pid: PersistenceId = PersistenceId.of("spikes", "7", "|")
 
   implicit private val graph: ScalaGraph = TinkerGraph.open().asScala()
 
@@ -73,21 +73,21 @@ object Handlers {
         }
         case User.All(replyTo) => reply(replyTo)(success(state.findUsers().map(_.asResponse)))
 
-        case tc: Task.Create => state.findUser(tc.owner) match {
+        case tc: Note.Create => state.findUser(tc.owner) match {
           case Some(_) => persist(tc.asEvent).thenReply(tc.replyTo)(_ => success(tc.asResponse))
-          case None => reply(tc.replyTo)(error(s"Owner ${tc.owner} for new Task not found"))
+          case None => reply(tc.replyTo)(error(s"Owner ${tc.owner} for new Note not found"))
         }
-        case tu: Task.Update => state.findTask(tu.id) match {
-          case Some(_) => persist(tu.asEvent).thenReply(tu.replyTo)(us => success(us.findTask(tu.id).get.asResponse))
-          case None => reply(tu.replyTo)(error(s"Task ${tu.id} not found for update"))
+        case tu: Note.Update => state.findNote(tu.id) match {
+          case Some(_) => persist(tu.asEvent).thenReply(tu.replyTo)(us => success(us.findNote(tu.id).get.asResponse))
+          case None => reply(tu.replyTo)(error(s"Note ${tu.id} not found for update"))
         }
-        case Task.Remove(id, replyTo) => state.findTask(id) match {
-          case Some(t) => persist(Task.Removed(id)).thenReply(replyTo)(_ => success(t.asResponse))
-          case None => reply(replyTo)(error(s"Task $id not found for deletion"))
+        case Note.Remove(id, replyTo) => state.findNote(id) match {
+          case Some(t) => persist(Note.Removed(id)).thenReply(replyTo)(_ => success(t.asResponse))
+          case None => reply(replyTo)(error(s"Note $id not found for deletion"))
         }
-        case Task.Find(id, replyTo) => state.findTask(id) match {
+        case Note.Find(id, replyTo) => state.findNote(id) match {
           case Some(t) => reply(replyTo)(success(t.asResponse))
-          case None => reply(replyTo)(error(s"Task $id not found"))
+          case None => reply(replyTo)(error(s"Note $id not found"))
         }
 
         case Reaper.Reap(replyTo) =>
@@ -96,7 +96,7 @@ object Handlers {
             case count => persist(Reaper.Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => Reaper.Done)
           }
 
-        case GetInfo(replyTo) => reply(replyTo)(success(Info(state.userCount, state.sessions.size, state.taskCount, recovered)))
+        case GetInfo(replyTo) => reply(replyTo)(success(Info(state.userCount, state.sessions.size, state.noteCount, recovered)))
       }
 
     val eventHandler: (State, Event) => State = (state, evt) =>
@@ -110,9 +110,9 @@ object Handlers {
 
         case uf: User.Followed => state.follow(uf.id, uf.other)
 
-        case tc: Task.Created => state.save(tc.asTask)
-        case tu: Task.Updated => state.save(tu.asTask)
-        case tr: Task.Removed => state.deleteTask(tr.id)
+        case tc: Note.Created => state.save(tc.asNote)
+        case tu: Note.Updated => state.save(tu.asNote)
+        case tr: Note.Removed => state.deleteNote(tr.id)
 
         case _: Reaper.Reaped => state.copy(sessions = state.sessions.filter(_.expires.isAfter(now)))
       }
@@ -126,7 +126,7 @@ object Handlers {
       .receiveSignal {
         case (_, PreRestart) => ctx.log.info("pre-restart signal received")
         case (state, RecoveryCompleted) =>
-          ctx.log.info(s"recovered: users: ${state.userCount}, sessions: ${state.sessions.size}, tasks: ${state.taskCount}")
+          ctx.log.info(s"recovered: users: ${state.userCount}, sessions: ${state.sessions.size}, tasks: ${state.noteCount}")
           recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
       }

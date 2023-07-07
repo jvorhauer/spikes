@@ -10,7 +10,7 @@ import scala.collection.immutable.HashSet
 case class State(sessions: Set[User.Session] = HashSet.empty)(implicit val graph: ScalaGraph) {
   private def trav   = graph.traversal.V()
   private def userVs = trav.hasLabel[User]()
-  private def taskVs = trav.hasLabel[Task]()
+  private def notesVs = trav.hasLabel[Note]()
 
   private val emailKey = Key[String]("email")
   private val idKey = Key[ULID]("id")
@@ -46,20 +46,20 @@ case class State(sessions: Set[User.Session] = HashSet.empty)(implicit val graph
     this
   }
 
-  def save(t: Task): State = {
-    findTask(t.id) match {
-      case Some(task) => task.vertex.foreach(_.updateAs[Task](_ => t))
+  def save(n: Note): State = {
+    findNote(n.id) match {
+      case Some(note) => note.vertex.foreach(_.updateAs[Note](_ => n))
       case None => {
-        val vtask = graph.addVertex(t)
-        findUser(t.owner).foreach(_.vertex.foreach(_.addEdge("created", vtask)))
+        val vnote = graph.addVertex(n)
+        findUser(n.owner).foreach(_.vertex.foreach(_.addEdge("created", vnote)))
       }
     }
     this
   }
-  def findTask(id: ULID): Option[Task] = taskVs.has(idKey, id).headOption().map(_.asScala().toCC[Task])
-  def deleteTask(id: ULID): State = {
-    taskVs.has(idKey, id).drop().iterate()
+  def findNote(id: ULID): Option[Note] = notesVs.has(idKey, id).headOption().map(_.asScala().toCC[Note])
+  def deleteNote(id: ULID): State = {
+    notesVs.has(idKey, id).drop().iterate()
     this
   }
-  def taskCount: Long = taskVs.count().head()
+  def noteCount: Long = notesVs.count().head()
 }

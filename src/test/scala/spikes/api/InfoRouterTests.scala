@@ -32,7 +32,7 @@ class InfoRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
       val info = responseAs[Info]
       info.users should be >= 0L
       info.sessions should be >= 0
-      info.tasks should be >= 0L
+      info.notes should be >= 0L
       info.recovered should be(true)
       info.version should be(BuildInfo.version)
     }

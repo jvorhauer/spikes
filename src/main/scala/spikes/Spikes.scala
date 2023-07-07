@@ -25,7 +25,7 @@ object Spikes {
         concat(
           UserRouter(handlers).route,
           InfoRouter(handlers).route,
-          TaskRouter(handlers).route
+          NoteRouter(handlers).route
         )
       }
       Http(ctx.system).newServerAt("0.0.0.0", 8080).bind(routes)

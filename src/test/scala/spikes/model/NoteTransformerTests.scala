@@ -7,13 +7,13 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import wvlet.airframe.ulid.ULID
 
-class TaskTransformerTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
+class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
 
   private val testkit = ActorTestKit()
-  private val probe = testkit.createTestProbe[StatusReply[Task.Response]]().ref
+  private val probe = testkit.createTestProbe[StatusReply[Note.Response]]().ref
 
-  "Task.Post" should "transform into Task.Command" in {
-    val req = Task.Post("title", "body", now, Status.Blank)
+  "Note.Post" should "transform into Note.Command" in {
+    val req = Note.Post("title", "body", now, Status.Blank)
     val id  = ULID.newULID
     val cmd = req.asCmd(id, probe)
     cmd.owner should be (id)
@@ -23,10 +23,10 @@ class TaskTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
     cmd.status should be (Status.Blank)
   }
 
-  "Task.Command" should "transform into Task.Created" in {
+  "Note.Command" should "transform into Note.Created" in {
     val id  = ULID.newULID
     val owner = ULID.newULID
-    val cmd = Task.Create(id, owner, "title", "body", now, Status.Completed, probe)
+    val cmd = Note.Create(id, owner, "title", "body", now, Status.Completed, probe)
     val evt = cmd.asEvent
     evt.id should be (id)
     evt.owner should be (owner)
@@ -36,11 +36,11 @@ class TaskTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
     evt.status should be (Status.Completed)
   }
 
-  "Task.Event" should "transform into Task" in {
+  "Note.Event" should "transform into Note" in {
     val id = ULID.newULID
     val owner = ULID.newULID
-    val evt = Task.Created(id, owner, "title", "body", now, Status.Doing)
-    val ent = evt.asTask
+    val evt = Note.Created(id, owner, "title", "body", now, Status.Doing)
+    val ent = evt.asNote
     ent.id should be (id)
     ent.owner should be (owner)
     ent.title should be ("title")
@@ -49,28 +49,28 @@ class TaskTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
     ent.status should be (Status.Doing)
   }
 
-  "Task" should "transform into Task.Response" in {
+  "Note" should "transform into Note.Response" in {
     val id = ULID.newULID
     val owner = ULID.newULID
-    val task = Task(id, owner, "title", "body", now, Status.Doing)
-    val resp = task.asResponse
+    val note = Note(id, owner, "title", "body", now, Status.Doing)
+    val resp = note.asResponse
     resp.id should be (id)
     resp.title should be ("title")
     resp.body should be ("body")
-    resp.due should be (task.due)
+    resp.due should be (note.due)
     resp.status should be (Status.Doing)
   }
 
-  "Task.Post" should "transform into Task.Response" in {
-    val req = Task.Post("title", "body", now, Status.Blank)
+  "Note.Post" should "transform into Note.Response" in {
+    val req = Note.Post("title", "body", now, Status.Blank)
     val id = ULID.newULID
     val cmd = req.asCmd(id, probe)
     val evt = cmd.asEvent
-    val task = evt.asTask
-    val resp = task.asResponse
+    val note = evt.asNote
+    val resp = note.asResponse
     resp.title should be("title")
     resp.body should be("body")
-    resp.due should be(task.due)
+    resp.due should be(note.due)
     resp.status should be(Status.Blank)
   }
 }

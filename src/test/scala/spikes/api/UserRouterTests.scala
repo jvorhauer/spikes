@@ -28,8 +28,8 @@ class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
-  implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Task
-  implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Task
+  implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Note
+  implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Note
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
 

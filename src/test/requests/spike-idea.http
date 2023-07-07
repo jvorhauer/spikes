@@ -28,8 +28,8 @@ Content-Type: application/json
 
 > {% client.global.set("authorized", response.body.access_token); %}
 
-### post-task
-POST {{ host }}/tasks
+### post-note
+POST {{ host }}/notes
 Content-Type: application/json
 Authorization: Bearer {{ authorized }}
 

@@ -21,12 +21,12 @@ case class User(
 ) extends Entity {
   val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
   private def vrtx = vertex.map(_.asScala())
-  def tasks: Set[Task] = vrtx.map(_.out().hasLabel[Task]().toSet()).getOrElse(Set.empty).map(_.toCC[Task])
-  def following: Set[User] = vrtx.map(_.out().hasLabel[User]().toSet()).getOrElse(Set.empty).map(_.toCC[User])
-  def followedBy: Set[User] = vrtx.map(_.in().hasLabel[User]().toSet()).getOrElse(Set.empty).map(_.toCC[User])
+  def notes: Set[Note] = vrtx.map(_.out().hasLabel[Note]().toSet()).getOrElse(Set.empty).map(_.toCC[Note])
+  def following: Set[User] = vrtx.map(_.out("follows").toSet()).getOrElse(Set.empty).map(_.toCC[User])
+  def followedBy: Set[User] = vrtx.map(_.in("follows").toSet()).getOrElse(Set.empty).map(_.toCC[User])
   def asResponse: User.Response = User.Response(
     id, name, email, joined, born, bio.getOrElse(""),
-    tasks.map(_.asResponse),
+    notes.map(_.asResponse),
     following.map(_.id),
     followedBy.map(_.id)
   )
@@ -78,7 +78,7 @@ object User {
     lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
     def asResponse: Response = Response(
       id, name, email, joined, born, bio.getOrElse(""),
-      Set[Task.Response](), Set[ULID](), Set[ULID]()
+      Set[Note.Response](), Set[ULID](), Set[ULID]()
     )
     def asEvent: Created = this.into[Created].transform
   }
@@ -107,10 +107,10 @@ object User {
   case class Followed(id: ULID, other: ULID) extends Event
 
   case class Response(
-    id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: String,
-    tasks: Set[Task.Response],
-    following: Set[ULID],
-    followedBy: Set[ULID]
+                         id: ULID, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: String,
+                         tasks: Set[Note.Response],
+                         following: Set[ULID],
+                         followedBy: Set[ULID]
   ) extends Respons
 
   case class Session(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2)) {

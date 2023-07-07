@@ -4,7 +4,7 @@ import gremlin.scala.*
 import org.apache.tinkerpop.gremlin.structure.Direction
 import org.apache.tinkerpop.gremlin.tinkergraph.structure.TinkerFactory
 import spikes.SpikesTest
-import spikes.model.{Status, Task, User, next}
+import spikes.model.{Status, Note, User, next}
 
 import java.time.{LocalDate, LocalDateTime}
 import scala.jdk.CollectionConverters.*
@@ -38,9 +38,9 @@ class GraphTests extends SpikesTest {
     g.V().hasLabel("person").toList() should have size 5
 
     val user = User(next, "Harry", "harry@miruvor.nl", "geheim", LocalDate.now().minusYears(23))
-    val task = Task(next, user.id, "Test", "Test tekst", LocalDateTime.now().plusDays(1), Status.ToDo)
+    val task = Note(next, user.id, "Test", "Test tekst", LocalDateTime.now().plusDays(1), Status.ToDo)
     val vuser = graph.addVertex[User](user)
-    val vtask = graph.addVertex[Task](task)
+    val vtask = graph.addVertex[Note](task)
     vuser.addEdge("created", vtask, "weight", 1.0)
     g.V().hasLabel[User]().toIterator().foreach { v =>
       val sv = v.asScala()
@@ -48,7 +48,7 @@ class GraphTests extends SpikesTest {
       u.name should be("Harry")
       u.email should be("harry@miruvor.nl")
       u.password should be("geheim")
-      u.tasks should have size 1
+      u.notes should have size 1
     }
   }
 

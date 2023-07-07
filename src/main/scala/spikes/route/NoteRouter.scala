@@ -11,28 +11,28 @@ import spikes.validate.Validation.validated
 
 import scala.concurrent.{ ExecutionContextExecutor, Future }
 
-case class TaskRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router(handlers) {
+case class NoteRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router(handlers) {
 
   implicit val ec: ExecutionContextExecutor = system.executionContext
 
   import akka.actor.typed.scaladsl.AskPattern.{ schedulerFromActorSystem, Askable }
 
-  private def replier(fut: Future[Task.Reply], sc: StatusCode) =
+  private def replier(fut: Future[Note.Reply], sc: StatusCode) =
     onSuccess(fut) {
-      case srre: Task.Reply if srre.isSuccess => complete(sc, srre.getValue.asJson)
-      case srre: Task.Reply                   => complete(StatusCodes.Conflict, RequestError(srre.getError.getMessage).asJson)
+      case srre: Note.Reply if srre.isSuccess => complete(sc, srre.getValue.asJson)
+      case srre: Note.Reply                   => complete(StatusCodes.Conflict, RequestError(srre.getError.getMessage).asJson)
       case _                                  => badRequest
     }
 
   val route: Route =
     concat(
-      pathPrefix("tasks") {
+      pathPrefix("notes") {
         concat(
           pathEndOrSingleSlash {
             concat(
               post {
                 authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-                  entity(as[Task.Post]) {
+                  entity(as[Note.Post]) {
                     validated(_) { rce =>
                       replier(handlers.ask(rce.asCmd(us.id, _)), StatusCodes.Created)
                     }
@@ -41,7 +41,7 @@ case class TaskRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
               },
               put {
                 authenticateOAuth2Async(realm = "spikes", authenticator) { us =>
-                  entity(as[Task.Put]) {
+                  entity(as[Note.Put]) {
                     validated(_) { rut =>
                       replier(handlers.ask(rut.asCmd(us.id, _)), StatusCodes.OK)
                     }
@@ -50,7 +50,7 @@ case class TaskRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
               },
               delete {
                 authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
-                  entity(as[Task.Delete]) { rdt =>
+                  entity(as[Note.Delete]) { rdt =>
                     replier(handlers.ask(rdt.asCmd), StatusCodes.OK)
                   }
                 }
@@ -60,7 +60,7 @@ case class TaskRouter(handlers: ActorRef[Command])(implicit system: ActorSystem[
           get {
             path(pULID) { id =>
               authenticateOAuth2Async(realm = "spikes", authenticator) { _ =>
-                replier(handlers.ask(Task.Get(id).asCmd), StatusCodes.OK)
+                replier(handlers.ask(Note.Get(id).asCmd), StatusCodes.OK)
               }
             }
           }

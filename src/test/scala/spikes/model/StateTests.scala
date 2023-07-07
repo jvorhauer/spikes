@@ -61,23 +61,23 @@ class StateTests extends SpikesTest with ScalaFutures {
     s4.findUser(other.id).get.following should have size 0
   }
 
-  "A User with a Task" should "have a relation" in {
+  "A User with a Note" should "have a relation" in {
     val s1 = State()(makeg())
     val s2 = s1.save(user)
     s2.userCount should be (1)
-    val task = Task(next, user.id, "title", "body", now.plusDays(1), Status.New)
-    val s3 = s2.save(task)
-    s3.taskCount should be (1)
-    val s4 = s3.deleteTask(task.id)
-    s4.taskCount should be (0)
+    val note = Note(next, user.id, "title", "body", now.plusDays(1), Status.New)
+    val s3 = s2.save(note)
+    s3.noteCount should be (1)
+    val s4 = s3.deleteNote(note.id)
+    s4.noteCount should be (0)
   }
 
-  "A User with many Tasks" should "have an equal number of relations" in {
+  "A User with many Notes" should "have an equal number of relations" in {
     val s1 = State()(makeg())
     val s2 = s1.save(user)
     s2.userCount should be (1)
-    val seq = (1 to 10).map(r => Task(next, user.id, s"title$r", s"body-$r", now.plusDays(1), Status.New))
+    val seq = (1 to 10).map(r => Note(next, user.id, s"title$r", s"body-$r", now.plusDays(1), Status.New))
     val s3 = seq.foldLeft(s1)((acc, value) => acc.save(value))
-    s3.taskCount should be (10)
+    s3.noteCount should be (10)
   }
 }

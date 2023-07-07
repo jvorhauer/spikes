@@ -51,7 +51,7 @@ object InfoRouter {
   case class Info(
       users: Long,
       sessions: Int,
-      tasks: Long,
+      notes: Long,
       recovered: Boolean = false,
       host: String = hostname,
       version: String = BuildInfo.version,

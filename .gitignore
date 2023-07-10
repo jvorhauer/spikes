@@ -30,3 +30,5 @@ http-client.private.env.json
 ### Other ###
 stuff.*
 spike/
+metals.sbt
+project/project/

@@ -56,7 +56,7 @@ lazy val root = (project in file("."))
       "io.scalaland"           %% "chimney"                       % "0.7.5",
       "ch.qos.logback"         %  "logback-classic"               % "1.4.8",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.0",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.1",
       "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
       "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
       "org.scalactic"          %% "scalactic"                     % scala_test_version,

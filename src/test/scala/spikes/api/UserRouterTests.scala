@@ -13,7 +13,7 @@ import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
-import spikes.behavior.{Handlers, Stator, TestUser}
+import spikes.behavior.{Handlers, TestUser}
 import spikes.model.*
 import spikes.model.User.Response
 import spikes.route.InfoRouter.Info
@@ -34,8 +34,7 @@ class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
   implicit val ts: ActorSystem[Nothing] = system.toTyped
 
   val testKit: ActorTestKit = ActorTestKit(cfg)
-  val stator: ActorRef[Event] = testKit.spawn(Stator())
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(stator), "api-test-handlers")
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     concat(UserRouter(handlers).route, InfoRouter(handlers).route)
   }

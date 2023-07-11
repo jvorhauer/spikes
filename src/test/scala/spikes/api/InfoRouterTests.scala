@@ -12,25 +12,23 @@ import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
-import spikes.behavior.{Handlers, Stator}
+import spikes.behavior.Handlers
 import spikes.build.BuildInfo
 import spikes.model.Command
 import spikes.route.InfoRouter
 import spikes.route.InfoRouter.Info
 import spikes.validate.Validation
-import spikes.model.Event
 
 import scala.concurrent.duration.DurationInt
 
 class InfoRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTest {
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
+  implicit val timeout: RouteTestTimeout = RouteTestTimeout(5.seconds.dilated)
 
   val testKit: ActorTestKit = ActorTestKit(cfg)
-  val stator: ActorRef[Event] = testKit.spawn(Stator())
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(stator), "api-test-handlers")
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler)(InfoRouter(handlers).route)
-  implicit val timeout: RouteTestTimeout = RouteTestTimeout(5.seconds.dilated)
 
   "GET info endpoint" should "be ok" in {
     Thread.sleep(100)

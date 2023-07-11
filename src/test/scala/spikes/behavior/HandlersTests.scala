@@ -16,9 +16,8 @@ class HandlersTests extends SpikesTest {
   private val bio = Some("It's me!!")
 
   val testKit: ActorTestKit = ActorTestKit(cfg)
-  val stator: ActorRef[Event] = testKit.spawn(Stator())
   val probe: TestProbe[StatusReply[User.Response]] = testKit.createTestProbe[StatusReply[User.Response]]("probe")
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(stator), "handlers-test")
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "handlers-test")
 
   "Create a new User" should "persist" in {
     val id = next

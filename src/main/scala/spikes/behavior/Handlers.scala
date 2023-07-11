@@ -1,7 +1,7 @@
 package spikes.behavior
 
 import akka.actor.typed.scaladsl.Behaviors
-import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
+import akka.actor.typed.{Behavior, SupervisorStrategy}
 import akka.pattern.StatusReply.{error, success}
 import akka.persistence.typed.scaladsl.Effect.{persist, reply}
 import akka.persistence.typed.scaladsl.{EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
@@ -21,7 +21,7 @@ object Handlers {
 
   implicit private val graph: ScalaGraph = TinkerGraph.open().asScala()
 
-  def apply(stator: ActorRef[Event], state: State = State()): Behavior[Command] = Behaviors.setup { ctx =>
+  def apply(state: State = State()): Behavior[Command] = Behaviors.setup { ctx =>
     var recovered = false
 
     val commandHandler: (State, Command) => ReplyEffect[Event, State] = (state, cmd) =>
@@ -108,7 +108,6 @@ object Handlers {
       }
 
     val eventHandler: (State, Event) => State = (state, evt) => {
-      stator ! evt
       evt match {
         case uc: User.Created => state.save(uc.asEntity)
         case uu: User.Updated => state.findUser(uu.id).map(u => state.save(u.copy(name = uu.name, password = uu.password, born = uu.born))).getOrElse(state)

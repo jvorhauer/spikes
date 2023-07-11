@@ -8,6 +8,8 @@ one or more Miruvor SaaS offerings.
 
 ## Event Sourced
 
+Is the way of working for Spikes. It's an extension of event driven:
+
 ```
 Request -> Command -> Event -> Entity -> Response
 ```
@@ -31,7 +33,7 @@ an Event Handler:
 request via akka-http-route -> 
   validator -> 
   command-handler ->
-    reply to requestor 
+    reply to requestor &
     event-handler
 ```
 
@@ -141,14 +143,16 @@ Apply these as:
 
 ## Truth
 
-The real reason I had to pick Cassandra as a database is that the Astra offering is extremely cool for small projects like this. it's been free for me due to very limited traffic can storage size. But Cassandra is not relational. Not that I like relational databases. Not at all. But that type of databases is convenient as there is a lot of experience, including my own, with rdbms's and orms. I also do not like orms. So, what's a good solution that can use C*? CQRS with Event Sourcing :-).
+The real reason I had to pick Cassandra as a database is that the Astra offering is extremely cool for small projects like this. it's been free for me due to very limited traffic can storage size. But Cassandra is not relational. Not that I like relational databases. Not at all. But that type of databases is convenient as there is a lot of experience, including my own, with rdbms's and orms. I also do not like orms. So, what's a good solution that can use C*? Event Sourcing :-).
 
 That is the real reason for choosing this rather exotic setup. But after a while I really love Event Sourcing!! It's unbeatable for growing a backend service. It's unbeatable for separating concerns and as a basis for growth.
 
 Only thing I haven't figured out yet is scalability: I don't see how I can combine the advantages of ES with clustering. Clustering is a great method to guarantee uptime, for instance when a Kubernetes pod with one of the nodes of the app cluster goes down unexpectedly. Rolling updates is possible with one node, so that's covered by k8s.
 
-## (Still) ToDo
+Note that CQRS is never mentioned in this document. It is considered to be one of the pillars of Event Sourcing, but I don't see what's so great about it. So, no segregation yet. Maybe when there is an actual need.
 
-1. The Query/Read model side **MUST** be segregated from the Command/Event handler!!
-2. Notes
+## ToDo
+
+1. Comments
+2. Tags
 3. External QA and Performance tests

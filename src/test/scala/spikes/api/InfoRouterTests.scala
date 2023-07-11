@@ -6,7 +6,8 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives.handleRejections
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.testkit.ScalatestRouteTest
+import akka.http.scaladsl.testkit.{RouteTestTimeout, ScalatestRouteTest}
+import akka.testkit.TestDuration
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import org.scalatest.concurrent.ScalaFutures
@@ -19,6 +20,8 @@ import spikes.route.InfoRouter.Info
 import spikes.validate.Validation
 import spikes.model.Event
 
+import scala.concurrent.duration.DurationInt
+
 class InfoRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTest {
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
@@ -27,8 +30,10 @@ class InfoRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
   val stator: ActorRef[Event] = testKit.spawn(Stator())
   val handlers: ActorRef[Command] = testKit.spawn(Handlers(stator), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler)(InfoRouter(handlers).route)
+  implicit val timeout: RouteTestTimeout = RouteTestTimeout(5.seconds.dilated)
 
   "GET info endpoint" should "be ok" in {
+    Thread.sleep(100)
     Get("/info") ~> route ~> check {
       status shouldEqual StatusCodes.OK
       val info = responseAs[Info]

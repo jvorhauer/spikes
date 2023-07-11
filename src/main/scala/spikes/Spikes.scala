@@ -5,7 +5,7 @@ import akka.actor.typed.{ActorSystem, Behavior}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Directives.*
 import kamon.Kamon
-import spikes.behavior.{Handlers, Reaper}
+import spikes.behavior.{Handlers, Reaper, Stator}
 import spikes.route.*
 import spikes.validate.Validation
 
@@ -19,7 +19,8 @@ object Spikes {
 
       implicit val system = ctx.system
 
-      val handlers = ctx.spawn(Handlers(), "handlers")
+      val stator = ctx.spawn(Stator(), "stator")
+      val handlers = ctx.spawn(Handlers(stator), "handlers")
       ctx.spawn(Reaper(handlers, 1.minute), "reaper")
       val routes = handleRejections(Validation.rejectionHandler) {
         concat(

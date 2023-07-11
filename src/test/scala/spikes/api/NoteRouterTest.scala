@@ -2,25 +2,26 @@ package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ ActorRef, ActorSystem }
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.model.headers.{ Authorization, OAuth2BearerToken }
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives.handleRejections
-import akka.http.scaladsl.server.{ Directives, Route }
+import akka.http.scaladsl.server.{Directives, Route}
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
-import io.circe.{ Decoder, Encoder }
+import io.circe.{Decoder, Encoder}
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
-import spikes.behavior.{ Handlers, TestUser }
-import spikes.model.{ next, Command, OAuthToken, Status, Note, User }
-import spikes.route.{ InfoRouter, NoteRouter, UserRouter }
+import spikes.behavior.{Handlers, Stator, TestUser}
+import spikes.model.{Command, Note, OAuthToken, Status, User, next}
+import spikes.route.{InfoRouter, NoteRouter, UserRouter}
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
 import scala.util.Try
+import spikes.model.Event
 
 class NoteRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
 
@@ -31,7 +32,8 @@ class NoteRouterTest extends SpikesTest with ScalaFutures with ScalatestRouteTes
 
   implicit val ts: ActorSystem[Nothing] = system.toTyped
   val testKit: ActorTestKit = ActorTestKit(cfg)
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
+  val stator: ActorRef[Event] = testKit.spawn(Stator())
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(stator), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     Directives.concat(UserRouter(handlers).route, InfoRouter(handlers).route, NoteRouter(handlers).route)
   }

@@ -2,22 +2,22 @@ package spikes.api
 
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.scaladsl.adapter.ClassicActorSystemOps
-import akka.actor.typed.{ ActorRef, ActorSystem }
+import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.*
-import akka.http.scaladsl.model.headers.{ Authorization, OAuth2BearerToken }
+import akka.http.scaladsl.model.headers.{Authorization, OAuth2BearerToken}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
-import io.circe.{ Decoder, Encoder }
+import io.circe.{Decoder, Encoder}
 import org.scalatest.concurrent.ScalaFutures
 import spikes.SpikesTest
-import spikes.behavior.{ Handlers, TestUser }
+import spikes.behavior.{Handlers, Stator, TestUser}
 import spikes.model.*
 import spikes.model.User.Response
 import spikes.route.InfoRouter.Info
-import spikes.route.{ InfoRouter, RequestError, UserRouter }
+import spikes.route.{InfoRouter, RequestError, UserRouter}
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
@@ -34,7 +34,8 @@ class UserRouterTests extends SpikesTest with ScalaFutures with ScalatestRouteTe
   implicit val ts: ActorSystem[Nothing] = system.toTyped
 
   val testKit: ActorTestKit = ActorTestKit(cfg)
-  val handlers: ActorRef[Command] = testKit.spawn(Handlers(), "api-test-handlers")
+  val stator: ActorRef[Event] = testKit.spawn(Stator())
+  val handlers: ActorRef[Command] = testKit.spawn(Handlers(stator), "api-test-handlers")
   val route: Route = handleRejections(Validation.rejectionHandler) {
     concat(UserRouter(handlers).route, InfoRouter(handlers).route)
   }

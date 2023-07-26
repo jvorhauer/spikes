@@ -16,8 +16,9 @@ package object validate {
   val rurl: Regex = "^https?://\\w[\\w\\d.-_]/.*$".r
   val rtitle: Regex = "^[\\p{L}\\s\\d\\W]+$".r
   val rbody: Regex = "^[\\p{L}\\s\\d\\W]+$".r
+  val rslug: Regex = "^\\d{8}-[\\p{L}\\d\\W]+$".r
 
-  case class Rule[T](name: String, isValid: T => Boolean, msg: String)
+  final case class Rule[T](name: String, isValid: T => Boolean, msg: String)
 
   private val clean: String => String = s => Option(s).map(_.trim).map(Encode.forHtml).getOrElse("")
 
@@ -30,4 +31,5 @@ package object validate {
   val titleRule: String => Rule[String] = s => Rule("title", s => rtitle.matches(clean(s)), s"\"${s}\" is not a valid title")
   val bodyRule: String => Rule[String] = s => Rule("body", s => rbody.matches(clean(s)), s"\"${s}\" is not a valid body")
   val urlRule: String => Rule[String] = s => Rule("url", s => AbsoluteUrl.parseTry(s).isSuccess, s"\"${s}\" is not a valid URL")
+  val slugRule: String => Rule[String] = s => Rule("slug", s => rslug.matches(clean(s)), s"\"$s\" is not a valid note slug")
 }

@@ -11,10 +11,11 @@ import spikes.model.Request
 
 object Validation {
 
-  case class FieldErrorInfo(field: String, error: String)
-  case class ModelValidationRejection(fields: Set[FieldErrorInfo]) extends Rejection
+  final case class ErrorInfo(field: String, error: String)
+  final case class ModelValidationRejection(fields: Set[ErrorInfo]) extends Rejection
+  final case class ItemValidationRejection(error: String) extends Rejection
 
-  def validate[T](rule: Rule[T], value: T, name: String): Option[FieldErrorInfo] = if (rule.isValid(value)) None else Some(FieldErrorInfo(name, rule.msg))
+  def validate[T](rule: Rule[T], value: T, name: String): Option[ErrorInfo] = if (rule.isValid(value)) None else Some(ErrorInfo(name, rule.msg))
 
   def validated[T <: Request](model: T): Directive1[T] = {
     model.validated match {
@@ -23,10 +24,15 @@ object Validation {
     }
   }
 
-  def rejectionHandler: RejectionHandler = RejectionHandler.newBuilder()
-    .handle {
-      case mvr@ModelValidationRejection(_) => complete(StatusCodes.BadRequest, mvr.fields.asJson)
-//      case xyz: Rejection => complete(StatusCodes.InternalServerError, xyz.)
+  def validated[T <: Request](item: Either[String, T]): Directive1[T] = {
+    item match {
+      case Left(s)    => reject(ItemValidationRejection(s))
+      case Right(req) => provide(req)
     }
-    .result()
+  }
+
+  def rejectionHandler: RejectionHandler = RejectionHandler.newBuilder().handle {
+      case mvr@ModelValidationRejection(_) => complete(StatusCodes.BadRequest, mvr.fields.asJson)
+      case ivr@ItemValidationRejection(_) => complete(StatusCodes.BadRequest, ivr)
+    }.result()
 }

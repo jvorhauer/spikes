@@ -8,22 +8,22 @@ import io.circe.generic.auto.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import spikes.model.Request
-import spikes.validate.Validation.{FieldErrorInfo, ModelValidationRejection, validated}
+import spikes.validate.Validation.{ErrorInfo, ModelValidationRejection, validated}
 
 import java.time.LocalDate
 
 
 class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
   case class Book(title: String, author: String, pages: Int) extends Request {
-    lazy val validated: Set[FieldErrorInfo] = Set(
+    override lazy val validated: Set[ErrorInfo] = Set(
       Validation.validate(titleRule(title), title, "title"),
-      if (author.length > 3) None else Some(FieldErrorInfo("author", "author must be longer than 3")),
-      if (pages < 11) Some(FieldErrorInfo("pages", "page count must be greater than 10")) else None,
+      if (author.length > 3) None else Some(ErrorInfo("author", "author must be longer than 3")),
+      if (pages < 11) Some(ErrorInfo("pages", "page count must be greater than 10")) else None,
     ).flatten
   }
 
   case class Improved(title: String, name: String, when: LocalDate) extends Request {
-    lazy val validated: Set[FieldErrorInfo] = Set.apply(
+    override lazy val validated: Set[ErrorInfo] = Set.apply(
       Validation.validate(titleRule(title), title, "title"),
       Validation.validate(nameRule(name), name, "name"),
       Validation.validate(bornRule(when), when, "when")
@@ -31,7 +31,7 @@ class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest 
   }
 
   case class Account(name: String, password: String) extends Request {
-    lazy val validated: Set[FieldErrorInfo] = Set.apply(
+    override lazy val validated: Set[ErrorInfo] = Set.apply(
       Validation.validate(nameRule(name), name, "name"),
       Validation.validate(passwordRule(password), password, "password")
     ).flatten
@@ -52,9 +52,9 @@ class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest 
   "Invalid Book" should "return model validation rejection set" in {
     Post("/books", Book("", "", 5)) ~> routes ~> check {
       assert(rejection === ModelValidationRejection(Set(
-        FieldErrorInfo("title", "\"\" is not a valid title"),
-        FieldErrorInfo("author", "author must be longer than 3"),
-        FieldErrorInfo("pages", "page count must be greater than 10")
+        ErrorInfo("title", "\"\" is not a valid title"),
+        ErrorInfo("author", "author must be longer than 3"),
+        ErrorInfo("pages", "page count must be greater than 10")
       )))
     }
   }

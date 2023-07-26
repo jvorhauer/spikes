@@ -1,4 +1,4 @@
-import sbtrelease.ReleaseStateTransformations.*
+import sbtrelease.ReleaseStateTransformations._
 
 ThisBuild / scalaVersion           := "2.13.11"
 ThisBuild / organization           := "nl.miruvor"
@@ -43,9 +43,8 @@ lazy val root = (project in file("."))
       "com.typesafe.akka" %% "akka-persistence-typed"      % akka_version,
       "com.typesafe.akka" %% "akka-persistence-query"      % akka_version,
       "com.typesafe.akka" %% "akka-persistence-cassandra"  % "1.1.1",
-      "com.datastax.oss"  %  "java-driver-core"            % "4.16.0",
-      "io.netty"          %  "netty-handler"               % "4.1.94.Final",
-      "de.heikoseeberger" %% "akka-http-circe"             % "1.39.2",
+      "com.datastax.oss"  %  "java-driver-core"            % "4.17.0",
+      "io.netty"          %  "netty-handler"               % "4.1.95.Final",
     ) ++ Seq(
       "org.scalatest"       %% "scalatest"                % scala_test_version,
       "com.typesafe.akka"   %% "akka-actor-testkit-typed" % akka_version,
@@ -54,20 +53,17 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"   %% "akka-http-testkit"        % akka_http_version,
     ).map(_ % "test") ++ Seq(
       "io.scalaland"           %% "chimney"                       % "0.7.5",
-      "ch.qos.logback"         %  "logback-classic"               % "1.4.8",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.1",
-      "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
-      "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.0",
-      "org.scalactic"          %% "scalactic"                     % scala_test_version,
-      "org.yaml"               %  "snakeyaml"                     % "2.0",
+      "de.heikoseeberger"      %% "akka-http-circe"               % "1.39.2",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.3",
+      "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.1",
       "io.lemonlabs"           %% "scala-uri"                     % "4.0.3",
+      "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
+      "org.yaml"               %  "snakeyaml"                     % "2.0",
+      "ch.qos.logback"         %  "logback-classic"               % "1.4.8",
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % kamon_version,
       "io.kamon" %% "kamon-apm-reporter" % kamon_version
-    ) ++ Seq(
-      "com.michaelpollmeier" %% "gremlin-scala"       % "3.5.3.7",
-      "org.apache.tinkerpop" %  "tinkergraph-gremlin" % "3.6.4",
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies, inquireVersions,

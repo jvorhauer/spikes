@@ -11,4 +11,8 @@ class RuleTests extends AnyFlatSpec with Matchers {
     Validation.validate(urlRule("http:/flensje"), "http:/flensje", "url-only-protocol") should not be None
     Validation.validate(urlRule("http://www.nu.nl"), "ftp://dinges:", "url-without-port") should not be None
   }
+
+  "Slug" should "validate" in {
+    Validation.validate(slugRule("20230708-title-of-my-blog"), "20230708-title-of-my-blog", "slug") should be (None)
+  }
 }

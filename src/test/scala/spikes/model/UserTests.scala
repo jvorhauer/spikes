@@ -68,12 +68,6 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
     cmd.id should be (ruu.id)
   }
 
-  "a RequestDeleteUser" should "transform to a DeleteUser command" in {
-    val rdu = User.Delete(email)
-    val cmd = rdu.asCmd(probe)
-    assert(cmd.email === rdu.email)
-  }
-
   "a CreateUser command" should "transform to a UserCreated event" in {
     val born = LocalDate.now().minusYears(42)
     val cmd = User.Create(ULID.newULID, name, email, password, born, Some("It's me!!"), probe)
@@ -81,7 +75,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
     assert(evt.name === cmd.name)
     assert(evt.id === cmd.id)
     assert(evt.email === cmd.email)
-    assert(evt.created === LocalDateTime.ofInstant(evt.id.toInstant, ZoneId.of("UTC")))
+    assert(evt.id.created === LocalDateTime.ofInstant(evt.id.toInstant, ZoneId.of("UTC")))
     assert(evt.born === cmd.born && evt.born === born)
     assert(evt.password === cmd.password)
   }

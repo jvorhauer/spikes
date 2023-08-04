@@ -13,7 +13,7 @@ Content-Type: application/json
 GET {{ host }}/users
 
 ### get-jurjen
-GET {{ host }}/users/01GNVWJKZ2HV0KNCWEEXHARDQC
+GET {{ host }}/users/01H70HM7Z9ZKF666X8QVN92EQZ
 
 ### get-me
 GET {{ host }}/users/me
@@ -36,7 +36,7 @@ Authorization: Bearer {{ authorized }}
 {
   "title": "test with html encoding",
   "body": "Encoded <script> tags should not allow <h1>crap</h1>",
-  "due": "2023-08-01T10:00:00",
+  "due": "2024-08-01T10:00:00",
   "status": "Blank"
 }
 

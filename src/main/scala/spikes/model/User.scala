@@ -9,7 +9,6 @@ import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed,
 import io.scalaland.chimney.dsl.TransformerOps
 import org.owasp.encoder.Encode
 import spikes.validate.Validation.{ErrorInfo, validate}
-import spikes.validate.{bornRule, emailRule, nameRule, passwordRule}
 import wvlet.airframe.ulid.ULID
 
 import java.time.{LocalDate, LocalDateTime, ZoneId}
@@ -18,91 +17,79 @@ import scala.concurrent.duration.DurationInt
 object User {
 
   val key: ServiceKey[Command] = ServiceKey("User")
+  val tag = "user"
 
   type UserId = ULID
 
-  type ReplyTo = ActorRef[StatusReply[Respons]]
-  type ReplyListTo = ActorRef[StatusReply[List[Respons]]]
+  type ReplyTo = ActorRef[StatusReply[ResponseT]]
+  type ReplyListTo = ActorRef[StatusReply[List[ResponseT]]]
   type ReplyTokenTo = ActorRef[StatusReply[OAuthToken]]
   type ReplySessionTo = ActorRef[Option[User.Session]]
   type ReplyAnyTo = ActorRef[StatusReply[Any]]
 
-  def name(id: UserId, email: String): String = s"user-$id-$email-${hash(id)}"
+  def name(id: UserId, email: String): String = s"user-$id-$email-${id.hashed}"
 
   final case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(
-      validate(nameRule(name), name, "name"),
-      validate(emailRule(email), email, "email"),
-      validate(passwordRule(password), password, "password"),
-      validate(bornRule(born), born, "born")
-    ).flatten
+    override lazy val validated: Set[ErrorInfo] = Set(validate("name", name), validate("email", email), validate("password", password), validate("born", born)).flatten
     def asCmd(replyTo: ActorRef[StatusReply[User.Response]]): Create = Create(ULID.newULID, Encode.forHtml(name), email, hash(password), born, bio, replyTo)
   }
   final case class Put(id: ULID, name: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(
-      validate(nameRule(name), name, "name"),
-      validate(passwordRule(password), password, "password"),
-      validate(bornRule(born), born, "born")
-    ).flatten
-    def asCmd(replyTo: ActorRef[StatusReply[User.Response]]): Update = Update(id, name, hash(password), born, replyTo)
+    override lazy val validated: Set[ErrorInfo] = Set(validate("name", name), validate("password", password), validate("born", born)).flatten
+    def asCmd(replyTo: ActorRef[StatusReply[User.Response]]): Update = Update(id, name, hash(password), born, bio, replyTo)
   }
   final case class Authenticate(email: String, password: String) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(
-      validate(emailRule(email), email, "email"),
-      validate(passwordRule(password), password, "password")
-    ).flatten
-    def asCmd(replyTo: ReplyTokenTo): Login = Login(email, hash(password), replyTo)
+    override lazy val validated: Set[ErrorInfo] = Set(validate("email", email), validate("password", password)).flatten
+    def asCmd(replyTo: ReplyTokenTo): Login = Login(email, password, replyTo)
   }
   final case class RequestFollow(id: ULID, other: ULID) extends Request {
     def asCmd(replyTo: ReplyAnyTo): Follow = Follow(id, other, replyTo)
   }
-
 
   case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String], replyTo: ActorRef[StatusReply[User.Response]]) extends Command {
     lazy val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
     def asResponse: Response = Response(id, name, email, joined, born, bio)
     def asEvent: Created = this.into[Created].transform
   }
-  case class Update(id: ULID, name: String, password: String, born: LocalDate, replyTo: ActorRef[StatusReply[User.Response]]) extends Command {
+  case class Update(id: UserId, name: String, password: String, born: LocalDate, bio: Option[String], replyTo: ActorRef[StatusReply[User.Response]]) extends Command {
     def asEvent: Updated = this.into[Updated].transform
   }
   case class Remove(id: UserId, replyTo: ActorRef[StatusReply[User.Response]]) extends Command {
-    def asEvent: Removed = User.Removed(id)
+    def asEvent: Removed = Removed(id)
   }
-
-  case class Find(id: ULID, replyTo: ActorRef[StatusReply[User.Response]]) extends Command
+  case class Find(id: UserId, replyTo: ActorRef[StatusReply[User.Response]]) extends Command
   case class All(replyTo: ReplyListTo) extends Command
-
   case class Login(email: String, password: String, replyTo: ReplyTokenTo) extends Command
   case class Authorize(token: String, replyTo: ReplySessionTo) extends Command
   case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
+  case class Follow(id: UserId, other: UserId, replyTo: ReplyAnyTo) extends Command
 
-  case class Follow(id: ULID, other: ULID, replyTo: ReplyAnyTo) extends Command
-
-  case class Created(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends Event {
-    lazy val asState: User.State = User.State(id, name, email, password, born, bio)
+  case class Created(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends Event {
+    lazy val asState: User.State = User.State(this)
   }
-  case class Updated(id: ULID, name: String, password: String, born: LocalDate) extends Event
-  case class Removed(id: ULID, email: String = "") extends Event
+  case class Updated(id: UserId, name: String, password: String, born: LocalDate, bio: Option[String]) extends Event
+  case class Removed(id: UserId, email: String = "") extends Event
+  case class LoggedIn(id: UserId, expires: LocalDateTime = now.plusHours(2)) extends Event
+  case class LoggedOut(id: UserId) extends Event
+  case class Followed(id: UserId, other: UserId) extends Event
 
-  case class LoggedIn(id: ULID, expires: LocalDateTime = now.plusHours(2)) extends Event
-  case class LoggedOut(id: ULID) extends Event
-  case class Followed(id: ULID, other: ULID) extends Event
-
+  sealed trait BaseState
 
   final case class State(
-        id: ULID,
-        name: String,
-        email: String,
-        password: String,
-        born: LocalDate,
-        bio: Option[String] = None,
-        notes: Vector[String] = Vector.empty,
-        comments: Vector[String] = Vector.empty
-  ) extends Entity {
+      id: UserId,
+      name: String,
+      email: String,
+      password: String,
+      born: LocalDate,
+      bio: Option[String] = None,
+      notes: Vector[String] = Vector.empty,
+      comments: Vector[String] = Vector.empty,
+      session: Option[Session] = None,
+      removed: Boolean = false
+  ) extends BaseState with Entity {
     val joined: LocalDateTime = LocalDateTime.ofInstant(id.toInstant, ZoneId.of("UTC"))
-    val token: String = hash(id)
+    val token: String = id.hashed
     def response: Response = User.Response(id, name, email, joined, born, bio, notes)
+    def authenticate(email: String, password: String): Boolean = this.email.contentEquals(email) && this.password.contentEquals(password)
   }
 
   object State {
@@ -111,18 +98,17 @@ object User {
     )
   }
 
-
   final case class Response(
-      id: ULID,
+      id: UserId,
       name: String,
       email: String,
       joined: LocalDateTime,
       born: LocalDate,
       bio: Option[String] = None,
       notes: Vector[String] = Vector.empty
-  ) extends Respons
+  ) extends ResponseT
 
-  final case class Session(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2)) {
+  final case class Session(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2)) extends SpikeSerializable {
     lazy val asOAuthToken: OAuthToken = OAuthToken(token, id)
     def isValid(t: String): Boolean = token.contentEquals(t) && expires.isAfter(now)
   }
@@ -131,29 +117,30 @@ object User {
   def apply(state: User.State): Behavior[Command] = Behaviors.setup { ctx =>
     val pid: PersistenceId = PersistenceId("user", state.id.toString(), "-")
 
-    var recovered: Boolean = false
-    var session: Option[User.Session] = None
-
     ctx.system.receptionist.tell(Receptionist.Register(User.key, ctx.self))
 
     val commandHandler: (User.State, Command) => ReplyEffect[Event, User.State] = (state, cmd) =>
       cmd match {
+        case uc: User.Create => Effect.persist(uc.asEvent).thenReply(uc.replyTo)(state => StatusReply.success(state.response))
         case uu: User.Update => Effect.persist(uu.asEvent).thenReply(uu.replyTo)(state => StatusReply.success(state.response))
         case ur: User.Remove => Effect.persist(ur.asEvent).thenReply(ur.replyTo)(_ => StatusReply.success(state.response))
-        case uf: User.Find => Effect.reply(uf.replyTo)(StatusReply.success(state.response))
+        case uf: User.Find => if (!state.removed)
+          Effect.reply(uf.replyTo)(StatusReply.success(state.response))
+        else
+          Effect.reply(uf.replyTo)(StatusReply.error(s"user ${state.id} was removed"))
         case ul: User.Login =>
-          if (ul.email.contentEquals(state.email) && ul.password.contentEquals(state.password)) {
+          if (state.authenticate(ul.email, hash(ul.password))) {
             Effect.persist(User.LoggedIn(state.id)).thenReply(ul.replyTo) { state =>
-              session match {
+              state.session match {
                 case Some(session) => StatusReply.success(session.asOAuthToken)
-                case None => StatusReply.error(s"!!!: user[${state.email}] is authenticated but no session found")
+                case None => StatusReply.error(s"user[${state.email}] is authenticated but no session found")
               }
             }
           } else {
             Effect.reply(ul.replyTo)(StatusReply.error("invalid credentials"))
           }
-        case ua: User.Authorize => Effect.reply(ua.replyTo)(session.filter(_.isValid(ua.token)))
-        case ul: User.Logout => session match {
+        case ua: User.Authorize => Effect.reply(ua.replyTo)(state.session.filter(_.isValid(ua.token)))
+        case ul: User.Logout => state.session match {
           case Some(us) => Effect.persist(User.LoggedOut(us.id)).thenReply(ul.replyTo)(_ => StatusReply.success("Logged Out"))
           case None => Effect.reply(ul.replyTo)(StatusReply.error("No Session"))
         }
@@ -167,25 +154,27 @@ object User {
 
     val eventHandler: (User.State, Event) => User.State = (state, evt) => {
       evt match {
-        case uu: User.Updated => state.copy(name = uu.name, password = uu.password, born = uu.born)
-        case _: User.Removed => ctx.system.receptionist.tell(Receptionist.Deregister(User.key, ctx.self)); state
-        case _: User.LoggedIn => session = Some(User.Session(hash(state.id), state.id)); state
-        case _: User.LoggedOut => session = None; state
+        case uc: User.Created => uc.asState
+        case uu: User.Updated => state.copy(name = uu.name, password = uu.password, born = uu.born, bio = uu.bio)
+        case _: User.Removed =>
+          ctx.system.receptionist.tell(Receptionist.Deregister(User.key, ctx.self))
+          state.copy(removed = true)
+        case _: User.LoggedIn => state.copy(session = Some(User.Session(state.id.hashed, state.id)))
+        case _: User.LoggedOut => state.copy(session = None)
         case nc: Note.Created =>
-          ctx.spawn(Note(nc.asState), Note.name(state.id, nc.id, nc.title))
+          ctx.spawn(Note(nc.asState), Note.name(state.id, nc.id, nc.slug))
           state.copy(notes = state.notes.appended(nc.slug))
       }
     }
 
     EventSourcedBehavior.withEnforcedReplies[Command, Event, User.State](pid, state, commandHandler, eventHandler)
-      .onPersistFailure(
-        SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1)
-      )
+      .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
       .withRetention(RetentionCriteria.disabled)
       .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
+      .withTagger(_ => Set("user"))
       .receiveSignal {
-        case (_, RecoveryCompleted) => recovered = true
-        case (_, RecoveryFailed(t)) => ctx.log.error(s"recovery of user $pid failed", t)
+        case (_, RecoveryCompleted) => ctx.log.debug(s"user ${state.id} recovered")
+        case (_, RecoveryFailed(t)) => ctx.log.error(s"recovery of user ${state.id} failed", t)
       }
   }
 }

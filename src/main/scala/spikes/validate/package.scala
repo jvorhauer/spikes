@@ -22,6 +22,7 @@ package object validate {
 
   private val clean: String => String = s => Option(s).map(_.trim).map(Encode.forHtml).getOrElse("")
 
+  val trueRule: Any => Rule[Any] = _ => Rule("???", _ => true, "always okay")
   val nameRule: String => Rule[String] = s => Rule("name", s => rname.matches(clean(s)), s"\"$s\" is not a valid name")
   val emailRule: String => Rule[String] = e => Rule("email", e => remail.matches(e), s"\"$e\" is not a valid email address")
   val passwordRule: String => Rule[String] = _ => Rule("password", p => rpassw.matches(p), "***** is not a valid password")
@@ -32,4 +33,16 @@ package object validate {
   val bodyRule: String => Rule[String] = s => Rule("body", s => rbody.matches(clean(s)), s"\"${s}\" is not a valid body")
   val urlRule: String => Rule[String] = s => Rule("url", s => AbsoluteUrl.parseTry(s).isSuccess, s"\"${s}\" is not a valid URL")
   val slugRule: String => Rule[String] = s => Rule("slug", s => rslug.matches(clean(s)), s"\"$s\" is not a valid note slug")
+
+  val rulers: Map[String, String => Rule[String]] = Map(
+    "name" -> nameRule,
+    "email" -> emailRule,
+    "password" -> passwordRule,
+    "title" -> titleRule,
+    "body" -> bodyRule,
+    "url" -> urlRule,
+    "slug" -> slugRule
+  )
+  val rulerld: Map[String, LocalDate => Rule[LocalDate]] = Map("born" -> bornRule)
+  val rulerldt: Map[String, LocalDateTime => Rule[LocalDateTime]] = Map("due" -> dueRule)
 }

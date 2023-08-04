@@ -10,13 +10,9 @@ import io.circe.syntax.*
 import spikes.behavior.Manager.{GetInfo, Info}
 import spikes.model.Command
 
-import scala.concurrent.ExecutionContext
-
 final case class InfoRouter(manager: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router {
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
-
-  implicit val ec: ExecutionContext = system.executionContext
 
   val route: Route = get {
     concat(

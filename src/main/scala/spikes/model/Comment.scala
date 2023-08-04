@@ -32,5 +32,5 @@ object Comment {
 
   final case class Created(id: CommentId, title: String, body: String) extends Event
 
-  final case class Response(id: CommentId, title: String, body: String) extends Respons
+  final case class Response(id: CommentId, title: String, body: String) extends ResponseT
 }

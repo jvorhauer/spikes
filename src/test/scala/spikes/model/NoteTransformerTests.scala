@@ -10,7 +10,7 @@ import wvlet.airframe.ulid.ULID
 class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
 
   private val testkit = ActorTestKit()
-  private val probe = testkit.createTestProbe[StatusReply[Respons]]().ref
+  private val probe = testkit.createTestProbe[StatusReply[ResponseT]]().ref
 
   "Note.Post" should "transform into Note.Command" in {
     val req = Note.Post("title", "body", now, Status.Blank)
@@ -23,7 +23,7 @@ class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
 
   "Note.Command" should "transform into Note.Created" in {
     val id  = ULID.newULID
-    val cmd = Note.Create(id, "title", "body", now, Status.Completed, probe)
+    val cmd = Note.Create(id, "title", "body", "slug", now, Status.Completed, probe)
     val evt = cmd.asEvent
     evt.id should be (id)
     evt.title should be ("title")

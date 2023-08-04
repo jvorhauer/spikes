@@ -15,8 +15,11 @@ Test / compileOrder    := CompileOrder.JavaThenScala
 
 val akka_version = "2.8.3"
 val akka_http_version = "10.5.2"
+val akka_proj_version = "1.4.2"
 val kamon_version = "2.6.3"
 val scala_test_version = "3.2.16"
+
+resolvers += "Akka library repository".at("https://repo.akka.io/maven")
 
 lazy val root = (project in file("."))
   .settings(
@@ -33,34 +36,39 @@ lazy val root = (project in file("."))
       "-Yrangepos"
     ),
     libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-actor-typed"            % akka_version,
-      "com.typesafe.akka" %% "akka-stream"                 % akka_version,
-      "com.typesafe.akka" %% "akka-coordination"           % akka_version,
-      "com.typesafe.akka" %% "akka-cluster"                % akka_version,
-      "com.typesafe.akka" %% "akka-cluster-tools"          % akka_version,
-      "com.typesafe.akka" %% "akka-http"                   % akka_http_version,
-      "com.typesafe"      %% "ssl-config-core"             % "0.6.1",
-      "com.typesafe.akka" %% "akka-persistence-typed"      % akka_version,
-      "com.typesafe.akka" %% "akka-persistence-query"      % akka_version,
-      "com.typesafe.akka" %% "akka-persistence-cassandra"  % "1.1.1",
-      "com.datastax.oss"  %  "java-driver-core"            % "4.17.0",
-      "io.netty"          %  "netty-handler"               % "4.1.95.Final",
+      "com.typesafe.akka"  %% "akka-actor-typed"             % akka_version,
+      "com.typesafe.akka"  %% "akka-stream"                  % akka_version,
+      "com.typesafe.akka"  %% "akka-coordination"            % akka_version,
+      "com.typesafe.akka"  %% "akka-cluster"                 % akka_version,
+      "com.typesafe.akka"  %% "akka-cluster-tools"           % akka_version,
+      "com.typesafe.akka"  %% "akka-http"                    % akka_http_version,
+      "com.typesafe"       %% "ssl-config-core"              % "0.6.1",
+      "com.typesafe.akka"  %% "akka-persistence-typed"       % akka_version,
+      "com.typesafe.akka"  %% "akka-persistence-query"       % akka_version,
+      "com.typesafe.akka"  %% "akka-persistence-cassandra"   % "1.1.1",
+      "com.lightbend.akka" %% "akka-projection-core"         % akka_proj_version,
+      "com.lightbend.akka" %% "akka-projection-eventsourced" % akka_proj_version,
+      "com.lightbend.akka" %% "akka-projection-cassandra"    % akka_proj_version,
     ) ++ Seq(
       "org.scalatest"       %% "scalatest"                % scala_test_version,
       "com.typesafe.akka"   %% "akka-actor-testkit-typed" % akka_version,
       "com.typesafe.akka"   %% "akka-stream-testkit"      % akka_version,
       "com.typesafe.akka"   %% "akka-persistence-testkit" % akka_version,
       "com.typesafe.akka"   %% "akka-http-testkit"        % akka_http_version,
+      "com.lightbend.akka"  %% "akka-projection-testkit"  % akka_proj_version,
     ).map(_ % "test") ++ Seq(
       "io.scalaland"           %% "chimney"                       % "0.7.5",
       "io.circe"               %% "circe-generic"                 % "0.14.5",
       "de.heikoseeberger"      %% "akka-http-circe"               % "1.39.2",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.3",
+      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.4",
       "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.1",
       "io.lemonlabs"           %% "scala-uri"                     % "4.0.3",
-      "org.owasp.encoder"      %  "encoder"                       % "1.2.3",
-      "org.yaml"               %  "snakeyaml"                     % "2.0",
-      "ch.qos.logback"         %  "logback-classic"               % "1.4.8",
+    ) ++ Seq(
+      "com.datastax.oss"  % "java-driver-core" % "4.17.0",
+      "io.netty"          % "netty-handler"    % "4.1.96.Final",
+      "org.owasp.encoder" % "encoder"          % "1.2.3",
+      "org.yaml"          % "snakeyaml"        % "2.0",
+      "ch.qos.logback"    % "logback-classic"  % "1.4.8",
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % kamon_version,
       "io.kamon" %% "kamon-apm-reporter" % kamon_version
@@ -77,16 +85,11 @@ lazy val root = (project in file("."))
     jibTcpPorts := List(8080),
     jibUseCurrentTimestamp := true,
     jibName := "spikes",
+    jibJvmFlags := List("-XX:+UseCGroupMemoryLimitForHeap"),
     jibTags := List("latest"),
     jibTargetImageCredentialHelper := Some("docker-credential-osxkeychain"),
   )
   .enablePlugins(BuildInfoPlugin).settings(
-    buildInfoKeys := Seq[BuildInfoKey](
-      name,
-      version,
-      scalaVersion,
-      sbtVersion,
-      BuildInfoKey.action("buildTime") { java.time.LocalDateTime.now() }
-    ),
+    buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, BuildInfoKey.action("buildTime") { java.time.LocalDateTime.now() }),
     buildInfoPackage := "spikes.build"
   )

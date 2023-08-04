@@ -8,6 +8,8 @@ import io.circe.generic.auto.*
 import io.circe.syntax.EncoderOps
 import spikes.model.Request
 
+import java.time.{LocalDate, LocalDateTime}
+
 
 object Validation {
 
@@ -16,6 +18,10 @@ object Validation {
   final case class ItemValidationRejection(error: String) extends Rejection
 
   def validate[T](rule: Rule[T], value: T, name: String): Option[ErrorInfo] = if (rule.isValid(value)) None else Some(ErrorInfo(name, rule.msg))
+  def validate(name: String, value: String): Option[ErrorInfo] = rulers.get(name).orElse(Some(trueRule)).flatMap(rule => validate(rule(value), value, name))
+  def validate(name: String, value: LocalDate): Option[ErrorInfo] = rulerld.get(name).orElse(Some(trueRule)).flatMap(rule => validate(rule(value), value, name))
+  def validate(name: String, value: LocalDateTime): Option[ErrorInfo] = rulerldt.get(name).orElse(Some(trueRule)).flatMap(rule => validate(rule(value), value, name))
+
 
   def validated[T <: Request](model: T): Directive1[T] = {
     model.validated match {

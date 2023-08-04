@@ -1,12 +1,10 @@
 package spikes.route
 
-import akka.actor.typed.receptionist.Receptionist.Find
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
-import akka.http.scaladsl.server.directives.Credentials
 import akka.pattern.StatusReply
 import io.circe.generic.auto.*
 import io.circe.syntax.*
@@ -15,32 +13,15 @@ import spikes.model.{Command, OAuthToken, User}
 import spikes.validate.Validation.validated
 import wvlet.airframe.ulid.ULID
 
-import scala.concurrent.{ExecutionContextExecutor, Future}
+import scala.concurrent.Future
 import scala.util.Try
 
 final case class ManagerRouter(manager: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router {
 
-  type LookupResult = Future[Option[ActorRef[Command]]]
-
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
-  implicit val ec: ExecutionContextExecutor = system.executionContext
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
-
-  private val receptionist = system.receptionist
-
-  private def lookup(str: String): LookupResult = receptionist.ask(Find(User.key)).map(_.serviceInstances(User.key).find(_.path.name.contains(str)))
-
-  private val auth: AsyncAuthenticator[User.Session] = {
-    case Credentials.Provided(token) =>
-      lookup(token).flatMap {
-        case Some(ar) => ar.ask(User.Authorize(token, _))
-        case None     => Future.successful(None)
-      }
-    case _ => Future.successful(None)
-  }
-
 
   private def replier(fut: Future[StatusReply[User.Response]], sc: StatusCode) = onSuccess(fut) {
     case sur: StatusReply[User.Response] if sur.isSuccess => complete(sc, sur.getValue.asJson)
@@ -64,7 +45,7 @@ final case class ManagerRouter(manager: ActorRef[Command])(implicit system: Acto
         (put & pathEndOrSingleSlash & authenticateOAuth2Async("spikes", auth)) { _ =>
           entity(as[User.Put]) {
             validated(_) { up =>
-              onSuccess(lookup(up.id.toString)) {
+              onSuccess(lookup(up.id.toString, User.key)) {
                 case oar: Option[ActorRef[Command]] => oar match {
                   case Some(ar) => replier(ar.ask(up.asCmd), StatusCodes.OK)
                   case None => badRequest
@@ -80,7 +61,7 @@ final case class ManagerRouter(manager: ActorRef[Command])(implicit system: Acto
         get {
           concat(
             path(pULID) { id =>
-              onSuccess(lookup(id.toString)) {
+              onSuccess(lookup(id.toString, User.key)) {
                 case oar: Option[ActorRef[Command]] => oar match {
                   case Some(ar) => replier(ar.ask(User.Find(id, _)), StatusCodes.OK)
                   case None => notFound
@@ -92,12 +73,13 @@ final case class ManagerRouter(manager: ActorRef[Command])(implicit system: Acto
         },
         (post & path("login") & entity(as[User.Authenticate])) {
           validated(_) { ua =>
-            onSuccess(lookup(ua.email)) {
+            println(s"ua: $ua")
+            onSuccess(lookup(ua.email, User.key)) {
               case oar: Option[ActorRef[Command]] => oar match {
                 case Some(ar) => onSuccess(ar.ask(ua.asCmd)) {
                   case ss: StatusReply[OAuthToken] if ss.isSuccess => complete(StatusCodes.OK, ss.getValue.asJson)
                   case ss: StatusReply[?] => complete(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson)
-                  case xx => complete(StatusCodes.BadRequest, RequestError(s"WTF? ${xx}"))
+                  case xx => complete(StatusCodes.BlockedByParentalControls, RequestError(s"WTF? ${xx}"))
                 }
                 case None => notFound
               }

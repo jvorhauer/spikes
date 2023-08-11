@@ -1,4 +1,5 @@
-import sbtrelease.ReleaseStateTransformations._
+import sbt.Keys.libraryDependencies
+import sbtrelease.ReleaseStateTransformations.{checkSnapshotDependencies, commitNextVersion, commitReleaseVersion, inquireVersions, pushChanges, runClean, runTest, setNextVersion, setReleaseVersion, tagRelease}
 
 ThisBuild / scalaVersion           := "2.13.11"
 ThisBuild / organization           := "nl.miruvor"
@@ -8,16 +9,17 @@ ThisBuild / semanticdbEnabled          := true
 ThisBuild / semanticdbVersion          := "4.7.8"
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
 
-ThisBuild / parallelExecution := false
+ThisBuild / Test / parallelExecution := false
 
-Compile / compileOrder := CompileOrder.JavaThenScala
-Test / compileOrder    := CompileOrder.JavaThenScala
+Compile / compileOrder := CompileOrder.ScalaThenJava
+Test / compileOrder    := CompileOrder.ScalaThenJava
 
 val akka_version = "2.8.3"
 val akka_http_version = "10.5.2"
 val akka_proj_version = "1.4.2"
 val kamon_version = "2.6.3"
 val scala_test_version = "3.2.16"
+val scalikejdbc_version = "4.0.0"
 
 resolvers += "Akka library repository".at("https://repo.akka.io/maven")
 
@@ -35,6 +37,7 @@ lazy val root = (project in file("."))
       "-Wunused:implicits", "-Wunused:imports", "-Wunused:locals", "-Wunused:params",
       "-Yrangepos"
     ),
+    javacOptions ++= Seq("-parameters"),
     libraryDependencies ++= Seq(
       "com.typesafe.akka"  %% "akka-actor-typed"             % akka_version,
       "com.typesafe.akka"  %% "akka-stream"                  % akka_version,
@@ -56,19 +59,24 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"   %% "akka-persistence-testkit" % akka_version,
       "com.typesafe.akka"   %% "akka-http-testkit"        % akka_http_version,
       "com.lightbend.akka"  %% "akka-projection-testkit"  % akka_proj_version,
+      "org.scalikejdbc"     %% "scalikejdbc-test"         % scalikejdbc_version,
     ).map(_ % "test") ++ Seq(
-      "io.scalaland"           %% "chimney"                       % "0.7.5",
-      "io.circe"               %% "circe-generic"                 % "0.14.5",
-      "de.heikoseeberger"      %% "akka-http-circe"               % "1.39.2",
-      "org.wvlet.airframe"     %% "airframe-ulid"                 % "23.7.4",
-      "io.altoo"               %% "akka-kryo-serialization-typed" % "2.5.1",
-      "io.lemonlabs"           %% "scala-uri"                     % "4.0.3",
+      "io.circe"           %% "circe-generic"                    % "0.14.5",
+      "de.heikoseeberger"  %% "akka-http-circe"                  % "1.39.2",
+      "org.wvlet.airframe" %% "airframe-ulid"                    % "23.8.2",
+      "io.altoo"           %% "akka-kryo-serialization-typed"    % "2.5.1",
+      "io.lemonlabs"       %% "scala-uri"                        % "4.0.3",
+      "org.scalikejdbc"    %% "scalikejdbc"                      % scalikejdbc_version,
+      "org.scalikejdbc"    %% "scalikejdbc-config"               % scalikejdbc_version,
+      "org.scalikejdbc"    %% "scalikejdbc-syntax-support-macro" % scalikejdbc_version,
+      "org.scalactic"      %% "scalactic"                        % scala_test_version,
     ) ++ Seq(
       "com.datastax.oss"  % "java-driver-core" % "4.17.0",
       "io.netty"          % "netty-handler"    % "4.1.96.Final",
       "org.owasp.encoder" % "encoder"          % "1.2.3",
-      "org.yaml"          % "snakeyaml"        % "2.0",
-      "ch.qos.logback"    % "logback-classic"  % "1.4.8",
+      "org.yaml"          % "snakeyaml"        % "2.1",
+      "ch.qos.logback"    % "logback-classic"  % "1.4.11",
+      "com.h2database"    % "h2"               % "2.2.220",
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % kamon_version,
       "io.kamon" %% "kamon-apm-reporter" % kamon_version

@@ -34,10 +34,10 @@ Content-Type: application/json
 Authorization: Bearer {{ authorized }}
 
 {
-  "title": "test with html encoding",
-  "body": "Encoded <script> tags should not allow <h1>crap</h1>",
+  "title": "test without html encoding",
+  "body": "Just a very nice story about incremental development and having fun while doing so",
   "due": "2024-08-01T10:00:00",
-  "status": "Blank"
+  "status": "ToDo"
 }
 
 ### invalid-name-and-password
@@ -71,11 +71,12 @@ Content-Type: application/json
   "name": "The Temp",
   "email": "temp@test.er",
   "password": "Welkom123!",
-  "born": "2001-11-09"
+  "born": "2001-11-09",
+  "bio": "bio test maar wel met <h1>HALLO</h1> html tags erin"
 }
 
 ### get-temp-user
-GET {{ host }}/users/01GW28MS05S3M5XSV5NYADRCPA
+GET {{ host }}/users/01H784QDS73R667E3WQH9TS4B1
 
 ### delete-temp-user
 DELETE {{ host }}/users

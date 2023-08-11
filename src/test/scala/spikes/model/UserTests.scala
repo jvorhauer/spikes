@@ -3,7 +3,6 @@ package spikes.model
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.pattern.StatusReply
-import io.scalaland.chimney.dsl.TransformerOps
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import spikes.behavior.TestUser
@@ -71,7 +70,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   "a CreateUser command" should "transform to a UserCreated event" in {
     val born = LocalDate.now().minusYears(42)
     val cmd = User.Create(ULID.newULID, name, email, password, born, Some("It's me!!"), probe)
-    val evt = cmd.into[User.Created].transform
+    val evt = cmd.asEvent
     assert(evt.name === cmd.name)
     assert(evt.id === cmd.id)
     assert(evt.email === cmd.email)

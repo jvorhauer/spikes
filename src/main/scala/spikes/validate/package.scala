@@ -11,9 +11,9 @@ package object validate {
   private def ldnow = LocalDate.now()
 
   val rname: Regex = "^[\\p{L}\\s'-]+$".r
-  val remail: Regex = "^([\\w-]+(?:\\.[\\w\\d-]+)*)@\\w[\\w\\d.-]+\\.[a-zA-Z]+$".r
+  val remail: Regex = "^([\\w-]+(?:\\.[\\w-]+)*)@\\w[\\w.-]+\\.[a-zA-Z]+$".r
   val rpassw: Regex = "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$".r
-  val rurl: Regex = "^https?://\\w[\\w\\d.-_]/.*$".r
+  val rurl: Regex = "^https?://\\w[\\w.-_]/.*$".r
   val rtitle: Regex = "^[\\p{L}\\s\\d\\W]+$".r
   val rbody: Regex = "^[\\p{L}\\s\\d\\W]+$".r
   val rslug: Regex = "^\\d{8}-[\\p{L}\\d\\W]+$".r

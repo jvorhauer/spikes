@@ -10,29 +10,33 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
-import spikes.SpikesTest
+import scalikejdbc.DBSession
+import spikes.{Spikes, SpikesTestBase}
 import spikes.behavior.{Manager, TestUser}
 import spikes.model.*
-import spikes.route.{ManagerRouter, RequestError}
+import spikes.route.{RequestError, UserRouter}
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDate
 import scala.util.Try
 
-class ManagerRouteTests extends SpikesTest with ScalaFutures with ScalatestRouteTest with TestUser {
+class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRouteTest with TestUser with BeforeAndAfterEach {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
   implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Note
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Note
 
+  implicit val session: DBSession = Spikes.init
+
   val testKit: ActorTestKit = ActorTestKit(cfg)
   implicit val ts: ActorSystem[Nothing] = testKit.internalSystem
   val manager: ActorRef[Command] = testKit.spawn(Manager(), "manager-test-actor")
   val route: Route = handleRejections(Validation.rejectionHandler) {
-    ManagerRouter(manager).route
+    UserRouter(manager).route
   }
   val path = "/users"
 
@@ -110,6 +114,48 @@ class ManagerRouteTests extends SpikesTest with ScalaFutures with ScalatestRoute
     }
   }
 
+  "Get my details" should "return state of logged in user" in {
+    val rcu = User.Post(name, "getme@now.nl", password, born, Some("bio graphy"))
+    var user: Option[User.Response] = None
+    var location: String = "-"
+    Post(path, rcu) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Created
+      header("Location") should not be None
+      location = header("Location").map(_.value()).getOrElse("none")
+      contentType.mediaType should be(MediaTypes.`application/json`)
+      user = Some(responseAs[User.Response])
+    }
+    user.isDefined shouldBe true
+    location shouldEqual s"$path/${user.get.id}"
+
+    Get(location) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[User.Response].name shouldEqual name
+    }
+
+    val rl = User.Authenticate(rcu.email, password)
+    var resp: Option[OAuthToken] = None
+    Post(s"$path/login", rl) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      resp = Some(responseAs[OAuthToken])
+    }
+    resp should not be empty
+    val token = resp.get.access_token
+
+    Get(s"$path/me") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.OK)
+      val ur = responseAs[User.Response]
+      ur.name should be (name)
+      ur.email should be ("getme@now.nl")
+      ur.bio should not be empty
+      ur.bio.get should be ("bio graphy")
+    }
+  }
+
 
   override def afterAll(): Unit = testKit.shutdownTestKit()
+
+  override def beforeEach(): Unit = {
+    User.Repository.nuke()
+  }
 }

@@ -3,7 +3,7 @@ package spikes.route
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.headers.Location
 import akka.http.scaladsl.model.{StatusCode, StatusCodes}
-import akka.http.scaladsl.server.Directives.*
+import akka.http.scaladsl.server.Directives.{pathEndOrSingleSlash, *}
 import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
 import io.circe.generic.auto.*
@@ -16,7 +16,7 @@ import wvlet.airframe.ulid.ULID
 import scala.concurrent.Future
 import scala.util.Try
 
-final case class ManagerRouter(manager: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router {
+final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router {
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
@@ -61,19 +61,24 @@ final case class ManagerRouter(manager: ActorRef[Command])(implicit system: Acto
         get {
           concat(
             path(pULID) { id =>
-              onSuccess(lookup(id.toString, User.key)) {
-                case oar: Option[ActorRef[Command]] => oar match {
-                  case Some(ar) => replier(ar.ask(User.Find(id, _)), StatusCodes.OK)
-                  case None => notFound
-                }
-                case _ => notFound
+              User.Repository.find(id) match {
+                case Some(us) => complete(StatusCodes.OK, us.asResponse.asJson)
+                case None => notFound
               }
+            },
+            (path("me") & authenticateOAuth2Async("spikes", auth)) { us =>
+              User.Repository.find(us.id) match {
+                case Some(us) => complete(StatusCodes.OK, us.asResponse.asJson)
+                case None => notFound
+              }
+            },
+            pathEndOrSingleSlash {
+              complete(StatusCodes.OK, User.Repository.list().map(_.asResponse).asJson)
             }
           )
         },
         (post & path("login") & entity(as[User.Authenticate])) {
           validated(_) { ua =>
-            println(s"ua: $ua")
             onSuccess(lookup(ua.email, User.key)) {
               case oar: Option[ActorRef[Command]] => oar match {
                 case Some(ar) => onSuccess(ar.ask(ua.asCmd)) {

@@ -27,9 +27,11 @@ package object model {
     def id: ULID
   }
 
-  trait ResponseT  extends SpikeSerializable {
+  trait ResponseT extends SpikeSerializable {
     def id: ULID
   }
+
+  trait StateT
 
 
   private val md = MessageDigest.getInstance("SHA-256")

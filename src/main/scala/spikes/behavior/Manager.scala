@@ -9,8 +9,8 @@ import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, RetentionCriteria}
 import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
 import akka.util.Timeout
-import spikes.model.User.UserId
-import spikes.model.{Command, Event, SpikeSerializable, User}
+import scalikejdbc.{AutoSession, DBSession}
+import spikes.model.{Command, Event, Note, SpikeSerializable, User}
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -20,65 +20,64 @@ import scala.concurrent.duration.DurationInt
 object Manager {
 
   implicit val timeout: Timeout = 100.millis
+  implicit val session: DBSession = AutoSession
 
-  val pid: PersistenceId = PersistenceId.of("spikes", "11", "-")
+  val pid: PersistenceId = PersistenceId.of("spikes", "13", "-")
 
   def lookup(str: String, key: ServiceKey[Command])(implicit system: ActorSystem[Nothing]): Future[Option[ActorRef[Command]]] =
     system.receptionist.ask(Find(key)).map(_.serviceInstances(key).find(_.path.name.contains(str)))
   def lookup(id: ULID, ctx: ActorContext[Command]): Future[Option[ActorRef[Command]]] = lookup(id)(ctx.system)
   def lookup(id: ULID)(implicit system: ActorSystem[Nothing]): Future[Option[ActorRef[Command]]] = lookup(id.toString, User.key)
 
-
-  def apply(state: Manager.State = Manager.State()): Behavior[Command] = Behaviors.setup { ctx =>
+  def apply(state: Manager.State = Manager.State(0)): Behavior[Command] = Behaviors.setup { ctx =>
     var recovered: Boolean = false
 
-    val commandHandler: (Manager.State, Command) => Effect[Event, Manager.State] = (state, cmd) => cmd match {
-      case uc: User.Create => state.find(uc.email) match {
-        case None => Effect.persist(uc.asEvent).thenRun(_ => lookup(uc.id, ctx).map(_.foreach(_.tell(uc))))
+    val commandHandler: (Manager.State, Command) => Effect[Event, Manager.State] = (_, cmd) => cmd match {
+      case uc: User.Create => User.Repository.find(uc.email) match {
         case Some(_) => Effect.reply(uc.replyTo)(StatusReply.error(s"email ${uc.email} already in use"))
+        case None    => Effect.persist(uc.asEvent).thenRun(_ => lookup(uc.id, ctx).map(_.foreach(_.tell(uc))))
       }
-      case ur: User.Remove => state.find(ur.id) match {
+      case ur: User.Remove => User.Repository.find(ur.id) match {
         case Some(_) => Effect.persist(ur.asEvent).thenRun(_ => lookup(ur.id, ctx).map(_.foreach(_.tell(ur))))
-        case None => Effect.reply(ur.replyTo)(StatusReply.error(s"user with id ${ur.id} not found"))
+        case None    => Effect.reply(ur.replyTo)(StatusReply.error(s"user with id ${ur.id} not found"))
       }
 
-      case GetInfo(replyTo) => Effect.reply(replyTo)(StatusReply.success(Info(state.uc, recovered)))
+      case GetInfo(replyTo) => Effect.reply(replyTo)(StatusReply.success(Info(recovered)))
 
       case what => Effect.unhandled.thenRun(_ => ctx.log.error(s"! Unhandled Command ${what} !"))
     }
 
     val eventHandler: (Manager.State, Event) => Manager.State = (state, evt) => evt match {
       case uc: User.Created =>
-        ctx.spawn(User(uc.asState), User.name(uc.id, uc.email))
-        state.copy(users = state.users.concat(Map(uc.id.toString -> uc.email, uc.email -> uc.id.toString)))
+        ctx.spawn(User(User.State(uc)), User.name(uc.id, uc.email))
+        User.Repository.save(uc)
+        state.copy(users = state.users + 1)
       case ur: User.Removed =>
         lookup(ur.id, ctx).map(_.foreach(ctx.stop(_)))
-        state.copy(users = state.users.removedAll(Seq(state.getEmailForId(ur.id), ur.id.toString)))
+        User.Repository.remove(ur.id)
+        state.copy(users = state.users - 1)
     }
 
     EventSourcedBehavior(pid, state, commandHandler, eventHandler)
       .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
       .withRetention(RetentionCriteria.disabled)
       .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
-      .withTagger(_ => Set("users"))
+      .withTagger(_ => Set("users", User.tag))
       .receiveSignal {
-        case (state, RecoveryCompleted) =>
-          ctx.log.info(s"recovered: users: ${state.users.size}")
+        case (_, RecoveryCompleted) =>
+          ctx.log.info(s"recovered: users: ${User.Repository.size()}, notes: ${Note.Repository.size()}")
           recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
       }
   }
 
-  final case class State(users: Map[String, String] = Map.empty) extends SpikeSerializable {
-    lazy val uc: Int = users.size / 2
+  final case class State(users: Int) extends SpikeSerializable
 
-    def find(id: UserId): Option[String] = find(id.toString)
-    def find(key: String): Option[String] = users.get(key)
-
-    def getEmailForId(id: UserId): String = users.getOrElse(id.toString, "")
-  }
-
-  // TODO: move to Projection based implementation!!!!
-  final case class Info(users: Int, recovered: Boolean) extends SpikeSerializable
   final case class GetInfo(replyTo: ActorRef[StatusReply[Info]]) extends Command
+  final case class Info(users: Int, notes: Int, recovered: Boolean) extends SpikeSerializable
+  object Info {
+    def apply(recovered: Boolean): Info = new Info(
+      User.Repository.size(), Note.Repository.size(), recovered
+    )
+  }
 }

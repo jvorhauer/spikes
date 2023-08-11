@@ -4,11 +4,14 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.Get
+import scalikejdbc.DBSession
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContextExecutor}
 
-class MainTest extends SpikesTest {
+class MainTest extends SpikesTestBase {
+
+  implicit val session: DBSession = Spikes.init
 
   val testKit: ActorTestKit = ActorTestKit("spikes-main-testkit", cfg)
   implicit val system: ActorSystem[Nothing] = testKit.system

@@ -14,7 +14,7 @@ class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
 
   "Note.Post" should "transform into Note.Command" in {
     val req = Note.Post("title", "body", now, Status.Blank)
-    val cmd = req.asCmd(probe)
+    val cmd = req.asCmd(next, probe)
     cmd.title should be ("title")
     cmd.body should be ("body")
     cmd.due should be (req.due)
@@ -23,7 +23,7 @@ class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
 
   "Note.Command" should "transform into Note.Created" in {
     val id  = ULID.newULID
-    val cmd = Note.Create(id, "title", "body", "slug", now, Status.Completed, probe)
+    val cmd = Note.Create(id, next, "title", "body", "slug", now, Status.Completed, probe)
     val evt = cmd.asEvent
     evt.id should be (id)
     evt.title should be ("title")

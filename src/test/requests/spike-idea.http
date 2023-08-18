@@ -13,7 +13,7 @@ Content-Type: application/json
 GET {{ host }}/users
 
 ### get-jurjen
-GET {{ host }}/users/01H70HM7Z9ZKF666X8QVN92EQZ
+GET {{ host }}/users/01H7T8YXEVJ0PXWAVMVJH1664Y
 
 ### get-me
 GET {{ host }}/users/me
@@ -37,7 +37,8 @@ Authorization: Bearer {{ authorized }}
   "title": "test without html encoding",
   "body": "Just a very nice story about incremental development and having fun while doing so",
   "due": "2024-08-01T10:00:00",
-  "status": "ToDo"
+  "status": "ToDo",
+  "access": "Private"
 }
 
 ### invalid-name-and-password
@@ -61,7 +62,6 @@ Content-Type: application/json
   "password": "Welkom0123!",
   "born": "2001-11-09"
 }
-
 
 ### create-temp-user
 POST {{ host }}/users
@@ -89,3 +89,61 @@ Content-Type: application/json
 
 ### get-info
 GET {{host}}/info
+
+
+### get my notes
+GET {{ host }}/notes/mine
+Authorization: Bearer {{ authorized }}
+
+
+### Update a note
+PUT {{ host }}/notes
+Authorization: Bearer {{ authorized }}
+Content-Type: application/json
+
+{
+  "id": "01H7TA087A8RXJ1W6VYTBJGQWG",
+  "owner": "01H7T8YXEVJ0PXWAVMVJH1664Y",
+  "title": "updated with an <H1>html</H1> tag",
+  "body": "much shorter body <<h2> test </h2>",
+  "due": "2023-10-09T12:01:32",
+  "status": "Doing",
+  "access": "Public"
+}
+
+
+### update-me
+PUT {{ host }}/users
+Authorization: Bearer {{ authorized }}
+Content-Type: application/json
+
+{
+  "id": "01H7T8YXEVJ0PXWAVMVJH1664Y",
+  "name": "Henkie",
+  "password": "EvenHelem@@lAnders!5",
+  "born": "1967-05-02",
+  "bio": "Master of Dsiguise"
+}
+
+### restore-me
+PUT {{ host }}/users
+Authorization: Bearer {{ authorized }}
+Content-Type: application/json
+
+{
+  "id": "01H7T8YXEVJ0PXWAVMVJH1664Y",
+  "name": "Jurjen",
+  "password": "Welkom123!",
+  "born": "1967-04-01",
+  "bio": "Master of Disguise"
+}
+
+
+### Tapir stuff:
+
+### get-all-susers
+GET {{ host }}/susers?limit=2
+
+
+### perform-check
+GET {{ host }}/check

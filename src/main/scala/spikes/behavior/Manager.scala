@@ -10,11 +10,12 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, 
 import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
 import akka.util.Timeout
 import scalikejdbc.{AutoSession, DBSession}
+import spikes.build.BuildInfo
 import spikes.model.{Command, Event, Note, SpikeSerializable, User}
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
 
 object Manager {
@@ -22,12 +23,16 @@ object Manager {
   implicit val timeout: Timeout = 100.millis
   implicit val session: DBSession = AutoSession
 
-  val pid: PersistenceId = PersistenceId.of("spikes", "13", "-")
+  val pid: PersistenceId = PersistenceId.of("spikes", "21", "-")
 
-  def lookup(str: String, key: ServiceKey[Command])(implicit system: ActorSystem[Nothing]): Future[Option[ActorRef[Command]]] =
+  type LookupResult = Future[Option[ActorRef[Command]]]
+
+  def lookup(str: String, key: ServiceKey[Command])(implicit system: ActorSystem[Nothing]): LookupResult =
     system.receptionist.ask(Find(key)).map(_.serviceInstances(key).find(_.path.name.contains(str)))
-  def lookup(id: ULID, ctx: ActorContext[Command]): Future[Option[ActorRef[Command]]] = lookup(id)(ctx.system)
-  def lookup(id: ULID)(implicit system: ActorSystem[Nothing]): Future[Option[ActorRef[Command]]] = lookup(id.toString, User.key)
+  def lookup(id: ULID, ctx: ActorContext[Command])                          : LookupResult = lookup(id)(ctx.system)
+  def lookup(id: ULID)(implicit system: ActorSystem[Nothing])               : LookupResult = lookup(id.toString, User.key)
+  def lookup(id: ULID, key: ServiceKey[Command], ctx: ActorContext[Command]): LookupResult = lookup(id.toString, key)(ctx.system)
+
 
   def apply(state: Manager.State = Manager.State(0)): Behavior[Command] = Behaviors.setup { ctx =>
     var recovered: Boolean = false
@@ -43,8 +48,8 @@ object Manager {
       }
 
       case GetInfo(replyTo) => Effect.reply(replyTo)(StatusReply.success(Info(recovered)))
-
-      case what => Effect.unhandled.thenRun(_ => ctx.log.error(s"! Unhandled Command ${what} !"))
+      case IsReady(replyTo) => Effect.reply(replyTo)(StatusReply.success(recovered))
+      case Check(replyTo)   => Effect.reply(replyTo)(StatusReply.success(Checked(check(ctx.system))))
     }
 
     val eventHandler: (Manager.State, Event) => Manager.State = (state, evt) => evt match {
@@ -65,19 +70,27 @@ object Manager {
       .withTagger(_ => Set("users", User.tag))
       .receiveSignal {
         case (_, RecoveryCompleted) =>
-          ctx.log.info(s"recovered: users: ${User.Repository.size()}, notes: ${Note.Repository.size()}")
+          ctx.log.info(s"recovered: users: ${User.Repository.size()} (${state.users}), notes: ${Note.Repository.size()}")
           recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
       }
   }
 
+  def check(implicit system: ActorSystem[Nothing]): Boolean = {
+    val ue = User.Repository.list(limit = Int.MaxValue).forall(us => Await.result(lookup(us.id.toString, User.key), 100.millis).isDefined)
+    val ne = Note.Repository.list(limit = Int.MaxValue).forall(ns => Await.result(lookup(ns.id.toString, Note.key), 100.millis).isDefined)
+    ue && ne
+  }
+
   final case class State(users: Int) extends SpikeSerializable
 
-  final case class GetInfo(replyTo: ActorRef[StatusReply[Info]]) extends Command
-  final case class Info(users: Int, notes: Int, recovered: Boolean) extends SpikeSerializable
+  final case class Check  (replyTo: ActorRef[StatusReply[Checked]]) extends Command
+  final case class GetInfo(replyTo: ActorRef[StatusReply[Info]])    extends Command
+  final case class IsReady(replyTo: ActorRef[StatusReply[Boolean]]) extends Command
+
+  final case class Info(users: Int, notes: Int, recovered: Boolean, version: String = BuildInfo.version, built: String = BuildInfo.buildTime) extends SpikeSerializable
   object Info {
-    def apply(recovered: Boolean): Info = new Info(
-      User.Repository.size(), Note.Repository.size(), recovered
-    )
+    def apply(recovered: Boolean): Info = new Info(User.Repository.size(), Note.Repository.size(), recovered)
   }
+  final case class Checked(ok: Boolean) extends SpikeSerializable
 }

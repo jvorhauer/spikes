@@ -14,21 +14,22 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
 import spikes.behavior.{Manager, TestUser}
-import spikes.model.{Command, Note, OAuthToken, Status, User}
+import spikes.model.{Access, Command, Note, OAuthToken, Status, User, now}
 import spikes.route.{NoteRouter, UserRouter}
 import spikes.validate.Validation
 import spikes.{Spikes, SpikesTestBase, model}
 import wvlet.airframe.ulid.ULID
 
-import java.time.LocalDateTime
 import scala.util.Try
 
 class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRouteTest with TestUser with BeforeAndAfterEach {
 
   implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
   implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
-  implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Note
-  implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Note
+  implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status)
+  implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status)
+  implicit val accEncoder : Encoder[Access.Value] = Encoder.encodeEnumeration(Access)
+  implicit val accDecoder : Decoder[Access.Value] = Decoder.decodeEnumeration(Access)
 
   implicit val session: DBSession = Spikes.init
 
@@ -41,7 +42,6 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
       UserRouter(manager).route, NoteRouter().route
     )
   }
-
 
   "Post a new Note" should "get a list of one for the current user" in {
     val rcu = User.Post(name, "getme@now.nl", password, born, Some("bio graphy"))
@@ -79,7 +79,7 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
       ur.bio.get should be("bio graphy")
     }
 
-    val rnp = Note.Post("title", "body", LocalDateTime.now().plusDays(7))
+    val rnp = Note.Post("title", "body", now.plusDays(7))
     var noteId: ULID = ULID.newULID
     Post("/notes", rnp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be (StatusCodes.Created)
@@ -99,9 +99,30 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
       r.size should be (1)
     }
 
+    var note: Option[model.Note.Response] = None
     Get(s"/notes/$noteId") ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
-      responseAs[Note.Response].title should be("title")
+      note = Some(responseAs[Note.Response])
+      note should not be empty
+      note.get.title should be("title")
+    }
+    note should not be empty
+
+    val put = Note.Put(noteId, user.get.id, "updated", "ubody", note.get.due, note.get.status, note.get.access)
+    Put("/notes", put) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.OK)
+      val res = responseAs[Note.Response]
+      res.title should be ("updated")
+    }
+
+    Delete(s"/notes/$noteId") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.OK)
+    }
+
+    Get("/notes/mine") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.OK)
+      val r = responseAs[List[model.Note.Response]]
+      r.size should be(0)
     }
   }
 

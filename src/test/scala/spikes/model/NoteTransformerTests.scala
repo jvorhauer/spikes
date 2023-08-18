@@ -23,7 +23,7 @@ class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
 
   "Note.Command" should "transform into Note.Created" in {
     val id  = ULID.newULID
-    val cmd = Note.Create(id, next, "title", "body", "slug", now, Status.Completed, probe)
+    val cmd = Note.Create(id, next, "title", "body", "slug", now, Status.Completed, Access.Public, probe)
     val evt = cmd.asEvent
     evt.id should be (id)
     evt.title should be ("title")

@@ -8,20 +8,14 @@ import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import io.circe.{Decoder, Encoder}
 import spikes.model.{Command, OAuthToken, User}
 import spikes.validate.Validation.validated
-import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.Future
-import scala.util.Try
 
 final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router {
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
-
-  implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
-  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
 
   private def replier(fut: Future[StatusReply[User.Response]], sc: StatusCode) = onSuccess(fut) {
     case sur: StatusReply[User.Response] if sur.isSuccess => complete(sc, sur.getValue.asJson)
@@ -45,7 +39,7 @@ final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSy
         (put & pathEndOrSingleSlash & authenticateOAuth2Async("spikes", auth)) { _ =>
           entity(as[User.Put]) {
             validated(_) { up =>
-              onSuccess(lookup(up.id.toString, User.key)) {
+              onSuccess(lookup(up.id, User.key)) {
                 case oar: Option[ActorRef[Command]] => oar match {
                   case Some(ar) => replier(ar.ask(up.asCmd), StatusCodes.OK)
                   case None => badRequest
@@ -62,18 +56,18 @@ final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSy
           concat(
             path(pULID) { id =>
               User.Repository.find(id) match {
-                case Some(us) => complete(StatusCodes.OK, us.asResponse.asJson)
+                case Some(us) => complete(StatusCodes.OK, User.Response(us).asJson)
                 case None => notFound
               }
             },
             (path("me") & authenticateOAuth2Async("spikes", auth)) { us =>
               User.Repository.find(us.id) match {
-                case Some(us) => complete(StatusCodes.OK, us.asResponse.asJson)
+                case Some(us) => complete(StatusCodes.OK, User.Response(us).asJson)
                 case None => notFound
               }
             },
-            pathEndOrSingleSlash {
-              complete(StatusCodes.OK, User.Repository.list().map(_.asResponse).asJson)
+            (pathEndOrSingleSlash & parameters("start".as[Int].optional, "count".as[Int].optional)) { (start, count) =>
+              complete(StatusCodes.OK, User.Repository.list(count.getOrElse(10), start.getOrElse(0)).map(User.Response(_)).asJson)
             }
           )
         },
@@ -83,7 +77,7 @@ final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSy
               case oar: Option[ActorRef[Command]] => oar match {
                 case Some(ar) => onSuccess(ar.ask(ua.asCmd)) {
                   case ss: StatusReply[OAuthToken] if ss.isSuccess => complete(StatusCodes.OK, ss.getValue.asJson)
-                  case ss: StatusReply[?] => complete(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson)
+                  case ss: StatusReply[OAuthToken] => complete(StatusCodes.BadRequest, RequestError(ss.getError.getMessage).asJson)
                   case xx => complete(StatusCodes.BlockedByParentalControls, RequestError(s"WTF? ${xx}"))
                 }
                 case None => notFound

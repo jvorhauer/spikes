@@ -1,13 +1,13 @@
 package spikes.route
 
 import akka.actor.typed.{ActorRef, ActorSystem}
-import akka.http.scaladsl.model.StatusCodes.{BadRequest, OK}
+import akka.http.scaladsl.model.StatusCodes.{BadRequest, OK, ServiceUnavailable}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import spikes.behavior.Manager.{GetInfo, Info}
+import spikes.behavior.Manager.{Check, Checked, GetInfo, Info, IsReady}
 import spikes.model.Command
 
 final case class InfoRouter(manager: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router {
@@ -23,17 +23,23 @@ final case class InfoRouter(manager: ActorRef[Command])(implicit system: ActorSy
         })
       },
       path("liveness") {
-        complete(manager.ask(GetInfo).map {
-          case info: StatusReply[Info] if info.isSuccess && info.getValue.recovered => OK -> info.getValue.asJson
+        complete(manager.ask(IsReady).map {
+          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> true.asJson
           case _ => BadRequest -> None.asJson
         })
       },
       path("readiness") {
-        complete(manager.ask(GetInfo).map {
-          case info: StatusReply[Info] if info.isSuccess && info.getValue.recovered => OK -> info.getValue.asJson
+        complete(manager.ask(IsReady).map {
+          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> true.asJson
           case _ => BadRequest -> None.asJson
         })
       },
+      path("check") {
+        complete(manager.ask(Check).map {
+          case c: StatusReply[Checked] if c.isSuccess && c.getValue.ok => OK -> true.asJson
+          case _ => ServiceUnavailable -> None.asJson
+        })
+      }
     )
   }
 }

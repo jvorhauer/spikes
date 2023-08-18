@@ -8,7 +8,7 @@ import org.scalatest.matchers.should.Matchers
 import spikes.behavior.TestUser
 import wvlet.airframe.ulid.ULID
 
-import java.time.{LocalDate, LocalDateTime, ZoneId}
+import java.time.{LocalDateTime, ZoneId}
 import scala.collection.immutable.HashSet
 import scala.concurrent.ExecutionContextExecutor
 
@@ -68,7 +68,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   }
 
   "a CreateUser command" should "transform to a UserCreated event" in {
-    val born = LocalDate.now().minusYears(42)
+    val born = today.minusYears(42)
     val cmd = User.Create(ULID.newULID, name, email, password, born, Some("It's me!!"), probe)
     val evt = cmd.asEvent
     assert(evt.name === cmd.name)

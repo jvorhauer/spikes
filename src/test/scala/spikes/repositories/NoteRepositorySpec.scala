@@ -1,14 +1,14 @@
 package spikes.repositories
 
+import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
 import spikes.Spikes
-import spikes.model.{Note, Status, next, today}
+import spikes.model.{Access, Note, Status, next, now, today}
 
-import java.time.LocalDateTime
 
-class NoteRepositorySpec extends AnyWordSpecLike with Matchers {
+class NoteRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAfterEach {
 
   private val prefix = s"${today.getYear}${today.getMonthValue}${today.getDayOfMonth}"
 
@@ -16,7 +16,7 @@ class NoteRepositorySpec extends AnyWordSpecLike with Matchers {
 
   "A Note.Repository" should {
     "create a new Note" in {
-      val nc = Note.Created(next, next, "test", "body", s"$prefix-test", LocalDateTime.now().plusDays(5), Status.ToDo)
+      val nc = Note.Created(next, next, "test", "body", s"$prefix-test", now.plusDays(5), Status.ToDo, Access.Public)
       val r1 = Note.Repository.save(nc)
       r1.id should be (nc.id)
 
@@ -34,7 +34,10 @@ class NoteRepositorySpec extends AnyWordSpecLike with Matchers {
 
       val r4 = Note.Repository.remove(nc.id)
       r4 should be (true)
-      println("----")
+
+      Note.Repository.size() should be (0)
     }
   }
+
+  override def beforeEach(): Unit = Note.Repository.removeAll()
 }

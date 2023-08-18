@@ -1,6 +1,5 @@
 package spikes.route
 
-import akka.actor.typed.receptionist.Receptionist.Find
 import akka.actor.typed.receptionist.ServiceKey
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.*
@@ -8,6 +7,7 @@ import akka.http.scaladsl.server.Directives.{AsyncAuthenticator, complete}
 import akka.http.scaladsl.server.directives.Credentials
 import akka.http.scaladsl.server.{PathMatcher, PathMatcher1, StandardRoute}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
+import spikes.behavior.Manager
 import spikes.model.{Command, User}
 import wvlet.airframe.ulid.ULID
 
@@ -19,17 +19,18 @@ abstract class Router(implicit val system: ActorSystem[Nothing]) extends FailFas
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
-  type LookupResult = Future[Option[ActorRef[Command]]]
-
   val pULID: PathMatcher1[ULID] = PathMatcher("""[0-7][0-9A-HJKMNP-TV-Z]{25}""".r).map(ULID.fromString)
+
   val ok: StandardRoute = complete(StatusCodes.OK)
   val badRequest: StandardRoute = complete(StatusCodes.BadRequest)
   val serviceUnavailable: StandardRoute = complete(StatusCodes.ServiceUnavailable)
   val notFound: StandardRoute = complete(StatusCodes.NotFound)
 
-  def lookup(str: String, key: ServiceKey[Command]): LookupResult = {
-    system.receptionist.ask(Find(key)).map(_.serviceInstances(key).find(_.path.name.contains(str)))
-  }
+  type LookupResult = Future[Option[ActorRef[Command]]]
+
+  def lookup(str: String, key: ServiceKey[Command])         : LookupResult = Manager.lookup(str, key)
+  def lookup(id: ULID, key: ServiceKey[Command])            : LookupResult = lookup(id.toString, key)
+  def lookup(id1: ULID, id2: ULID, key: ServiceKey[Command]): LookupResult = lookup(s"$id1-$id2", key)
 
   val auth: AsyncAuthenticator[User.Session] = {
     case Credentials.Provided(token) =>

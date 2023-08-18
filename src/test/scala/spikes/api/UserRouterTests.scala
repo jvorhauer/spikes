@@ -20,7 +20,6 @@ import spikes.route.{RequestError, UserRouter}
 import spikes.validate.Validation
 import wvlet.airframe.ulid.ULID
 
-import java.time.LocalDate
 import scala.util.Try
 
 class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRouteTest with TestUser with BeforeAndAfterEach {
@@ -48,7 +47,7 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
   }
 
   "Post with invalid user request" should "return bad request with reasons" in {
-    val rcu = User.Post("", "", "", LocalDate.now())
+    val rcu = User.Post("", "", "", today)
     Post(path, rcu) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.BadRequest
       header("Location") should be(None)
@@ -107,6 +106,10 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
     resp should not be empty
     val token = resp.get.access_token
 
+    Get("/users/me")  ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.OK)
+    }
+
     val ruu = User.Put(user.get.id, "Updated", password, born)
     Put(path, ruu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
@@ -154,8 +157,5 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
 
 
   override def afterAll(): Unit = testKit.shutdownTestKit()
-
-  override def beforeEach(): Unit = {
-    User.Repository.nuke()
-  }
+  override def beforeEach(): Unit = User.Repository.nuke()
 }

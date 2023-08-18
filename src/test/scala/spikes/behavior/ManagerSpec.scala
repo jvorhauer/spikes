@@ -6,35 +6,35 @@ import akka.persistence.testkit.scaladsl.EventSourcedBehaviorTestKit
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
-import spikes.model.{Command, Event, RichULID, User, next}
+import spikes.build.BuildInfo
+import spikes.model.{Command, Event, RichULID, User, next, today}
 import spikes.{Spikes, SpikesConfig}
 
-import java.time.LocalDate
 
 class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with AnyWordSpecLike with BeforeAndAfterEach {
 
   implicit val session: DBSession = Spikes.init
 
-  private val eventSourcedTestKit = EventSourcedBehaviorTestKit[Command, Event, Manager.State](system, Manager())
+  private val esbtkManager = EventSourcedBehaviorTestKit[Command, Event, Manager.State](system, Manager())
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
-    eventSourcedTestKit.clear()
+    esbtkManager.clear()
     User.Repository.nuke()
   }
 
   "The Manager" should {
     "add a User" in {
       val id = next
-      val res1 = eventSourcedTestKit.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", LocalDate.now().minusYears(21), None, replyTo)
+      val res1 = esbtkManager.runCommand[StatusReply[User.Response]](
+        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, replyTo)
       )
       res1.reply.isSuccess should be (true)
       res1.reply.getValue should ===(
-        User.Response(id, "Test", "test@miruvor.nl", id.created, LocalDate.now().minusYears(21), None)
+        User.Response(id, "Test", "test@miruvor.nl", id.created, today.minusYears(21), None)
       )
 
-      val res2 = eventSourcedTestKit.runCommand[StatusReply[Manager.Info]](
+      val res2 = esbtkManager.runCommand[StatusReply[Manager.Info]](
         replyTo => Manager.GetInfo(replyTo)
       )
       res2.reply.isSuccess should be(true)
@@ -50,37 +50,53 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
 
     "reject already added user" in {
       val id = next
-      val res1 = eventSourcedTestKit.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", LocalDate.now().minusYears(21), None, replyTo)
+      val res1 = esbtkManager.runCommand[StatusReply[User.Response]](
+        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, replyTo)
       )
       res1.reply.isSuccess should be(true)
-      val res2 = eventSourcedTestKit.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Other", "test@miruvor.nl", "Welkom123!", LocalDate.now().minusYears(32), Some("Hello"), replyTo)
+      val res2 = esbtkManager.runCommand[StatusReply[User.Response]](
+        replyTo => User.Create(id, "Other", "test@miruvor.nl", "Welkom123!", today.minusYears(32), Some("Hello"), replyTo)
       )
       res2.reply.isSuccess should be(false)
     }
 
     "delete a user" in {
       val id = next
-      val res1 = eventSourcedTestKit.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", LocalDate.now().minusYears(21), None, replyTo)
+      val res1 = esbtkManager.runCommand[StatusReply[User.Response]](
+        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, replyTo)
       )
       res1.reply.isSuccess should be(true)
-      val res2 = eventSourcedTestKit.runCommand[StatusReply[User.Response]](
+      val res2 = esbtkManager.runCommand[StatusReply[User.Response]](
         replyTo => User.Remove(id, replyTo)
       )
       res2.reply.isSuccess should be(true)
       res2.reply.getValue should ===(
-        User.Response(id, "Test", "test@miruvor.nl", id.created, LocalDate.now().minusYears(21))
+        User.Response(id, "Test", "test@miruvor.nl", id.created, today.minusYears(21))
       )
 
-      val res3 = eventSourcedTestKit.runCommand[StatusReply[Manager.Info]](
+      val res3 = esbtkManager.runCommand[StatusReply[Manager.Info]](
         replyTo => Manager.GetInfo(replyTo)
       )
       res3.reply.isSuccess should be(true)
-      res3.reply.getValue should ===(
-        Manager.Info(0, 0, recovered = true)
-      )
+      val info = res3.reply.getValue
+      info.users should be (0)
+      info.notes should be (0)
+      info.recovered should be (true)
+      info.version should be (BuildInfo.version)
     }
+
+    "provide readiness" in {
+      val res1 = esbtkManager.runCommand[StatusReply[Boolean]](
+        replyTo => Manager.IsReady(replyTo)
+      )
+      res1.reply.isSuccess should be (true)
+      res1.reply.getValue should be (true)
+    }
+  }
+
+  override def afterAll(): Unit = {
+    super.afterAll()
+    system.terminate()
+    User.Repository.nuke()
   }
 }

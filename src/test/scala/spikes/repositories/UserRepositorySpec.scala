@@ -6,9 +6,8 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
 import spikes.Spikes
 import spikes.model.Note.makeslug
-import spikes.model.{Note, Status, User, next}
+import spikes.model.{Access, Note, Status, User, next, now, today}
 
-import java.time.{LocalDate, LocalDateTime}
 
 class UserRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAfterEach {
 
@@ -20,7 +19,7 @@ class UserRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAft
 
   "A User Repository" should {
     "Add a new User, find and then remove that User" in {
-      val uc = User.Created(next, "Tester", "tester@test.er", "Welkom123!", LocalDate.now().minusYears(42), None)
+      val uc = User.Created(next, "Tester", "tester@test.er", "Welkom123!", today.minusYears(42), None)
       val r1 = User.Repository.save(uc)
       r1.id should be (uc.id)
 
@@ -51,14 +50,14 @@ class UserRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAft
     }
 
     "Add a Note to a new User" in {
-      val uc = User.Created(next, "Tester", "tester@test.er", "Welkom123!", LocalDate.now().minusYears(42), None)
+      val uc = User.Created(next, "Tester", "tester@test.er", "Welkom123!", today.minusYears(42), None)
       val r1 = User.Repository.save(uc)
       r1.id should be(uc.id)
 
       val noteId = next
       val title = "title"
       val slug = makeslug(noteId, title)
-      val nc = Note.Created(noteId, uc.id, "title", "body", slug, LocalDateTime.now().plusDays(5), Status.ToDo)
+      val nc = Note.Created(noteId, uc.id, "title", "body", slug, now.plusDays(5), Status.ToDo, Access.Public)
       val r2 = Note.Repository.save(nc)
       r2.id should be (noteId)
 

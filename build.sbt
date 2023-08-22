@@ -18,7 +18,6 @@ Test / compileOrder    := CompileOrder.ScalaThenJava
 val versions = new {
   val akka = "2.8.4"
   val http = "10.5.2"
-  val proj = "1.4.2"
   val kamon = "2.6.3"
   val scalaTest = "3.2.16"
   val jdbc = "4.0.0"
@@ -56,16 +55,12 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"  %% "akka-persistence-typed"       % versions.akka,
       "com.typesafe.akka"  %% "akka-persistence-query"       % versions.akka,
       "com.typesafe.akka"  %% "akka-persistence-cassandra"   % "1.1.1",
-      "com.lightbend.akka" %% "akka-projection-core"         % versions.proj,
-      "com.lightbend.akka" %% "akka-projection-eventsourced" % versions.proj,
-      "com.lightbend.akka" %% "akka-projection-cassandra"    % versions.proj,
     ) ++ Seq(
       "org.scalatest"       %% "scalatest"                % versions.scalaTest,
       "com.typesafe.akka"   %% "akka-actor-testkit-typed" % versions.akka,
       "com.typesafe.akka"   %% "akka-stream-testkit"      % versions.akka,
       "com.typesafe.akka"   %% "akka-persistence-testkit" % versions.akka,
       "com.typesafe.akka"   %% "akka-http-testkit"        % versions.http,
-      "com.lightbend.akka"  %% "akka-projection-testkit"  % versions.proj,
       "org.scalikejdbc"     %% "scalikejdbc-test"         % versions.jdbc,
       "org.specs2"          %% "specs2-core"              % "4.20.2"
     ).map(_ % "test") ++ Seq(

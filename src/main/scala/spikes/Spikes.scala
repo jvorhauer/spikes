@@ -5,20 +5,12 @@ import akka.actor.typed.{ActorSystem, Behavior}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpMethods
 import akka.http.scaladsl.server.Directives.*
-import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
-import akka.persistence.query.Offset
-import akka.projection.cassandra.scaladsl.CassandraProjection
-import akka.projection.eventsourced.EventEnvelope
-import akka.projection.eventsourced.scaladsl.EventSourcedProvider
-import akka.projection.scaladsl.SourceProvider
-import akka.projection.{ProjectionBehavior, ProjectionId}
 import ch.megard.akka.http.cors.scaladsl.CorsDirectives.cors
 import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
 import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
 import kamon.Kamon
 import scalikejdbc.*
-import spikes.behavior.{Manager, ProjectionHandler}
-import spikes.model.{Event, User}
+import spikes.behavior.Manager
 import spikes.route.*
 import spikes.validate.Validation
 
@@ -36,10 +28,6 @@ object Spikes {
     implicit val system = ctx.system
 
     val manager = ctx.spawn(Manager(), "manager")
-
-    val sourceProvider: SourceProvider[Offset, EventEnvelope[Event]] = EventSourcedProvider.eventsByTag[Event](system, readJournalPluginId = CassandraReadJournal.Identifier, tag = User.tag)
-    val projection = CassandraProjection.atLeastOnce(ProjectionId("users", User.tag), sourceProvider, handler = () => new ProjectionHandler())
-    ctx.spawn(ProjectionBehavior(projection), projection.projectionId.id)
 
     val settings = CorsSettings.defaultSettings
       .withAllowedOrigins(HttpOriginMatcher.*)

@@ -5,14 +5,21 @@ import akka.actor.typed.{ActorSystem, Behavior}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.HttpMethods
 import akka.http.scaladsl.server.Directives.*
+import akka.persistence.cassandra.query.scaladsl.CassandraReadJournal
+import akka.persistence.query.Offset
+import akka.projection.cassandra.scaladsl.CassandraProjection
+import akka.projection.eventsourced.EventEnvelope
+import akka.projection.eventsourced.scaladsl.EventSourcedProvider
+import akka.projection.scaladsl.SourceProvider
+import akka.projection.{ProjectionBehavior, ProjectionId}
 import ch.megard.akka.http.cors.scaladsl.CorsDirectives.cors
 import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
 import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
 import kamon.Kamon
 import scalikejdbc.*
-import spikes.behavior.Manager
+import spikes.behavior.{Manager, ProjectionHandler}
+import spikes.model.{Event, User}
 import spikes.route.*
-import spikes.tapir.UserEndpoints
 import spikes.validate.Validation
 
 
@@ -30,16 +37,20 @@ object Spikes {
 
     val manager = ctx.spawn(Manager(), "manager")
 
+    val sourceProvider: SourceProvider[Offset, EventEnvelope[Event]] = EventSourcedProvider.eventsByTag[Event](system, readJournalPluginId = CassandraReadJournal.Identifier, tag = User.tag)
+    val projection = CassandraProjection.atLeastOnce(ProjectionId("users", User.tag), sourceProvider, handler = () => new ProjectionHandler())
+    ctx.spawn(ProjectionBehavior(projection), projection.projectionId.id)
+
     val settings = CorsSettings.defaultSettings
       .withAllowedOrigins(HttpOriginMatcher.*)
       .withAllowedMethods(Seq(HttpMethods.POST, HttpMethods.GET, HttpMethods.PUT, HttpMethods.DELETE))
+
     val routes = handleRejections(Validation.rejectionHandler) {
       cors(settings) {
         concat(
           UserRouter(manager).route,
           InfoRouter(manager).route,
           NoteRouter().route,
-          UserEndpoints(manager).route
         )
       }
     }
@@ -55,7 +66,7 @@ object Spikes {
     implicit val session: DBSession = AutoSession
 
     sql"""create table if not exists users (
-      id varchar(26) not null primary key,
+      id char(26) not null primary key,
       name varchar(255) not null,
       email varchar(1024) not null,
       password varchar(1024) not null,
@@ -65,7 +76,7 @@ object Spikes {
     sql"create unique index if not exists users_email_idx on users (email)".execute.apply()
 
     sql"""create table if not exists notes (
-      id varchar(26) not null primary key,
+      id char(26) not null primary key,
       owner varchar(26) not null,
       title varchar(255) not null,
       body varchar(1024) not null,
@@ -78,7 +89,7 @@ object Spikes {
     sql"create unique index if not exists notes_slug_idx on notes (slug)".execute.apply()
 
     sql"""create table if not exists comments (
-         id varchar(26) not null primary key,
+         id char(26) not null primary key,
          writer varchar(26) not null,
          note_id varchar(26) not null,
          title varchar(255) not null,
@@ -88,11 +99,11 @@ object Spikes {
     )""".execute.apply()
     sql"create index if not exists comments_note_idx on comments (note_id)".execute.apply()
 
-    sql"create table if not exists tags (id varchar(26) not null primary key,title varchar(255) not null)".execute.apply()
+    sql"create table if not exists tags (id varchar(26) not null primary key, title varchar(255) not null)".execute.apply()
     sql"""create table if not exists notes_tags (
-         id varchar(26) not null primary key,
-         note_id varchar(26) not null,
-         tag_id varchar(26) not null
+         id char(26) not null primary key,
+         note_id char(26) not null,
+         tag_id char(26) not null
     )""".execute.apply()
 
     session

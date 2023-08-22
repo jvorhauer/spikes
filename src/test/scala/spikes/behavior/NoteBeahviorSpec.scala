@@ -63,7 +63,7 @@ class NoteBeahviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       println(s"r3: ${r3.reply}")
       r3.reply.isSuccess should be (true)
       val nr = r3.reply.getValue
-      nr.comments should have size (1)
+      nr.comments should have size 1
     }
   }
 

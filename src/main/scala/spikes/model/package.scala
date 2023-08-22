@@ -1,6 +1,7 @@
 package spikes
 
 import org.owasp.encoder.Encode
+import scalikejdbc.ParameterBinderFactory
 import spikes.validate.Validation.ErrorInfo
 import wvlet.airframe.ulid.ULID
 
@@ -47,5 +48,9 @@ package object model {
   implicit class RichULID(private val self: ULID) extends AnyVal {
     def created: LocalDateTime = LocalDateTime.ofInstant(self.toInstant, ZoneId.of("UTC"))
     def hashed: String = hash(self)
+  }
+
+  implicit val ulidPBF: ParameterBinderFactory[ULID] = ParameterBinderFactory[ULID] {
+    value => (stmt, idx) => stmt.setString(idx, value.toString())
   }
 }

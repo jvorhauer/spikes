@@ -21,9 +21,7 @@ abstract class Router(implicit val system: ActorSystem[Nothing]) extends FailFas
 
   val pULID: PathMatcher1[ULID] = PathMatcher("""[0-7][0-9A-HJKMNP-TV-Z]{25}""".r).map(ULID.fromString)
 
-  val ok: StandardRoute = complete(StatusCodes.OK)
   val badRequest: StandardRoute = complete(StatusCodes.BadRequest)
-  val serviceUnavailable: StandardRoute = complete(StatusCodes.ServiceUnavailable)
   val notFound: StandardRoute = complete(StatusCodes.NotFound)
 
   type LookupResult = Future[Option[ActorRef[Command]]]

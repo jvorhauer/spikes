@@ -14,7 +14,6 @@ import spikes.behavior.Manager.lookup
 import spikes.validate.Validation.{ErrorInfo, validate}
 import wvlet.airframe.ulid.ULID
 
-import java.sql.ResultSet
 import java.time.{LocalDate, LocalDateTime}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
@@ -98,11 +97,6 @@ object User {
   }
   object State extends SQLSyntaxSupport[User.State] {
     override val tableName = "users"
-
-    implicit val userIdTypeBinder: TypeBinder[UserId] = new TypeBinder[UserId] {
-      def apply(rs: ResultSet, label: String): UserId = ULID(rs.getString(label))
-      def apply(rs: ResultSet, index: Int): UserId = ULID(rs.getString(index))
-    }
 
     def apply(rs: WrappedResultSet): User.State = new User.State(
       ULID(rs.string("id")),
@@ -195,6 +189,7 @@ object User {
       .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
       .withRetention(RetentionCriteria.disabled)
       .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
+      .withTagger(_ => Set(User.tag))
       .receiveSignal {
         case (_, RecoveryCompleted) => ctx.log.info(s"${pid.id} recovered")
         case (_, RecoveryFailed(t)) => ctx.log.error(s"recovery of ${pid.id} failed", t)
@@ -210,7 +205,7 @@ object User {
 
     def save(uc: User.Created): User.State = {
       withSQL(insert.into(User.State).namedValues(
-        cols.id -> uc.id.toString(),
+        cols.id -> uc.id,
         cols.name -> uc.name,
         cols.email -> uc.email,
         cols.password -> uc.password,
@@ -225,9 +220,9 @@ object User {
         cols.bio -> uu.bio,
         cols.born -> uu.born,
         cols.password -> uu.password
-      ).where.eq(cols.id, state.id.toString())).update.apply())
+      ).where.eq(cols.id, state.id)).update.apply())
 
-    def find(id: ULID): Option[State] = withSQL(select.from(State as u).where.eq(cols.id, id.toString)).map(rs => State(rs)).single.apply()
+    def find(id: UserId): Option[State] = withSQL(select.from(State as u).where.eq(cols.id, id)).map(rs => State(rs)).single.apply()
     def find(e: String): Option[State] = withSQL(select.from(State as u).where.eq(cols.email, e)).map(rs => State(rs)).single.apply()
     def exists(e: String, p: String): Boolean =
       withSQL(select.from(State as u).where.eq(cols.email, e).and.eq(cols.password, p)).map(rs => State(rs)).single.apply().isDefined
@@ -235,7 +230,7 @@ object User {
     def list(limit: Int = 10, offset: Int = 0): List[User.State] = withSQL(select.from(State as u).limit(limit).offset(offset)).map(State(_)).list.apply()
     def size(): Int = withSQL(select(count(distinct(cols.id))).from(State as u)).map(_.int(1)).single.apply().getOrElse(0)
 
-    def remove(id: ULID): Unit = withSQL(delete.from(State as u).where.eq(cols.id, id.toString)).update.apply()
+    def remove(id: UserId): Unit = withSQL(delete.from(State as u).where.eq(cols.id, id)).update.apply()
     def nuke(): Unit = withSQL(delete.from(User.State)).update.apply()
   }
 }

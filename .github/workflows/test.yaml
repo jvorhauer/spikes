@@ -36,6 +36,7 @@ jobs:
           ASTRA_PASSWORD: ${{ secrets.ASTRA_PASSWORD }}
           ASTRA_SCB: ${{ secrets.ASTRA_SCB }}
           KAMON_TOKEN: ${{ secrets.KAMON_TOKEN }}
+          HOSTNAME: 'github-runner'
       - name: Upload dependency graph
         uses: scalacenter/sbt-dependency-submission@v2
       - name: Upload coverage to CodeCov

@@ -87,9 +87,9 @@ object Comment {
     def save(cc: Comment.Created): Comment.Entity = {
       withSQL {
         insert.into(Comment.Entity).namedValues(
-          cols.id -> cc.id.toString,
-          cols.writer -> cc.writer.toString,
-          cols.noteId -> cc.noteId.toString,
+          cols.id -> cc.id,
+          cols.writer -> cc.writer,
+          cols.noteId -> cc.noteId,
           cols.title -> cc.title,
           cols.body -> cc.body,
           cols.color -> cc.color,
@@ -99,6 +99,7 @@ object Comment {
       Comment.Entity(cc)
     }
 
-    def list(noteId: NoteId): List[Comment.Entity] = withSQL(select.from(Entity as c).where.eq(cols.noteId, noteId.toString)).map(Comment.Entity(_)).list.apply()
+    def onNote(noteId: NoteId): List[Comment.Entity] = withSQL(select.from(Entity as c).where.eq(cols.noteId, noteId)).map(Comment.Entity(_)).list.apply()
+    def byWriter(userId: UserId): List[Comment.Entity] = withSQL(select.from(Entity as c).where.eq(cols.writer, userId)).map(Comment.Entity(_)).list.apply()
   }
 }

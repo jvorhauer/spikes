@@ -92,7 +92,7 @@ object Note {
   ) extends ResponseT
   object Response {
     def apply(nc: Note.Create): Note.Response = new Note.Response(
-      nc.id, nc.title, nc.body, nc.slug, nc.due, nc.status, nc.access, Comment.Repository.list(nc.id).map(_.asResponse)
+      nc.id, nc.title, nc.body, nc.slug, nc.due, nc.status, nc.access, Comment.Repository.onNote(nc.id).map(_.asResponse)
     )
   }
 
@@ -106,7 +106,7 @@ object Note {
       status: Status,
       access: Access
   ) extends Entity {
-    lazy val asResponse: Response = Response(id, title, body, slug, due, status, access, Comment.Repository.list(id).map(_.asResponse))
+    lazy val asResponse: Response = Response(id, title, body, slug, due, status, access, Comment.Repository.onNote(id).map(_.asResponse))
   }
   object State extends SQLSyntaxSupport[State] {
     override val tableName = "notes"
@@ -184,8 +184,8 @@ object Note {
     def save(nc: Note.Created): Note.State = {
       withSQL {
         insert.into(Note.State).namedValues(
-          cols.id -> nc.id.toString(),
-          cols.owner -> nc.owner.toString(),
+          cols.id -> nc.id,
+          cols.owner -> nc.owner,
           cols.title -> nc.title,
           cols.body -> nc.body,
           cols.slug -> nc.slug,
@@ -203,18 +203,18 @@ object Note {
         cols.due -> nu.due,
         cols.status -> nu.status.id,
         cols.access -> nu.access.id
-      ).where.eq(cols.id, state.id.toString())
+      ).where.eq(cols.id, state.id)
     }.update.apply()).orElse(None)
 
-    def find(id: ULID): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id.toString)).map(State(_)).single.apply()
+    def find(id: ULID): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id)).map(State(_)).single.apply()
     def find(slug: String): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.slug, slug)).map(State(_)).single.apply()
-    def find(id: ULID, owner: ULID): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id.toString).and.eq(cols.owner, owner.toString)).map(State(_)).single.apply()
+    def find(id: ULID, owner: ULID): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id).and.eq(cols.owner, owner.toString)).map(State(_)).single.apply()
 
     def list(limit: Int = 10, offset: Int = 0): List[Note.State] = withSQL(select.from(State as n).limit(limit).offset(offset)).map(State(_)).list.apply()
-    def list(owner: ULID): List[Note.State] = withSQL(select.from(State as n).where.eq(cols.owner, owner.toString)).map(State(_)).list.apply()
+    def list(owner: UserId): List[Note.State] = withSQL(select.from(State as n).where.eq(cols.owner, owner)).map(State(_)).list.apply()
     def size(): Int = withSQL(select(distinct(count(cols.id))).from(State as n)).map(_.int(1)).single.apply().getOrElse(0)
 
-    def remove(id: ULID): Boolean = withSQL(delete.from(Note.State).where.eq(cols.id, id.toString)).update.apply() === 1
+    def remove(id: NoteId): Boolean = withSQL(delete.from(Note.State).where.eq(cols.id, id)).update.apply() === 1
     def removeAll(): Unit = withSQL(delete.from(Note.State)).update.apply()
   }
 }

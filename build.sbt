@@ -1,6 +1,5 @@
 import sbt.Keys.libraryDependencies
-import sbtrelease.ReleasePlugin.autoImport.ReleaseKeys.versions
-import sbtrelease.ReleaseStateTransformations.{checkSnapshotDependencies, commitNextVersion, commitReleaseVersion, inquireVersions, pushChanges, runClean, runTest, setNextVersion, setReleaseVersion, tagRelease}
+import sbtrelease.ReleaseStateTransformations._
 
 ThisBuild / scalaVersion           := "2.13.11"
 ThisBuild / organization           := "nl.miruvor"
@@ -68,6 +67,7 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"   %% "akka-http-testkit"        % versions.http,
       "com.lightbend.akka"  %% "akka-projection-testkit"  % versions.proj,
       "org.scalikejdbc"     %% "scalikejdbc-test"         % versions.jdbc,
+      "org.specs2"          %% "specs2-core"              % "4.20.2"
     ).map(_ % "test") ++ Seq(
       "io.circe"           %% "circe-generic"                  % "0.14.5",
       "de.heikoseeberger"  %% "akka-http-circe"                % "1.39.2",
@@ -79,11 +79,6 @@ lazy val root = (project in file("."))
       "org.scalactic"      %% "scalactic"                      % versions.scalaTest,
       "io.scalaland"       %% "chimney"                        % "0.7.5",
       "ch.megard"          %% "akka-http-cors"                 % "1.2.0",
-    ) ++ Seq(
-      "com.softwaremill.sttp.tapir" %% "tapir-core"               % versions.tapir,
-      "com.softwaremill.sttp.tapir" %% "tapir-json-circe"         % versions.tapir,
-      "com.softwaremill.sttp.tapir" %% "tapir-openapi-circe-yaml" % "0.20.2",
-      "com.softwaremill.sttp.tapir" %% "tapir-akka-http-server"   % versions.tapir
     ) ++ Seq(
       "com.datastax.oss"  % "java-driver-core" % "4.17.0",
       "io.netty"          % "netty-handler"    % "4.1.96.Final",

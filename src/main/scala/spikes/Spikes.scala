@@ -3,7 +3,7 @@ package spikes
 import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorSystem, Behavior}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.model.HttpMethods
+import akka.http.scaladsl.model.HttpMethods.*
 import akka.http.scaladsl.server.Directives.*
 import ch.megard.akka.http.cors.scaladsl.CorsDirectives.cors
 import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
@@ -29,10 +29,7 @@ object Spikes {
 
     val manager = ctx.spawn(Manager(), "manager")
 
-    val settings = CorsSettings.defaultSettings
-      .withAllowedOrigins(HttpOriginMatcher.*)
-      .withAllowedMethods(Seq(HttpMethods.POST, HttpMethods.GET, HttpMethods.PUT, HttpMethods.DELETE))
-
+    val settings = CorsSettings.defaultSettings.withAllowedOrigins(HttpOriginMatcher.*).withAllowedMethods(Seq(POST, GET, PUT, DELETE))
     val routes = handleRejections(Validation.rejectionHandler) {
       cors(settings) {
         concat(
@@ -65,7 +62,7 @@ object Spikes {
 
     sql"""create table if not exists notes (
       id char(26) not null primary key,
-      owner varchar(26) not null,
+      owner char(26) not null,
       title varchar(255) not null,
       body varchar(1024) not null,
       slug varchar(255) not null,
@@ -78,8 +75,8 @@ object Spikes {
 
     sql"""create table if not exists comments (
          id char(26) not null primary key,
-         writer varchar(26) not null,
-         note_id varchar(26) not null,
+         writer char(26) not null,
+         note_id char(26) not null,
          title varchar(255) not null,
          body varchar(1024) not null,
          color varchar(6),

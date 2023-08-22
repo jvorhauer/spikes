@@ -67,7 +67,6 @@ object User {
 
   final case class Login(email: String, password: String, replyTo: ReplyTokenTo) extends Command
   final case class Authorize(token: String, replyTo: ActorRef[Option[User.Session]]) extends Command
-  final case class TapLogin(token: String, replyTo: ActorRef[Either[String, User.Session]]) extends Command
   final case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
   final case class Follow(id: UserId, other: UserId, replyTo: ReplyAnyTo) extends Command
 
@@ -147,7 +146,6 @@ object User {
             Effect.reply(ul.replyTo)(StatusReply.error(s"invalid credentials ($ul)"))
           }
         case ua: User.Authorize => Effect.reply(ua.replyTo)(state.session.filter(_.isValid(ua.token)))
-        case ut: User.TapLogin => Effect.reply(ut.replyTo)(state.session.filter(_.isValid(ut.token)).toRight("no session or session expired"))
         case ul: User.Logout => state.session match {
           case Some(us) => Effect.persist(User.LoggedOut(us.id)).thenReply(ul.replyTo)(_ => StatusReply.success("Logged Out"))
           case None => Effect.reply(ul.replyTo)(StatusReply.error("No Session"))

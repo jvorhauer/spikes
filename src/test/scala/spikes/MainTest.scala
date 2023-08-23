@@ -4,8 +4,9 @@ import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.ActorSystem
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.client.RequestBuilding.Get
-import io.sentry.Sentry
+import io.sentry.{Sentry, SentryOptions}
 import scalikejdbc.DBSession
+import spikes.build.BuildInfo
 
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, ExecutionContextExecutor}
@@ -24,9 +25,13 @@ class MainTest extends SpikesTestBase {
   }
 
   "Sentry" should "receive my exception" in {
-    Sentry.init()
+    Sentry.init((options: SentryOptions) => {
+      options.setEnvironment("test")
+      options.setDsn(System.getenv("SENTRY_DSN"))
+      options.setRelease(BuildInfo.version)
+    })
     Sentry.isEnabled should be (true)
-    // Sentry.captureException(new RuntimeException("Sentry Test Exception"))
+    Sentry.captureException(new RuntimeException("Sentry Test Exception"))
   }
 
   override def afterAll(): Unit = {

@@ -12,9 +12,6 @@ ThisBuild / scalafixScalaBinaryVersion := "2.13"
 ThisBuild / Test / logBuffered := false
 ThisBuild / Test / parallelExecution := false
 
-Compile / compileOrder := CompileOrder.ScalaThenJava
-Test / compileOrder    := CompileOrder.ScalaThenJava
-
 val versions = new {
   val akka = "2.8.4"
   val http = "10.5.2"

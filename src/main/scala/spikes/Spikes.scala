@@ -8,10 +8,11 @@ import akka.http.scaladsl.server.Directives.*
 import ch.megard.akka.http.cors.scaladsl.CorsDirectives.cors
 import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
 import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
-import io.sentry.Sentry
+import io.sentry.{Sentry, SentryOptions}
 import kamon.Kamon
 import scalikejdbc.*
 import spikes.behavior.Manager
+import spikes.build.BuildInfo
 import spikes.route.*
 import spikes.validate.Validation
 
@@ -22,7 +23,11 @@ object Spikes {
 
   def main(args: Array[String]): Unit = {
     Kamon.init()
-    Sentry.init()
+    Sentry.init((options: SentryOptions) => {
+      options.setEnvironment("production")
+      options.setDsn(System.getenv("SENTRY_DSN"))
+      options.setRelease(BuildInfo.version)
+    })
     ActorSystem[Nothing](apply(), "spikes")
   }
 

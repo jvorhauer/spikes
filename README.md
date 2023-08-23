@@ -33,11 +33,14 @@ an Event Handler:
 request via akka-http-route -> 
   validator -> 
   command-handler ->
-    reply to requestor &
-    event-handler
+    event-handler &
+    respond with updated state to requestor
 ```
 
-Akka Persistence is responsible for persisting the events created by the command handler.
+to the outside world, this seems like the ubiquous http `request` -> `response` way of working.
+
+Akka Persistence is responsible for persisting the events created by the command handler. And Akka persistence will replay the previously persisted events on
+(re)startup of a Persistent Actor (actually Behaviour, but I still like Actor better).
 
 The `validator` and the `reply to requestor` is the reason for the Request instead of the requestor just sending a Command. 
 
@@ -83,6 +86,9 @@ The initial idea was to build a simple note-taking backend. Gradually some new f
 That scope-creep led to the idea of creating a simple CRM system, with Users logging their activities with Employees of Companies.
 This backend will focus on storing the data created by the users in a traceable, retrievable and recoverable way. The integration with email and
 other external systems is not included yet.
+
+In the end I produced a simple note-taking backend. All aspirations for more functionality seem over the top at the moment. With the current implementation of Note all
+the considered extra's can be implemented at the frontend.
 
 * [etm](https://dagraham.github.io/etm-dgraham/)
 * [UpBase](https://upbase.io/)

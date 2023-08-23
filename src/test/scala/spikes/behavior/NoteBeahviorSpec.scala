@@ -9,7 +9,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
 import spikes.model.Note.NoteId
 import spikes.model.{Access, Command, Comment, Event, Note, Status, User, hash, next, now, today}
-import spikes.{Spikes, SpikesConfig, model}
+import spikes.{Spikes, SpikesConfig}
 import wvlet.airframe.ulid.ULID
 
 
@@ -58,7 +58,7 @@ class NoteBeahviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       println(s"note: ${Note.Repository.find(noteId)}")
 
       val r3 = esbtkNote.runCommand[StatusReply[Note.Response]](
-        replyTo => Comment.Create(next, user.id, note.id, "test comment", "test body for comment", None, 5, replyTo)
+        replyTo => Comment.Create(next, user.id, note.id, None, "test comment", "test body for comment", None, 5, replyTo)
       )
       println(s"r3: ${r3.reply}")
       r3.reply.isSuccess should be (true)
@@ -69,7 +69,7 @@ class NoteBeahviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
   override def afterAll(): Unit = {
     super.afterAll()
-    model.Note.Repository.removeAll()
+    Note.Repository.removeAll()
     User.Repository.nuke()
   }
 }

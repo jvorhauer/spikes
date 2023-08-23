@@ -86,6 +86,7 @@ object Spikes {
          id char(26) not null primary key,
          writer char(26) not null,
          note_id char(26) not null,
+         parent char(26),
          title varchar(255) not null,
          body varchar(1024) not null,
          color varchar(6),

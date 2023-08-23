@@ -16,7 +16,7 @@ class CommentRepositorySpec extends Specification {
     }
 
     "save and list a new Comment" in new AutoRollback {
-      val cc = Comment.Created(next, next, next, "title", "body", None, 3)
+      val cc = Comment.Created(next, next, next, None, "title", "body", None, 3)
       val r1 = Comment.Repository.save(cc)
       r1.title must beEqualTo ("title")
 

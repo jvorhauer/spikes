@@ -23,7 +23,7 @@ object Manager {
   implicit val timeout: Timeout = 100.millis
   implicit val session: DBSession = AutoSession
 
-  val pid: PersistenceId = PersistenceId.of("spikes", "21", "-")
+  val pid: PersistenceId = PersistenceId.of("spikes", "22", "-")
 
   type LookupResult = Future[Option[ActorRef[Command]]]
 
@@ -54,8 +54,7 @@ object Manager {
 
     val eventHandler: (Manager.State, Event) => Manager.State = (state, evt) => evt match {
       case uc: User.Created =>
-        ctx.spawn(User(User.State(uc)), User.name(uc.id, uc.email))
-        User.Repository.save(uc)
+        ctx.spawn(User(User.Repository.save(uc)), User.name(uc.id, uc.email))
         state.copy(users = state.users + 1)
       case ur: User.Removed =>
         lookup(ur.id, ctx).map(_.foreach(ctx.stop(_)))

@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
-import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
+import akka.persistence.typed.{PersistenceId, RecoveryFailed, SnapshotSelectionCriteria}
 import io.scalaland.chimney.dsl.TransformerOps
 import org.owasp.encoder.Encode
 import scalikejdbc.*
@@ -31,7 +31,7 @@ object User {
   type ReplySessionTo = ActorRef[Option[User.Session]]
   type ReplyAnyTo = ActorRef[StatusReply[Any]]
 
-  def name(id: UserId, email: String): String = s"user-$id-$email-${id.hashed}"
+  def name(id: UserId, email: String): String = s"user-$id-$email"
 
   final case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
     override def validated: Set[ErrorInfo] = Set(validate("name", name), validate("email", email), validate("password", password), validate("born", born)).flatten
@@ -173,7 +173,6 @@ object User {
         case _: User.Removed =>
           ctx.system.receptionist.tell(Receptionist.Deregister(User.key, ctx.self))
           state
-
         case ul: User.LoggedIn  =>
           User.Repository.find(ul.id).foreach(User.Session.save)
           state
@@ -181,8 +180,7 @@ object User {
           User.Session.remove(uo.id)
           state
         case nc: Note.Created =>
-          ctx.spawn(Note(Note.State(nc)), Note.name(state.id, nc.id, nc.slug))
-          Note.Repository.save(nc)
+          ctx.spawn(Note(Note.Repository.save(nc)), Note.name(state.id, nc.id, nc.slug))
           state
         case nr: Note.Removed =>
           lookup(nr.id, Note.key, ctx).map(_.foreach(ctx.stop(_)))
@@ -197,7 +195,6 @@ object User {
       .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
       .withTagger(_ => Set(User.tag))
       .receiveSignal {
-        case (_, RecoveryCompleted) => ctx.log.info(s"${pid.id} recovered")
         case (_, RecoveryFailed(t)) => ctx.log.error(s"recovery of ${pid.id} failed", t)
       }
   }

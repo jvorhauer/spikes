@@ -163,9 +163,7 @@ object Note {
       .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
       .withTagger(_ => Set("note"))
       .receiveSignal {
-        case (_, RecoveryCompleted) =>
-          ctx.log.info(s"${pid.id} recovered")
-          recovered = true
+        case (_, RecoveryCompleted) => recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error(s"recovery of note $pid failed", t)
       }
   }

@@ -76,9 +76,8 @@ object Manager {
   }
 
   def check(implicit system: ActorSystem[Nothing]): Boolean = {
-    val ue = User.Repository.list(limit = Int.MaxValue).forall(us => Await.result(lookup(us.id.toString, User.key), 100.millis).isDefined)
-    val ne = Note.Repository.list(limit = Int.MaxValue).forall(ns => Await.result(lookup(ns.id.toString, Note.key), 100.millis).isDefined)
-    ue && ne
+    User.Repository.list(limit = Int.MaxValue).forall(us => Await.result(lookup(us.id.toString, User.key), 100.millis).isDefined) &&
+    Note.Repository.list(limit = Int.MaxValue).forall(ns => Await.result(lookup(ns.id.toString, Note.key), 100.millis).isDefined)
   }
 
   final case class State(users: Int) extends SpikeSerializable

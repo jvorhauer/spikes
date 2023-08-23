@@ -13,7 +13,7 @@ Content-Type: application/json
 GET {{ host }}/users
 
 ### get-jurjen
-GET {{ host }}/users/01H7T8YXEVJ0PXWAVMVJH1664Y
+GET {{ host }}/users/01H8H8MS1ZGQYGJDH1W5ZZBGRR
 
 ### get-me
 GET {{ host }}/users/me
@@ -34,9 +34,9 @@ Content-Type: application/json
 Authorization: Bearer {{ authorized }}
 
 {
-  "title": "test without html encoding",
+  "title": "test with <html> encoding",
   "body": "Just a very nice story about incremental development and having fun while doing so",
-  "due": "2024-08-01T10:00:00",
+  "due": "2024-09-01T10:00:00",
   "status": "ToDo",
   "access": "Private"
 }
@@ -137,12 +137,6 @@ Content-Type: application/json
   "born": "1967-04-01",
   "bio": "Master of Disguise"
 }
-
-
-### Tapir stuff:
-
-### get-all-susers
-GET {{ host }}/susers?limit=2
 
 
 ### perform-check

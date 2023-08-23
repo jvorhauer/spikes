@@ -14,7 +14,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
 import spikes.behavior.{Manager, TestUser}
-import spikes.model.{Access, Command, Note, OAuthToken, Status, User, now}
+import spikes.model.{Access, Command, Note, OAuthToken, Status, User, next, now}
 import spikes.route.{NoteRouter, UserRouter}
 import spikes.validate.Validation
 import spikes.{Spikes, SpikesTestBase, model}
@@ -119,10 +119,22 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
       status should be (StatusCodes.OK)
     }
 
+    Delete(s"/notes/${next}") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.BadRequest)
+    }
+
+    Delete(s"/notes/${next}") ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.Unauthorized)
+    }
+
     Get("/notes/mine") ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be(StatusCodes.OK)
       val r = responseAs[List[model.Note.Response]]
       r.size should be(0)
+    }
+
+    Get(s"/notes/${next}") ~> Route.seal(route) ~> check {
+      status should be (StatusCodes.NotFound)
     }
   }
 

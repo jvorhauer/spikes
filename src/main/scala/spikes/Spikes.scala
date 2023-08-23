@@ -22,7 +22,6 @@ object Spikes {
 
   def main(args: Array[String]): Unit = {
     Kamon.init()
-    // Sentry.init("https://b269a09c4b0b4e7f4c1c4b2e7efe124d@o4505748569849856.ingest.sentry.io/4505749069234176")
     Sentry.init()
     ActorSystem[Nothing](apply(), "spikes")
   }

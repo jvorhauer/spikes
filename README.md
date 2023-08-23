@@ -149,11 +149,12 @@ That is the real reason for choosing this rather exotic setup. But after a while
 
 Only thing I haven't figured out yet is scalability: I don't see how I can combine the advantages of ES with clustering. Clustering is a great method to guarantee uptime, for instance when a Kubernetes pod with one of the nodes of the app cluster goes down unexpectedly. Rolling updates is possible with one node, so that's covered by k8s.
 
-Note that CQRS is never mentioned in this document. It is considered to be one of the pillars of Event Sourcing, but I don't see what's so great about it. So, no segregation yet. Maybe when there is an actual need.
+Note that CQRS is never mentioned in this document. It is considered to be one of the pillars of Event Sourcing, but I don't see what's so great about it. So, no segregation yet. Maybe when there is an actual need. 
+Also, I find a Single Place of Truth (SPoT) essential: having State of an actor at one place and the Read-side of CQRS at another is begging for disaster as soon as the programmer (me) forgets about updating logic in both places.
+This is one of those instances where DRY is actually useful and good.
 
 ## ToDo
 
-1. Comments
-2. Tags
+1. Comments, mainly in a Router
+2. Tags (CRUD, tags cloud)
 3. External QA and Performance tests
-4. Scala 3

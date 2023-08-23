@@ -49,10 +49,6 @@ object User {
     def asCmd(replyTo: ReplyTokenTo): Login = Login(email, hash(password), replyTo)
   }
 
-  final case class RequestFollow(id: ULID, other: ULID) extends Request {
-    def asCmd(replyTo: ReplyAnyTo): Follow = Follow(id, other, replyTo)
-  }
-
   final case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String], replyTo: ActorRef[StatusReply[User.Response]]) extends Command {
     def asEvent: Created = this.into[User.Created].transform
   }
@@ -66,19 +62,15 @@ object User {
   }
 
   final case class Login(email: String, password: String, replyTo: ReplyTokenTo) extends Command
-  final case class Authorize(token: String, replyTo: ActorRef[Option[User.Session]]) extends Command
   final case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
-  final case class Follow(id: UserId, other: UserId, replyTo: ReplyAnyTo) extends Command
-
 
   sealed trait UserEvent extends Event
 
   final case class Created(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends UserEvent
   final case class Updated(id: UserId, name: String, password: String, born: LocalDate, bio: Option[String]) extends UserEvent
   final case class Removed(id: UserId) extends UserEvent
-  final case class LoggedIn(id: UserId, expires: LocalDateTime = now.plusHours(2)) extends UserEvent
+  final case class LoggedIn(id: UserId) extends UserEvent
   final case class LoggedOut(id: UserId) extends UserEvent
-  final case class Followed(id: UserId, other: UserId) extends UserEvent
 
 
   final case class State(
@@ -91,8 +83,6 @@ object User {
       session: Option[Session] = None,
   ) extends StateT with Entity {
     lazy val token: String = id.hashed
-
-    def authenticate(email: String, password: String): Boolean = this.email.contentEquals(email) && this.password.contentEquals(password)
   }
   object State extends SQLSyntaxSupport[User.State] {
     override val tableName = "users"
@@ -105,7 +95,6 @@ object User {
       rs.localDate("born"),
       rs.stringOpt("bio")
     )
-
     def apply(uc: User.Created): User.State = new User.State(uc.id, uc.name, uc.email, uc.password, uc.born, uc.bio)
   }
 
@@ -115,9 +104,26 @@ object User {
     def apply(created: User.Created): Response = created.into[Response].withFieldComputed(_.joined, _.id.created).transform
   }
 
-  final case class Session(token: String, id: ULID, expires: LocalDateTime = now.plusHours(2)) extends SpikeSerializable {
+  final case class Session(id: ULID, token: String, expires: LocalDateTime = now.plusHours(2)) extends Entity {
     lazy val asOAuthToken: OAuthToken = OAuthToken(token, id)
     def isValid(t: String): Boolean = token.contentEquals(t) && expires.isAfter(now)
+  }
+  object Session extends SQLSyntaxSupport[User.Session] {
+    override val tableName = "sessions"
+    private  val s = User.Session.syntax("s")
+    private  val cols = User.Session.column
+    implicit val session: DBSession = AutoSession
+
+    def save(us: User.State): User.Session = {
+      val ses = User.Session(us.id, hash(next))
+      withSQL(insert.into(User.Session).namedValues(cols.id -> us.id, cols.token -> ses.token, cols.expires -> ses.expires)).update.apply()
+      ses
+    }
+    def find(token: String): Option[User.Session] = withSQL(select.from(Session as s).where.eq(cols.token, token)).map(Session(_)).single.apply()
+    def find(id: UserId): Option[User.Session] = withSQL(select.from(Session as s).where.eq(cols.id, id)).map(Session(_)).single.apply()
+    def remove(id: UserId): Unit = withSQL(delete.from(Session as s).where.eq(cols.id, id)).update.apply()
+
+    def apply(rs: WrappedResultSet): User.Session = new User.Session(ULID(rs.string("id")), rs.string("token"), rs.localDateTime("expires"))
   }
 
 
@@ -136,17 +142,16 @@ object User {
 
         case ul: User.Login =>
           if (User.Repository.exists(ul.email, ul.password)) {
-            Effect.persist(User.LoggedIn(state.id)).thenReply(ul.replyTo) { upstate =>
-              upstate.session match {
+            Effect.persist(User.LoggedIn(state.id)).thenReply(ul.replyTo) { _ =>
+              User.Session.find(state.id) match {
                 case Some(session) => StatusReply.success(session.asOAuthToken)
-                case None => StatusReply.error(s"user[${upstate.email}] is authenticated but no session found")
+                case None => StatusReply.error(s"user[${state.email}] is authenticated but no session found")
               }
             }
           } else {
-            Effect.reply(ul.replyTo)(StatusReply.error(s"invalid credentials ($ul)"))
+            Effect.reply(ul.replyTo)(StatusReply.error("invalid credentials"))
           }
-        case ua: User.Authorize => Effect.reply(ua.replyTo)(state.session.filter(_.isValid(ua.token)))
-        case ul: User.Logout => state.session match {
+        case ul: User.Logout => User.Session.find(state.id) match {
           case Some(us) => Effect.persist(User.LoggedOut(us.id)).thenReply(ul.replyTo)(_ => StatusReply.success("Logged Out"))
           case None => Effect.reply(ul.replyTo)(StatusReply.error("No Session"))
         }
@@ -169,9 +174,12 @@ object User {
           ctx.system.receptionist.tell(Receptionist.Deregister(User.key, ctx.self))
           state
 
-        case _: User.LoggedIn  => state.copy(session = Some(User.Session(state.id.hashed, state.id)))
-        case _: User.LoggedOut => state.copy(session = None)
-
+        case ul: User.LoggedIn  =>
+          User.Repository.find(ul.id).foreach(User.Session.save)
+          state
+        case uo: User.LoggedOut =>
+          User.Session.remove(uo.id)
+          state
         case nc: Note.Created =>
           ctx.spawn(Note(Note.State(nc)), Note.name(state.id, nc.id, nc.slug))
           Note.Repository.save(nc)

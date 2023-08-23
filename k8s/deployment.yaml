@@ -32,6 +32,11 @@ spec:
                 configMapKeyRef:
                   name: kamon-config
                   key: KAMON_TOKEN
+            - name: SENTRY_DSN
+              valueFrom:
+                configMapKeyRef:
+                  name: sentry-config
+                  key: SENTRY_DSN
             - name: KUBERNETES_POD_NAME
               valueFrom:
                 fieldRef:

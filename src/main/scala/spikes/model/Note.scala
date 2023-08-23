@@ -90,11 +90,6 @@ object Note {
   final case class Response(
       id: ULID, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access, comments: List[Comment.Response] = List.empty
   ) extends ResponseT
-  object Response {
-    def apply(nc: Note.Create): Note.Response = new Note.Response(
-      nc.id, nc.title, nc.body, nc.slug, nc.due, nc.status, nc.access, Comment.Repository.onNote(nc.id).map(_.asResponse)
-    )
-  }
 
   final case class State(
       id: NoteId,

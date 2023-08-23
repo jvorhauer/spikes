@@ -17,8 +17,6 @@ abstract class Router(implicit val system: ActorSystem[Nothing]) extends FailFas
 
   implicit val ec: ExecutionContextExecutor = system.executionContext
 
-  import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
-
   val pULID: PathMatcher1[ULID] = PathMatcher("""[0-7][0-9A-HJKMNP-TV-Z]{25}""".r).map(ULID.fromString)
 
   val badRequest: StandardRoute = complete(StatusCodes.BadRequest)
@@ -32,9 +30,9 @@ abstract class Router(implicit val system: ActorSystem[Nothing]) extends FailFas
 
   val auth: AsyncAuthenticator[User.Session] = {
     case Credentials.Provided(token) =>
-      lookup(token, User.key).flatMap {
-        case Some(ar) => ar.ask(User.Authorize(token, _))
-        case None => Future.successful(None)
+      User.Session.find(token) match {
+        case Some(us) if us.isValid(token) => Future.successful(Some(us))
+        case _ => Future.successful(None)
       }
     case _ => Future.successful(None)
   }

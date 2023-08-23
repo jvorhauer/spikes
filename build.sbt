@@ -21,7 +21,7 @@ val versions = new {
   val kamon = "2.6.3"
   val scalaTest = "3.2.16"
   val jdbc = "4.0.0"
-  val tapir = "1.7.1"
+  val sentry = "6.28.0"
 }
 
 resolvers ++= Seq(
@@ -66,7 +66,7 @@ lazy val root = (project in file("."))
     ).map(_ % "test") ++ Seq(
       "io.circe"           %% "circe-generic"                  % "0.14.5",
       "de.heikoseeberger"  %% "akka-http-circe"                % "1.39.2",
-      "org.wvlet.airframe" %% "airframe-ulid"                  % "23.8.3",
+      "org.wvlet.airframe" %% "airframe-ulid"                  % "23.8.4",
       "io.altoo"           %% "akka-kryo-serialization-typed"  % "2.5.1",
       "io.lemonlabs"       %% "scala-uri"                      % "4.0.3",
       "org.scalikejdbc"    %% "scalikejdbc"                    % versions.jdbc,
@@ -81,6 +81,8 @@ lazy val root = (project in file("."))
       "org.yaml"          % "snakeyaml"        % "2.1",
       "ch.qos.logback"    % "logback-classic"  % "1.4.11",
       "com.h2database"    % "h2"               % "2.2.220",
+      "io.sentry"         % "sentry"           % versions.sentry,
+      "io.sentry"         % "sentry-logback"   % versions.sentry,
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % versions.kamon,
       "io.kamon" %% "kamon-apm-reporter" % versions.kamon

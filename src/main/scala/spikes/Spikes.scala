@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Directives.*
 import ch.megard.akka.http.cors.scaladsl.CorsDirectives.cors
 import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
 import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
+import io.sentry.Sentry
 import kamon.Kamon
 import scalikejdbc.*
 import spikes.behavior.Manager
@@ -21,6 +22,8 @@ object Spikes {
 
   def main(args: Array[String]): Unit = {
     Kamon.init()
+    // Sentry.init("https://b269a09c4b0b4e7f4c1c4b2e7efe124d@o4505748569849856.ingest.sentry.io/4505749069234176")
+    Sentry.init()
     ActorSystem[Nothing](apply(), "spikes")
   }
 
@@ -32,11 +35,7 @@ object Spikes {
     val settings = CorsSettings.defaultSettings.withAllowedOrigins(HttpOriginMatcher.*).withAllowedMethods(Seq(POST, GET, PUT, DELETE))
     val routes = handleRejections(Validation.rejectionHandler) {
       cors(settings) {
-        concat(
-          UserRouter(manager).route,
-          InfoRouter(manager).route,
-          NoteRouter().route,
-        )
+        concat(UserRouter(manager).route, InfoRouter(manager).route, NoteRouter().route)
       }
     }
     Http(system).newServerAt("0.0.0.0", port).bind(routes)
@@ -45,8 +44,7 @@ object Spikes {
 
 
   def init: DBSession = {
-    Class.forName("org.h2.Driver")
-    ConnectionPool.singleton("jdbc:h2:mem:spikes", "sa", "")
+    ConnectionPool.singleton("jdbc:h2:mem:spikes", "sa", "", ConnectionPoolSettings(initialSize = 6, maxSize = 24))
 
     implicit val session: DBSession = AutoSession
 
@@ -59,6 +57,13 @@ object Spikes {
       bio varchar(4096)
     )""".execute.apply()
     sql"create unique index if not exists users_email_idx on users (email)".execute.apply()
+
+    sql"""create table if not exists sessions (
+         id char(26) not null primary key,
+         token varchar(255) not null,
+         expires timestamp not null
+       )""".execute.apply()
+    sql"""create unique index if not exists sessions_token_idx on sessions (token)""".execute.apply()
 
     sql"""create table if not exists notes (
       id char(26) not null primary key,

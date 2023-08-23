@@ -63,22 +63,18 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       res2.reply.getValue.id should ===(user.id)
       val token = res2.reply.getValue.access_token
 
-      val res3 = esbtkUser.runCommand[Option[User.Session]](
-        replyTo => User.Authorize(token, replyTo)
-      )
-      res3.reply.isDefined should be (true)
-      res3.reply.get.id should ===(user.id)
-      res3.reply.get.token should ===(token)
+      val res3 = User.Session.find(token)
+      res3.isDefined should be (true)
+      res3.get.id should ===(user.id)
+      res3.get.token should ===(token)
 
       val res4 = esbtkUser.runCommand[StatusReply[Any]](
         replyTo => User.Logout(token, replyTo)
       )
       res4.reply.isSuccess should be (true)
 
-      val res5 = esbtkUser.runCommand[Option[User.Session]](
-        replyTo => User.Authorize(token, replyTo)
-      )
-      res5.reply.isDefined should be(false)
+      val res5 = User.Session.find(token)
+      res5.isDefined should be(false)
     }
 
     "add a Note" in {

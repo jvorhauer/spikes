@@ -20,9 +20,9 @@ object Comment {
   type Reply = StatusReply[Note.Response]
   type ReplyTo = ActorRef[Reply]
 
-  final case class Post(writer: UserId, noteId: NoteId, title: String, body: String, color: Option[String] = None, stars: Int = 0, parent: Option[CommentId] = None) extends Request {
+  final case class Post(noteId: NoteId, title: String, body: String, color: Option[String] = None, stars: Int = 0, parent: Option[CommentId] = None) extends Request {
     override def validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("color", color), validate("stars", stars)).flatten
-    def asCmd(replyTo: ReplyTo): Create = Create(next, writer, noteId, parent, encode(title), encode(body), color, stars, replyTo)
+    def asCmd(writer: UserId, replyTo: ReplyTo): Create = Create(next, writer, noteId, parent, encode(title), encode(body), color, stars, replyTo)
   }
   final case class Put(id: CommentId, title: String, body: String, color: Option[String] = None, stars: Int = 0) extends Request {
     override def validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("color", color), validate("stars", stars)).flatten

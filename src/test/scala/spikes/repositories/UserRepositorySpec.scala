@@ -14,7 +14,7 @@ class UserRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAft
   implicit val session: DBSession = Spikes.init
 
   override def beforeEach(): Unit = {
-    User.Repository.nuke()
+    User.Repository.removeAll()
   }
 
   "A User Repository" should {

@@ -13,7 +13,7 @@ import spikes.{Spikes, SpikesConfig}
 import wvlet.airframe.ulid.ULID
 
 
-class NoteBeahviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with AnyWordSpecLike with Matchers with BeforeAndAfterEach {
+class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with AnyWordSpecLike with Matchers with BeforeAndAfterEach {
 
   implicit val session: DBSession = Spikes.init
 
@@ -54,13 +54,9 @@ class NoteBeahviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       note = onote.get
       note.title should be ("updated")
 
-      println(s"user: ${User.Repository.find(uc.id)}")
-      println(s"note: ${Note.Repository.find(noteId)}")
-
       val r3 = esbtkNote.runCommand[StatusReply[Note.Response]](
         replyTo => Comment.Create(next, user.id, note.id, None, "test comment", "test body for comment", None, 5, replyTo)
       )
-      println(s"r3: ${r3.reply}")
       r3.reply.isSuccess should be (true)
       val nr = r3.reply.getValue
       nr.comments should have size 1
@@ -70,6 +66,6 @@ class NoteBeahviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   override def afterAll(): Unit = {
     super.afterAll()
     Note.Repository.removeAll()
-    User.Repository.nuke()
+    User.Repository.removeAll()
   }
 }

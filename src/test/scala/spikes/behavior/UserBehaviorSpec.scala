@@ -125,6 +125,6 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
     super.afterAll()
     system.terminate()
     Note.Repository.removeAll()
-    User.Repository.nuke()
+    User.Repository.removeAll()
   }
 }

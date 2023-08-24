@@ -80,7 +80,6 @@ object User {
       password: String,
       born: LocalDate,
       bio: Option[String] = None,
-      session: Option[Session] = None,
   ) extends StateT with Entity {
     lazy val token: String = id.hashed
   }
@@ -98,10 +97,17 @@ object User {
     def apply(uc: User.Created): User.State = new User.State(uc.id, uc.name, uc.email, uc.password, uc.born, uc.bio)
   }
 
-  final case class Response(id: UserId, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: Option[String] = None) extends ResponseT
+  final case class Response(
+      id: UserId, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: Option[String]
+  ) extends ResponseT
   object Response {
-    def apply(state: User.State): Response = state.into[Response].withFieldComputed(_.joined, _.id.created).transform
-    def apply(created: User.Created): Response = created.into[Response].withFieldComputed(_.joined, _.id.created).transform
+    def apply(state: User.State): Response = state.into[Response]
+      .withFieldComputed(_.joined, _.id.created)
+      .transform
+    def apply(created: User.Created): Response = created.into[Response]
+      .enableDefaultValues
+      .withFieldComputed(_.joined, _.id.created)
+      .transform
   }
 
   final case class Session(id: ULID, token: String, expires: LocalDateTime = now.plusHours(2)) extends Entity {
@@ -115,13 +121,20 @@ object User {
     implicit val session: DBSession = AutoSession
 
     def save(us: User.State): User.Session = {
-      val ses = User.Session(us.id, hash(next))
-      withSQL(insert.into(User.Session).namedValues(cols.id -> us.id, cols.token -> ses.token, cols.expires -> ses.expires)).update.apply()
-      ses
+      find(us.id) match {
+        case None =>
+          val ses = User.Session (us.id, hash (next) )
+          withSQL(insert.into (User.Session).namedValues (cols.id -> us.id, cols.token -> ses.token, cols.expires -> ses.expires) ).update.apply ()
+          ses
+        case Some(es) =>
+          withSQL(update(User.Session).set(cols.expires -> now.plusHours(2)).where.eq(cols.id, es.id)).update.apply()
+          es
+      }
     }
     def find(token: String): Option[User.Session] = withSQL(select.from(Session as s).where.eq(cols.token, token)).map(Session(_)).single.apply()
     def find(id: UserId): Option[User.Session] = withSQL(select.from(Session as s).where.eq(cols.id, id)).map(Session(_)).single.apply()
     def remove(id: UserId): Unit = withSQL(delete.from(Session as s).where.eq(cols.id, id)).update.apply()
+    def size(): Int = withSQL(select(count(distinct(cols.id))).from(Session as s)).map(_.int(1)).single.apply().getOrElse(0)
 
     def apply(rs: WrappedResultSet): User.Session = new User.Session(ULID(rs.string("id")), rs.string("token"), rs.localDateTime("expires"))
   }
@@ -134,8 +147,7 @@ object User {
 
     implicit val ec: ExecutionContext = ctx.executionContext
 
-    val commandHandler: (User.State, Command) => ReplyEffect[Event, User.State] = (state, cmd) =>
-      cmd match {
+    val commandHandler: (User.State, Command) => ReplyEffect[Event, User.State] = (state, cmd) => cmd match {
         case uc: User.Create => Effect.persist(uc.asEvent).thenReply(uc.replyTo)(upstate => StatusReply.success(Response(upstate)))
         case uu: User.Update => Effect.persist(uu.asEvent).thenReply(uu.replyTo)(upstate => StatusReply.success(Response(upstate)))
         case ur: User.Remove => Effect.persist(ur.asEvent).thenReply(ur.replyTo)(_ => StatusReply.success(Response(state)))
@@ -166,8 +178,7 @@ object User {
         }
       }
 
-    val eventHandler: (User.State, Event) => User.State = (state, evt) => {
-      evt match {
+    val eventHandler: (User.State, Event) => User.State = (state, evt) => evt match {
         case uc: User.Created => User.State(uc)
         case uu: User.Updated => User.Repository.save(uu).filter(_ > 0).flatMap(_ => User.Repository.find(uu.id)).getOrElse(state)
         case _: User.Removed =>
@@ -187,7 +198,6 @@ object User {
           Note.Repository.remove(nr.id)
           state
       }
-    }
 
     EventSourcedBehavior.withEnforcedReplies[Command, Event, User.State](pid, state, commandHandler, eventHandler)
       .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
@@ -228,12 +238,12 @@ object User {
     def find(id: UserId): Option[State] = withSQL(select.from(State as u).where.eq(cols.id, id)).map(rs => State(rs)).single.apply()
     def find(e: String): Option[State] = withSQL(select.from(State as u).where.eq(cols.email, e)).map(rs => State(rs)).single.apply()
     def exists(e: String, p: String): Boolean =
-      withSQL(select.from(State as u).where.eq(cols.email, e).and.eq(cols.password, p)).map(rs => State(rs)).single.apply().isDefined
+      withSQL(select.from(State as u).where.eq(cols.email, e).and.eq(cols.password, p)).map(State(_)).single.apply().isDefined
 
     def list(limit: Int = 10, offset: Int = 0): List[User.State] = withSQL(select.from(State as u).limit(limit).offset(offset)).map(State(_)).list.apply()
     def size(): Int = withSQL(select(count(distinct(cols.id))).from(State as u)).map(_.int(1)).single.apply().getOrElse(0)
 
     def remove(id: UserId): Unit = withSQL(delete.from(State as u).where.eq(cols.id, id)).update.apply()
-    def nuke(): Unit = withSQL(delete.from(User.State)).update.apply()
+    def removeAll(): Unit = withSQL(delete.from(User.State)).update.apply()
   }
 }

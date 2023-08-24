@@ -7,7 +7,7 @@ import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import spikes.model.{Command, Note, User}
+import spikes.model.{Command, Comment, Note, User}
 import spikes.validate.Validation.validated
 
 
@@ -80,6 +80,24 @@ final case class NoteRouter()(implicit system: ActorSystem[?]) extends Router {
                 case None => badRequest
               }
               case _ => badRequest
+            }
+          }
+        },
+        (post & path(pULID / "comments")) { noteId =>
+          authenticateOAuth2Async("spikes", auth) { us =>
+            entity(as[Comment.Post]) {
+              validated(_) { cp =>
+                onSuccess(lookup(noteId, Note.key)) {
+                  case oar: Option[ActorRef[Command]] => oar match {
+                    case Some(ar) => onSuccess(ar.ask(cp.asCmd(us.id, _))) {
+                      case sur if sur.isSuccess => complete(OK, sur.getValue.asJson)
+                      case sur => complete(BadRequest, RequestError(sur.getError.getMessage).asJson)
+                    }
+                    case None => badRequest
+                  }
+                  case _ => badRequest
+                }
+              }
             }
           }
         }

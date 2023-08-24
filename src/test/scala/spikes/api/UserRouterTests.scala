@@ -157,5 +157,5 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
 
 
   override def afterAll(): Unit = testKit.shutdownTestKit()
-  override def beforeEach(): Unit = User.Repository.nuke()
+  override def beforeEach(): Unit = User.Repository.removeAll()
 }

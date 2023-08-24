@@ -1,0 +1,65 @@
+### create-user-jurjen
+POST {{ host }}/users
+Content-Type: application/json
+
+{"name": "Jurjen", "email": "jurjen@vorhauer.nl", "password": "Welkom123!", "born": "1967-04-01"}
+
+> {%  client.global.set("user_id", response.body.id); %}
+
+### get-all-users
+GET {{ host }}/users
+
+### get-jurjen
+GET {{ host }}/users/{{ user_id }}
+
+### login-jurjen
+POST {{ host }}/users/login
+Content-Type: application/json
+
+{"email": "jurjen@vorhauer.nl", "password": "Welkom123!"}
+
+> {%
+  client.global.set("authorized", response.body.access_token);
+  client.global.set("user_id", response.body.id);
+%}
+
+### get-me
+GET {{ host }}/users/me
+Authorization: Bearer {{ authorized }}
+
+### update-me
+PUT {{ host }}/users
+Authorization: Bearer {{ authorized }}
+Content-Type: application/json
+
+{"id": "{{ user_id }}", "name": "Henkie", "password": "EvenHelem@@lAnders!5", "born": "1967-05-02", "bio": "Master of Dsiguise"}
+
+### restore-me
+PUT {{ host }}/users
+Authorization: Bearer {{ authorized }}
+Content-Type: application/json
+
+{"id": "{{ user_id }}", "name": "Jurjen", "password": "Welkom123!", "born": "1967-04-01", "bio": "Jack of all Trades, Master of None"}
+
+### create-user-temp
+POST {{ host }}/users
+Content-Type: application/json
+
+{"name": "The Temp", "email": "temp@test.er", "password": "Welkom123!", "born": "2001-11-09", "bio": "bio test <h1>HALLO</h1>"}
+
+> {%client.global.set("temp_id", response.body.id); %}
+
+### get-temp-user
+GET {{ host }}/users/{{ temp_id }}
+
+### login-jurjen
+POST {{ host }}/users/login
+Content-Type: application/json
+
+{"email": "temp@test.er", "password": "Welkom123!"}
+
+> {% client.global.set("temp_auth", response.body.access_token); %}
+
+### delete-temp-user
+DELETE {{ host }}/users
+Authorization: Bearer {{ temp_auth }}

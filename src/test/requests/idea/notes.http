@@ -1,0 +1,32 @@
+### login-jurjen
+POST {{ host }}/users/login
+Content-Type: application/json
+
+{"email": "jurjen@vorhauer.nl", "password": "Welkom123!"}
+
+> {%
+  client.global.set("authorized", response.body.access_token);
+  client.global.set("user_id", response.body.id);
+%}
+
+### get my notes
+GET {{ host }}/notes/mine
+Authorization: Bearer {{ authorized }}
+
+### post-note
+POST {{ host }}/notes
+Content-Type: application/json
+Authorization: Bearer {{ authorized }}
+
+{"title": "test with <html> encoding", "body": "Once in a <b>life</b> time...", "due": "2024-09-01T10:00:00", "status": "ToDo", "access": "Private"}
+
+> {%
+  client.global.set("note_id", response.body.id);
+ %}
+
+### update-that-note
+PUT {{ host }}/notes
+Authorization: Bearer {{ authorized }}
+Content-Type: application/json
+
+{"id": "{{ note_id }}", "owner": "{{ user_id }}", "title": "updated with <H1>html</H1>", "body": "body <<h2> test </h2>", "due": "2023-10-09T12:01:32", "status": "Doing", "access": "Public"}

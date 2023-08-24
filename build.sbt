@@ -50,7 +50,6 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"  %% "akka-http"                    % versions.http,
       "com.typesafe"       %% "ssl-config-core"              % "0.6.1",
       "com.typesafe.akka"  %% "akka-persistence-typed"       % versions.akka,
-      "com.typesafe.akka"  %% "akka-persistence-query"       % versions.akka,
       "com.typesafe.akka"  %% "akka-persistence-cassandra"   % "1.1.1",
     ) ++ Seq(
       "org.scalatest"       %% "scalatest"                % versions.scalaTest,
@@ -73,7 +72,7 @@ lazy val root = (project in file("."))
       "ch.megard"          %% "akka-http-cors"                 % "1.2.0",
     ) ++ Seq(
       "com.datastax.oss"  % "java-driver-core" % "4.17.0",
-      "io.netty"          % "netty-handler"    % "4.1.96.Final",
+      "io.netty"          % "netty-handler"    % "4.1.97.Final",
       "org.owasp.encoder" % "encoder"          % "1.2.3",
       "org.yaml"          % "snakeyaml"        % "2.1",
       "ch.qos.logback"    % "logback-classic"  % "1.4.11",

@@ -20,7 +20,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     esbtkManager.clear()
-    User.Repository.nuke()
+    User.Repository.removeAll()
   }
 
   "The Manager" should {
@@ -39,7 +39,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
       )
       res2.reply.isSuccess should be(true)
       res2.reply.getValue should ===(
-        Manager.Info(1, 0, recovered = true)
+        Manager.Info(1, 0, 0, recovered = true)
       )
 
       val r3 = User.Repository.find(id)
@@ -71,7 +71,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
       )
       res2.reply.isSuccess should be(true)
       res2.reply.getValue should ===(
-        User.Response(id, "Test", "test@miruvor.nl", id.created, today.minusYears(21))
+        User.Response(id, "Test", "test@miruvor.nl", id.created, today.minusYears(21), None)
       )
 
       val res3 = esbtkManager.runCommand[StatusReply[Manager.Info]](
@@ -97,6 +97,6 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
   override def afterAll(): Unit = {
     super.afterAll()
     system.terminate()
-    User.Repository.nuke()
+    User.Repository.removeAll()
   }
 }

@@ -13,10 +13,10 @@ class CommentTransformerSpec extends AnyWordSpecLike with Matchers with Scalates
 
   "Comment Transformations" should {
     "Post to Command to Event to State to Response" in {
-      val cpo = Comment.Post(next, next, "title", "body", Some("00FF00"), 4)
+      val cpo = Comment.Post(next, "title", "body", Some("00FF00"), 4)
       cpo.validated should be (empty)
 
-      val ccc = cpo.asCmd(probe)
+      val ccc = cpo.asCmd(next, probe)
       ccc.title should be("title")
       ccc.body should be("body")
       ccc.noteId should be(cpo.noteId)

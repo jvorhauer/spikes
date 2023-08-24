@@ -36,6 +36,7 @@ class InfoRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
       val res = responseAs[Info]
       res.users should be (0)
       res.notes should be (0)
+      res.sessions should be (0)
       res.recovered should be (true)
     }
   }

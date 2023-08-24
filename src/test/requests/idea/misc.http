@@ -1,0 +1,5 @@
+### get-info
+GET {{host}}/info
+
+### perform-check
+GET {{ host }}/check

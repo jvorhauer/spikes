@@ -86,9 +86,13 @@ object Manager {
   final case class GetInfo(replyTo: ActorRef[StatusReply[Info]])    extends Command
   final case class IsReady(replyTo: ActorRef[StatusReply[Boolean]]) extends Command
 
-  final case class Info(users: Int, notes: Int, recovered: Boolean, version: String = BuildInfo.version, built: String = BuildInfo.buildTime) extends SpikeSerializable
+  final case class Info(
+      users: Int, notes: Int, sessions: Int,
+      recovered: Boolean,
+      version: String = BuildInfo.version, built: String = BuildInfo.buildTime
+  ) extends SpikeSerializable
   object Info {
-    def apply(recovered: Boolean): Info = new Info(User.Repository.size(), Note.Repository.size(), recovered)
+    def apply(recovered: Boolean): Info = new Info(User.Repository.size(), Note.Repository.size(), User.Session.size(), recovered)
   }
   final case class Checked(ok: Boolean) extends SpikeSerializable
 }

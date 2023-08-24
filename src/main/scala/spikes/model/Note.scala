@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
-import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
+import akka.persistence.typed.{PersistenceId, RecoveryFailed, SnapshotSelectionCriteria}
 import io.scalaland.chimney.dsl.TransformerOps
 import org.scalactic.TypeCheckedTripleEquals.*
 import scalikejdbc.*
@@ -128,7 +128,6 @@ object Note {
 
   def apply(state: Note.State): Behavior[Command] = Behaviors.setup { ctx =>
     val pid: PersistenceId = PersistenceId("note", state.id.toString(), "-")
-    var recovered: Boolean = false
 
     ctx.system.receptionist.tell(Receptionist.Register(Note.key, ctx.self))
 
@@ -163,7 +162,6 @@ object Note {
       .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
       .withTagger(_ => Set("note"))
       .receiveSignal {
-        case (_, RecoveryCompleted) => recovered = true
         case (_, RecoveryFailed(t)) => ctx.log.error(s"recovery of note $pid failed", t)
       }
   }

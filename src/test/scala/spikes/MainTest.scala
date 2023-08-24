@@ -31,7 +31,7 @@ class MainTest extends SpikesTestBase {
       options.setRelease(BuildInfo.version)
     })
     Sentry.isEnabled should be (true)
-    Sentry.captureException(new RuntimeException("Sentry Test Exception"))
+//    Sentry.captureException(new RuntimeException("Sentry Test Exception"))
   }
 
   override def afterAll(): Unit = {

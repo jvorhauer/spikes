@@ -10,7 +10,9 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, 
 import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
 import akka.util.Timeout
 import scalikejdbc.{AutoSession, DBSession}
+import spikes.behavior.SessionReaper.{Reap, Reaped}
 import spikes.build.BuildInfo
+import spikes.model.User.Session
 import spikes.model.{Command, Event, Note, SpikeSerializable, User}
 import wvlet.airframe.ulid.ULID
 
@@ -50,6 +52,11 @@ object Manager {
       case GetInfo(replyTo) => Effect.reply(replyTo)(StatusReply.success(Info(recovered)))
       case IsReady(replyTo) => Effect.reply(replyTo)(StatusReply.success(recovered))
       case Check(replyTo)   => Effect.reply(replyTo)(StatusReply.success(Checked(check(ctx.system))))
+
+      case Reap(replyTo)    => Session.expired() match {
+        case 0 => Effect.reply(replyTo)(SessionReaper.Done)
+        case count => Effect.persist(Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => SessionReaper.Done)
+      }
     }
 
     val eventHandler: (Manager.State, Event) => Manager.State = (state, evt) => evt match {
@@ -60,6 +67,10 @@ object Manager {
         lookup(ur.id, ctx).map(_.foreach(ctx.stop(_)))
         User.Repository.remove(ur.id)
         state.copy(users = state.users - 1)
+      case sr: Reaped =>
+        ctx.log.info(s"reaped ${sr.eligibel} expired sessions")
+        Session.reap()
+        state
     }
 
     EventSourcedBehavior(pid, state, commandHandler, eventHandler)

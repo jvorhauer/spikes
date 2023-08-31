@@ -13,17 +13,17 @@ spec:
     spec:
       containers:
         - name: spikes
-          image: ghcr.io/jvorhauer/spikes:1.1.4
+          image: ghcr.io/jvorhauer/spikes:1.1.8-SNAPSHOT
           env:
             - name: ASTRA_USERNAME
               valueFrom:
                 configMapKeyRef:
-                  name: astra-config
+                  name: astra-credentials
                   key: ASTRA_USERNAME
             - name: ASTRA_PASSWORD
               valueFrom:
                 configMapKeyRef:
-                  name: astra-config
+                  name: astra-credentials
                   key: ASTRA_PASSWORD
             - name: ASTRA_SCB
               value: /var/local/scb_e93d3b60-4128-4094-8824-a37327f973c4_europe-west1.zip

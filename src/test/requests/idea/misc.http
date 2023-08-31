@@ -3,3 +3,9 @@ GET {{host}}/info
 
 ### perform-check
 GET {{ host }}/check
+
+### liveness-endpoint
+GET {{ host }}/liveness
+
+### readiness-endpoint
+GET {{ host }}/readiness

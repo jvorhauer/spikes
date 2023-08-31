@@ -24,22 +24,24 @@ final case class InfoRouter(manager: ActorRef[Command])(implicit system: ActorSy
       },
       path("liveness") {
         complete(manager.ask(IsReady).map {
-          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> true.asJson
-          case _ => BadRequest -> None.asJson
+          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> ProbeResult("UP").asJson
+          case _ => ServiceUnavailable -> None.asJson
         })
       },
       path("readiness") {
         complete(manager.ask(IsReady).map {
-          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> true.asJson
-          case _ => BadRequest -> None.asJson
+          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> ProbeResult("UP").asJson
+          case _ => ServiceUnavailable -> None.asJson
         })
       },
       path("check") {
         complete(manager.ask(Check).map {
-          case c: StatusReply[Checked] if c.isSuccess && c.getValue.ok => OK -> true.asJson
+          case c: StatusReply[Checked] if c.isSuccess && c.getValue.ok => OK -> ProbeResult("OK").asJson
           case _ => ServiceUnavailable -> None.asJson
         })
       }
     )
   }
 }
+
+final case class ProbeResult(status: String)

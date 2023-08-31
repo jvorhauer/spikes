@@ -2,21 +2,22 @@
 'https://plantuml.com/deployment-diagram
 
 node enna [
-enna is first in Quenya
-ip is 212.227.151.119
+  enna is first in Quenya
+  ip is 212.227.151.119
 ]
 node atya [
-atya is second in Quenya
-ip is 212.227.151.117
+  atya is second in Quenya
+  ip is 212.227.151.117
 ]
 node nelya [
-nelya is third in Quenya
-ip is 212.227.151.108
+  nelya is third in Quenya
+  ip is 212.227.151.108
 ]
 node canta [
-canta is four(th) in Quenya
-ip is 212.227.151.9
+  canta is four(th) in Quenya
+  ip is 212.227.151.9
 ]
+
 
 enna -- atya
 enna -- nelya

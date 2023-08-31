@@ -103,9 +103,6 @@ the considered extra's can be implemented at the frontend.
 * [ScalaTest](https://www.scalatest.org/user_guide)
 * [SCoverage](https://github.com/scoverage/sbt-scoverage) ==> [Report](target/scala-2.13/scoverage-report/index.html)
 
-Advice is to create branch for each issue, work on that issue-branch and when finished PR. Some overhead, but more
-focus and cleaner process. Also update this document when applicable.
-
 #### Test Coverage
 
 ![sunburst](https://codecov.io/gh/jvorhauer/spikes/branch/main/graphs/sunburst.svg?token=YVnjWS1wc8)
@@ -164,3 +161,17 @@ This is one of those instances where DRY is actually useful and good.
 1. Comments, mainly in a Router
 2. Tags (CRUD, tags cloud)
 3. External QA and Performance tests
+
+## Tips
+
+### GitHub Container Repository (GHCR)
+
+Retrieve list of tags for the Spikes image:
+
+```
+curl -H "Authorization: Bearer ${GHCR_TOKEN}" https://ghcr.io/v2/jvorhauer/spikes/tags/list
+```
+
+Use `sbt jibImageBuild` to create that image.
+
+Use `git checkout tags/vM.M.P` to check out a specific tag before calling jib to create an image of a specific release tag.

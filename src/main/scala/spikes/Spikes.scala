@@ -8,13 +8,17 @@ import akka.http.scaladsl.server.Directives.*
 import ch.megard.akka.http.cors.scaladsl.CorsDirectives.cors
 import ch.megard.akka.http.cors.scaladsl.model.HttpOriginMatcher
 import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
+import com.zaxxer.hikari.HikariDataSource
 import io.sentry.{Sentry, SentryOptions}
 import kamon.Kamon
 import scalikejdbc.*
-import spikes.behavior.Manager
+import spikes.behavior.{Manager, SessionReaper}
 import spikes.build.BuildInfo
 import spikes.route.*
 import spikes.validate.Validation
+
+import javax.sql.DataSource
+import scala.concurrent.duration.DurationInt
 
 
 object Spikes {
@@ -35,6 +39,7 @@ object Spikes {
     implicit val system = ctx.system
 
     val manager = ctx.spawn(Manager(), "manager")
+    ctx.spawn(SessionReaper(manager, 1.minute), "session-reaper")
 
     val settings = CorsSettings.defaultSettings.withAllowedOrigins(HttpOriginMatcher.*).withAllowedMethods(Seq(POST, GET, PUT, DELETE))
     val routes = handleRejections(Validation.rejectionHandler) {
@@ -48,7 +53,16 @@ object Spikes {
 
 
   def init: DBSession = {
-    ConnectionPool.singleton("jdbc:h2:mem:spikes", "sa", "", ConnectionPoolSettings(initialSize = 6, maxSize = 24))
+    val dataSource: DataSource = {
+      val ds = new HikariDataSource()
+      ds.setDataSourceClassName("org.h2.jdbcx.JdbcDataSource")
+      ds.setConnectionTestQuery("VALUES 1")
+      ds.addDataSourceProperty("url", "jdbc:h2:mem:spikes") // // setJdbcUrl is BORKEN for datasource! use this line only!!!
+      ds.setUsername("sa")
+      ds.setPassword("")
+      ds
+    }
+    ConnectionPool.singleton(new DataSourceConnectionPool(dataSource))
 
     implicit val session: DBSession = AutoSession
 
@@ -93,6 +107,7 @@ object Spikes {
          stars tinyint not null
     )""".execute.apply()
     sql"create index if not exists comments_note_idx on comments (note_id)".execute.apply()
+    sql"create index if not exists comments_writer_idx on comments (writer)".execute.apply()
 
     sql"create table if not exists tags (id varchar(26) not null primary key, title varchar(255) not null)".execute.apply()
     sql"""create table if not exists notes_tags (

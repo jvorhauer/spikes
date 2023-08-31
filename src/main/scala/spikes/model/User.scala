@@ -135,6 +135,8 @@ object User {
     def find(id: UserId): Option[User.Session] = withSQL(select.from(Session as s).where.eq(cols.id, id)).map(Session(_)).single.apply()
     def remove(id: UserId): Unit = withSQL(delete.from(Session as s).where.eq(cols.id, id)).update.apply()
     def size(): Int = withSQL(select(count(distinct(cols.id))).from(Session as s)).map(_.int(1)).single.apply().getOrElse(0)
+    def expired(): Int = withSQL(select(count(distinct(cols.id))).from(Session as s).where.gt(cols.expires, now)).map(_.int(1)).single.apply().getOrElse(0)
+    def reap(): Unit = withSQL(delete.from(Session as s).where.gt(cols.expires, now)).update.apply()
 
     def apply(rs: WrappedResultSet): User.Session = new User.Session(ULID(rs.string("id")), rs.string("token"), rs.localDateTime("expires"))
   }

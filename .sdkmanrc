@@ -2,4 +2,4 @@
 # Add key=value pairs of SDKs to use below
 java=17.0.8-zulu
 scala=2.13.11
-sbt=1.9.3
+sbt=1.9.4

@@ -1,16 +1,11 @@
-target/
-!.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+target
 
-### IntelliJ IDEA ###
-.idea/
+.idea
 *.iws
 *.iml
 *.ipr
 http-client.private.env.json
 
-### Eclipse ###
 .apt_generated
 .classpath
 .factorypath
@@ -18,17 +13,16 @@ http-client.private.env.json
 .settings
 .springBeans
 .sts4-cache
+.vscode
 
-### VS Code ###
-.metals/
-.bloop/
-.bsp/
+.metals
+.bloop
+.bsp
 
-### Mac OS ###
 .DS_Store
 
-### Other ###
 stuff.*
 spike/
+wip/
 metals.sbt
 project/project/

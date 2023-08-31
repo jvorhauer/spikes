@@ -10,7 +10,8 @@ Content-Type: application/json
 GET {{ host }}/users
 
 ### get-jurjen
-GET {{ host }}/users/{{ user_id }}
+# GET {{ host }}/users/{{ user_id }}
+GET {{ host }}/users/01H8H8MS1ZGQYGJDH1W5ZZBGRR
 
 ### login-jurjen
 POST {{ host }}/users/login

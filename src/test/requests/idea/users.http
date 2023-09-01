@@ -11,7 +11,7 @@ GET {{ host }}/users
 
 ### get-jurjen
 # GET {{ host }}/users/{{ user_id }}
-GET {{ host }}/users/01H8H8MS1ZGQYGJDH1W5ZZBGRR
+GET {{ host }}/users/01H9822QENEJVF6B3CEF62J4ZW
 
 ### login-jurjen
 POST {{ host }}/users/login

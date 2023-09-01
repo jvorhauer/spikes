@@ -6,26 +6,28 @@ import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.pattern.StatusReply
-import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, RetentionCriteria}
-import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotSelectionCriteria}
+import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, RetentionCriteria}
+import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotFailed}
 import akka.util.Timeout
+import com.typesafe.config.{Config, ConfigFactory}
 import scalikejdbc.{AutoSession, DBSession}
 import spikes.behavior.SessionReaper.{Reap, Reaped}
 import spikes.build.BuildInfo
-import spikes.model.User.Session
-import spikes.model.{Command, Event, Note, SpikeSerializable, User}
+import spikes.model.{Command, Event, Note, Session, SpikeSerializable, User}
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{Await, Future}
 import scala.concurrent.duration.DurationInt
+import scala.concurrent.{Await, Future}
 
 object Manager {
+
+  private val cfg: Config = ConfigFactory.defaultApplication()
 
   implicit val timeout: Timeout = 100.millis
   implicit val session: DBSession = AutoSession
 
-  val pid: PersistenceId = PersistenceId.of("spikes", "22", "-")
+  val pid: PersistenceId = PersistenceId("spikes", cfg.getString("spikes.persistence.version"))
 
   type LookupResult = Future[Option[ActorRef[Command]]]
 
@@ -54,8 +56,10 @@ object Manager {
       case Check(replyTo)   => Effect.reply(replyTo)(StatusReply.success(Checked(check(ctx.system))))
 
       case Reap(replyTo)    => Session.expired() match {
-        case 0 => Effect.reply(replyTo)(SessionReaper.Done)
-        case count => Effect.persist(Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => SessionReaper.Done)
+        case 0     => Effect.reply(replyTo)(SessionReaper.Done)
+        case count =>
+          ctx.log.info(s"Reap: $count")
+          Effect.persist(Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => SessionReaper.Done)
       }
     }
 
@@ -67,22 +71,21 @@ object Manager {
         lookup(ur.id, ctx).map(_.foreach(ctx.stop(_)))
         User.Repository.remove(ur.id)
         state.copy(users = state.users - 1)
-      case sr: Reaped =>
-        ctx.log.info(s"reaped ${sr.eligibel} expired sessions")
+      case _: Reaped =>
         Session.reap()
         state
     }
 
     EventSourcedBehavior(pid, state, commandHandler, eventHandler)
       .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
-      .withRetention(RetentionCriteria.disabled)
-      .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
+      .withRetention(RetentionCriteria.snapshotEvery(numberOfEvents = 100, keepNSnapshots = 2))
       .withTagger(_ => Set("users", User.tag))
       .receiveSignal {
-        case (_, RecoveryCompleted) =>
-          ctx.log.info(s"recovered: users: ${User.Repository.size()} (${state.users}), notes: ${Note.Repository.size()}")
+        case (state, RecoveryCompleted) =>
+          ctx.log.info(s"recovery completed: ${state.users} users")
           recovered = true
-        case (_, RecoveryFailed(t)) => ctx.log.error("recovery failed", t)
+        case (_, rf: RecoveryFailed) => ctx.log.error("recovery failed", rf.failure)
+        case (_, sf: SnapshotFailed) => ctx.log.error("snapshot failed", sf.failure)
       }
   }
 
@@ -100,10 +103,11 @@ object Manager {
   final case class Info(
       users: Int, notes: Int, sessions: Int,
       recovered: Boolean,
-      version: String = BuildInfo.version, built: String = BuildInfo.buildTime
+      version: String = BuildInfo.version, built: String = BuildInfo.buildTime,
+      pid: String = Manager.pid.id
   ) extends SpikeSerializable
   object Info {
-    def apply(recovered: Boolean): Info = new Info(User.Repository.size(), Note.Repository.size(), User.Session.size(), recovered)
+    def apply(recovered: Boolean): Info = new Info(User.Repository.size(), Note.Repository.size(), Session.size(), recovered)
   }
   final case class Checked(ok: Boolean) extends SpikeSerializable
 }

@@ -19,7 +19,6 @@ val versions = new {
   val scalaTest = "3.2.16"
   val jdbc = "4.0.0"
   val sentry = "6.28.0"
-  val http4s = "1.0.0-M40"
 }
 
 resolvers ++= Seq(
@@ -84,12 +83,6 @@ lazy val root = (project in file("."))
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % versions.kamon,
       "io.kamon" %% "kamon-apm-reporter" % versions.kamon,
-      "io.kamon" %% "kamon-http4s-1.0"   % "2.6.1",
-    ) ++ Seq(
-      "org.http4s" %% "http4s-ember-client" % versions.http4s,
-      "org.http4s" %% "http4s-ember-server" % versions.http4s,
-      "org.http4s" %% "http4s-dsl"          % versions.http4s,
-      "org.http4s" %% "http4s-circe"        % versions.http4s,
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies, inquireVersions,

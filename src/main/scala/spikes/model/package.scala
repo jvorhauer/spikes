@@ -7,6 +7,7 @@ import wvlet.airframe.ulid.ULID
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, LocalDateTime, ZoneId}
 import java.util.Locale
 
@@ -43,7 +44,7 @@ package object model {
   def now: LocalDateTime = LocalDateTime.now()
   def today: LocalDate = LocalDate.now()
   def next = ULID.newULID
-
+  val DTF: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
   implicit class RichULID(private val self: ULID) extends AnyVal {
     def created: LocalDateTime = LocalDateTime.ofInstant(self.toInstant, ZoneId.of("UTC"))

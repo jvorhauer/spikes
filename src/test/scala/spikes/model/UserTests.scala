@@ -60,7 +60,8 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
   }
 
   "a RequestUpdateUser" should "transform to a UpdateUser command" in {
-    val ruu = User.Put(ulid, name, password, born)
+    val ruu = User.Put(ulid, Some(name), Some(password), Some(born))
+    ruu.validated should be (empty)
     val cmd = ruu.asCmd(probe)
     cmd.name should be (ruu.name)
     cmd.born should be (ruu.born)

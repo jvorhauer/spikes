@@ -104,4 +104,19 @@ object Comment {
     def onNote(noteId: NoteId): List[Comment.Entity] = withSQL(select.from(Entity as c).where.eq(cols.noteId, noteId)).map(Comment.Entity(_)).list.apply()
     def byWriter(userId: UserId): List[Comment.Entity] = withSQL(select.from(Entity as c).where.eq(cols.writer, userId)).map(Comment.Entity(_)).list.apply()
   }
+
+  val ddl: Seq[SQLExecution] = Seq(
+    sql"""create table if not exists comments (
+         id char(26) not null primary key,
+         writer char(26) not null,
+         note_id char(26) not null,
+         parent char(26),
+         title varchar(255) not null,
+         body varchar(1024) not null,
+         color varchar(6),
+         stars tinyint not null
+    )""".execute,
+    sql"create index if not exists comments_note_idx on comments (note_id)".execute,
+    sql"create index if not exists comments_writer_idx on comments (writer)".execute
+  )
 }

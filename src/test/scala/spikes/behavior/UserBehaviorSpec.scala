@@ -7,7 +7,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
-import spikes.model.{Access, Command, Event, Note, OAuthToken, RichULID, Status, User, hash, next, now, today}
+import spikes.model.{Access, Command, Event, Note, OAuthToken, RichULID, Session, Status, User, hash, next, now, today}
 import spikes.{Spikes, SpikesConfig}
 
 
@@ -36,7 +36,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
     "be updatable" in {
       val res1 = esbtkUser.runCommand[StatusReply[User.Response]](
-        replyTo => User.Update(user.id, "Updated", "NotWelkom123!", today.minusYears(32), Some("bio"), replyTo)
+        replyTo => User.Update(user.id, Some("Updated"), Some("NotWelkom123!"), Some(today.minusYears(32)), Some("bio"), replyTo)
       )
       res1.reply.isSuccess should be (true)
       res1.reply.getValue should ===(
@@ -47,11 +47,25 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       r3 should not be empty
       r3.get.id should be (user.id)
       r3.get.name should be ("Updated")
+      r3.get.born should be (today.minusYears(32))
+      r3.get.bio should be (Some("bio"))
 
       val r4 = esbtkUser.runCommand[StatusReply[User.Response]](
-        replyTo => User.Update(user.id, user.name, hash("Welkom123!"), user.born, user.bio, replyTo)
+        replyTo => User.Update(user.id, Some(user.name), Some(hash("Welkom123!")), Some(user.born), user.bio, replyTo)
       )
       r4.reply.isSuccess should be (true)
+      val r5 = r4.reply.getValue
+      r5.name should be (user.name)
+
+      val res2 = esbtkUser.runCommand[StatusReply[User.Response]](
+        replyTo => User.Update(user.id, Some("Vlad"), None, None, None, replyTo)
+      )
+      res2.reply.isSuccess should be (true)
+      val r6 = res2.reply.getValue
+      r6.name should be ("Vlad")
+      r6.email should be (user.email)
+      r6.born should be (user.born)
+      r6.bio should be (user.bio)
     }
 
     "login and get a token" in {
@@ -63,7 +77,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       res2.reply.getValue.id should ===(user.id)
       val token = res2.reply.getValue.access_token
 
-      val res3 = User.Session.find(token)
+      val res3 = Session.find(token)
       res3.isDefined should be (true)
       res3.get.id should ===(user.id)
       res3.get.token should ===(token)
@@ -73,7 +87,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       )
       res4.reply.isSuccess should be (true)
 
-      val res5 = User.Session.find(token)
+      val res5 = Session.find(token)
       res5.isDefined should be(false)
     }
 

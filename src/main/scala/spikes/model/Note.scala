@@ -14,7 +14,6 @@ import spikes.model.Access.Access
 import spikes.model.Status.Status
 import spikes.model.User.UserId
 import spikes.validate.Validation.{ErrorInfo, validate}
-import spikes.validate.{bodyRule, dueRule, titleRule}
 import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
@@ -32,11 +31,7 @@ object Note {
   def name(user: UserId, id: NoteId, slug: String): String = s"note-$user-$id-$slug"
 
   final case class Post(title: String, body: String, due: LocalDateTime, status: Status = Status.New, access: Access = Access.Public) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(
-      validate(titleRule(title), title, "title"),
-      validate(bodyRule(body), body, "body"),
-      validate(dueRule(due), due, "due")
-    ).flatten
+    override lazy val validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("due", due)).flatten
     def asCmd(owner: ULID, replyTo: ActorRef[StatusReply[Note.Response]]): Create = {
       val id = ULID.newULID
       val et = encode(title)
@@ -44,11 +39,7 @@ object Note {
     }
   }
   final case class Put(id: NoteId, owner: UserId, title: String, body: String, due: LocalDateTime, status: Status, access: Access) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(
-      validate(titleRule(title), title, "title"),
-      validate(bodyRule(body), body, "body"),
-      validate(dueRule(due), due, "due"),
-    ).flatten
+    override lazy val validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("due", due)).flatten
     def asCmd(replyTo: ReplyToActor): Note.Update = {
       val et = encode(title)
       Note.Update(id, owner, et, encode(body), makeslug(id, et), due, status, access, replyTo)
@@ -78,7 +69,6 @@ object Note {
   final case class Remove(id: ULID, owner: ULID, replyTo: ActorRef[StatusReply[Note.Response]]) extends Command {
     def asEvent: Removed = this.transformInto[Removed]
   }
-  final case class Find(id: ULID, replyTo: ReplyToActor) extends Command
 
 
   sealed trait NoteEvent extends Event
@@ -121,19 +111,17 @@ object Note {
 
   private def clean(s: String): String = s.trim.toLowerCase.replaceAll("[^ a-z0-9]", "").replaceAll(" ", "-")
 
-  def lpad(s: String, length: Int, padding: String): String = (padding * (length - s.length)) + s
-  def makeslug(c: LocalDateTime, t: String): String = s"${c.getYear}${lpad(c.getMonthValue.toString, 2, "0")}${c.getDayOfMonth}-${clean(t)}"
+  def makeslug(ldt: LocalDateTime, t: String): String = s"${DTF.format(ldt)}-${clean(t)}"
   def makeslug(id: NoteId, t: String): String = makeslug(id.created, t)
 
 
   def apply(state: Note.State): Behavior[Command] = Behaviors.setup { ctx =>
-    val pid: PersistenceId = PersistenceId("note", state.id.toString(), "-")
+    val pid: PersistenceId = PersistenceId("note", state.id.toString())
 
     ctx.system.receptionist.tell(Receptionist.Register(Note.key, ctx.self))
 
     val commandHandler: (Note.State, Command) => ReplyEffect[Event, Note.State] = (_, cmd) => cmd match {
       case nu: Note.Update => Effect.persist(nu.asEvent).thenReply(nu.replyTo)(state => StatusReply.success(state.asResponse))
-      case ng: Note.Find => Effect.none.thenReply(ng.replyTo)(state => StatusReply.success(state.asResponse))
       case nr: Note.Remove => Effect.persist(nr.asEvent).thenReply(nr.replyTo)(state => StatusReply.success(state.asResponse))
 
       case cc: Comment.Create => if (User.Repository.find(cc.writer).isDefined && Note.Repository.find(cc.noteId).isDefined) {
@@ -208,4 +196,19 @@ object Note {
     def remove(id: NoteId): Boolean = withSQL(delete.from(Note.State).where.eq(cols.id, id)).update.apply() === 1
     def removeAll(): Unit = withSQL(delete.from(Note.State)).update.apply()
   }
+
+  val ddl: Seq[SQLExecution] = Seq(
+    sql"""create table if not exists notes (
+      id char(26) not null primary key,
+      owner char(26) not null,
+      title varchar(255) not null,
+      body varchar(1024) not null,
+      slug varchar(255) not null,
+      due timestamp,
+      status int,
+      access int
+    )""".execute,
+    sql"create index if not exists notes_owner_idx on notes (owner)".execute,
+    sql"create unique index if not exists notes_slug_idx on notes (slug)".execute
+  )
 }

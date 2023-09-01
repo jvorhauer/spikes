@@ -8,7 +8,7 @@ import akka.http.scaladsl.server.directives.Credentials
 import akka.http.scaladsl.server.{PathMatcher, PathMatcher1, StandardRoute}
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport
 import spikes.behavior.Manager
-import spikes.model.{Command, User}
+import spikes.model.{Command, Session}
 import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.{ExecutionContextExecutor, Future}
@@ -28,9 +28,9 @@ abstract class Router(implicit val system: ActorSystem[Nothing]) extends FailFas
   def lookup(id: ULID, key: ServiceKey[Command])            : LookupResult = lookup(id.toString, key)
   def lookup(id1: ULID, id2: ULID, key: ServiceKey[Command]): LookupResult = lookup(s"$id1-$id2", key)
 
-  val auth: AsyncAuthenticator[User.Session] = {
+  val auth: AsyncAuthenticator[Session] = {
     case Credentials.Provided(token) =>
-      User.Session.find(token) match {
+      Session.find(token) match {
         case Some(us) if us.isValid(token) => Future.successful(Some(us))
         case _ => Future.successful(None)
       }

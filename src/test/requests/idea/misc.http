@@ -9,3 +9,6 @@ GET {{ host }}/liveness
 
 ### readiness-endpoint
 GET {{ host }}/readiness
+
+### sessions
+GET {{ host }}/sessions

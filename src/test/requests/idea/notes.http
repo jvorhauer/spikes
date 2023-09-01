@@ -33,4 +33,4 @@ Content-Type: application/json
 
 
 ### get-note-by-slug
-GET {{ host }}/notes/20230823-test-with-lthtmlgt-encoding
+GET {{ host }}/notes/2023091-test-with-lthtmlgt-encoding

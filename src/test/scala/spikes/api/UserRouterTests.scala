@@ -110,7 +110,7 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
       status should be (StatusCodes.OK)
     }
 
-    val ruu = User.Put(user.get.id, "Updated", password, born)
+    val ruu = User.Put(user.get.id, Some("Updated"), None, None)
     Put(path, ruu) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.OK
       responseAs[User.Response].name shouldEqual "Updated"

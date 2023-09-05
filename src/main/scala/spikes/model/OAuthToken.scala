@@ -1,5 +1,10 @@
 package spikes.model
 
-import wvlet.airframe.ulid.ULID
+import spikes.model.User.UserId
 
-case class OAuthToken(access_token: String, id: ULID, token_type: String = "bearer", expires_in: Int = 7200) extends ResponseT
+final case class OAuthToken(
+    access_token: String,
+    id: UserId,
+    token_type: String = "bearer",
+    expires_in: Int = 7200
+) extends ResponseT

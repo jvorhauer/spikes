@@ -10,8 +10,8 @@ import scala.concurrent.duration.FiniteDuration
 object SessionReaper {
   def apply(target: ActorRef[Command], after: FiniteDuration): Behavior[Command] = Behaviors.withTimers(new SessionReaper(_, target, after).idle())
 
-  case class Reap(replyTo: ActorRef[Command]) extends Command
-  case class Reaped(id: ULID, eligibel: Int) extends Event
+  final case class Reap(replyTo: ActorRef[Command]) extends Command
+  final case class Reaped(id: ULID, eligibel: Int) extends Event
   case object Done extends Command
   case object Timeout extends Command
 }

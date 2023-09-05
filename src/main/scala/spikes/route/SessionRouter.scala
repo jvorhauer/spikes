@@ -9,11 +9,15 @@ import io.circe.syntax.*
 import spikes.model.Session
 
 
-case class SessionRouter()(implicit system: ActorSystem[?]) extends Router {
+final class SessionRouter(implicit system: ActorSystem[?]) extends Router {
 
   val route: Route = pathPrefix("sessions") {
     (get & pathEndOrSingleSlash) {
       complete(OK, Session.list().map(Session.Response(_)).asJson)
     }
   }
+}
+
+object SessionRouter {
+  def apply()(implicit system: ActorSystem[?]): SessionRouter = new SessionRouter()
 }

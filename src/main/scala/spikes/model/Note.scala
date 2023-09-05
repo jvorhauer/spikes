@@ -124,7 +124,7 @@ object Note {
       case nu: Note.Update => Effect.persist(nu.asEvent).thenReply(nu.replyTo)(state => StatusReply.success(state.asResponse))
       case nr: Note.Remove => Effect.persist(nr.asEvent).thenReply(nr.replyTo)(state => StatusReply.success(state.asResponse))
 
-      case cc: Comment.Create => if (User.Repository.find(cc.writer).isDefined && Note.Repository.find(cc.noteId).isDefined) {
+      case cc: Comment.Create => if (User.Repository.exists(cc.writer) && Note.Repository.exists(cc.noteId)) {
         Effect.persist(cc.toEvent).thenReply(cc.replyTo)(_ => StatusReply.success(state.asResponse))
       } else
         Effect.reply(cc.replyTo)(StatusReply.error("context for comment not complete"))
@@ -185,9 +185,10 @@ object Note {
       ).where.eq(cols.id, state.id)
     }.update.apply()).orElse(None)
 
-    def find(id: ULID): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id)).map(State(_)).single.apply()
+    def find(id: NoteId): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id)).map(State(_)).single.apply()
+    def exists(id: NoteId): Boolean = find(id).isDefined
     def find(slug: String): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.slug, slug)).map(State(_)).single.apply()
-    def find(id: ULID, owner: ULID): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id).and.eq(cols.owner, owner.toString)).map(State(_)).single.apply()
+    def find(id: NoteId, owner: UserId): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id).and.eq(cols.owner, owner.toString)).map(State(_)).single.apply()
 
     def list(limit: Int = 10, offset: Int = 0): List[Note.State] = withSQL(select.from(State as n).limit(limit).offset(offset)).map(State(_)).list.apply()
     def list(owner: UserId): List[Note.State] = withSQL(select.from(State as n).where.eq(cols.owner, owner)).map(State(_)).list.apply()

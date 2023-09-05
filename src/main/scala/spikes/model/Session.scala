@@ -43,7 +43,7 @@ object Session extends SQLSyntaxSupport[Session] {
 
   final case class Response(id: UserId, expires: LocalDateTime) extends ResponseT
   object Response {
-    def apply(session: Session): Response = new Response(session.id, session.expires)
+    def apply(current: Session): Response = new Response(current.id, current.expires)
   }
 
   val ddl: Seq[SQLExecution] = Seq(

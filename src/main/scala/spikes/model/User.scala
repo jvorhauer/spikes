@@ -193,6 +193,7 @@ object User {
     )
 
     def find(id: UserId): Option[State] = withSQL(select.from(State as u).where.eq(cols.id, id)).map(rs => State(rs)).single.apply()
+    def exists(id: UserId): Boolean = find(id).isDefined
     def find(email: String): Option[State] = withSQL(select.from(State as u).where.eq(cols.email, email)).map(rs => State(rs)).single.apply()
     def exists(e: String, p: String): Boolean = withSQL(select.from(State as u).where.eq(cols.email, e).and.eq(cols.password, p)).map(State(_)).single.apply().isDefined
     def list(limit: Int = 10, offset: Int = 0): List[User.State] = withSQL(select.from(State as u).limit(limit).offset(offset)).map(State(_)).list.apply()

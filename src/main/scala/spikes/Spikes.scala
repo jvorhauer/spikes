@@ -67,10 +67,10 @@ object Spikes {
       ds
     }
     ConnectionPool.singleton(new DataSourceConnectionPool(dataSource))
-    implicit val session: DBSession = AutoSession
+    implicit val dbSession: DBSession = AutoSession
 
-    (User.ddl ++ Session.ddl ++ Note.ddl ++ Comment.ddl ++ Tag.ddl).foreach(_.apply())
+    (User.ddl ++ Session.ddl ++ Note.ddl ++ Comment.ddl ++ Tag.ddl).foreach(_.apply()(dbSession))
 
-    session
+    dbSession
   }
 }

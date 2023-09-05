@@ -39,7 +39,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
       )
       res2.reply.isSuccess should be(true)
       res2.reply.getValue should ===(
-        Manager.Info(1, 0, 0, recovered = true)
+        Manager.Info(recovered = true, users = 1, notes = 0, sessions = 0)
       )
 
       val r3 = User.Repository.find(id)

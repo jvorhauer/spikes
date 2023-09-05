@@ -101,13 +101,13 @@ object Manager {
   final case class IsReady(replyTo: ActorRef[StatusReply[Boolean]]) extends Command
 
   final case class Info(
-      users: Int, notes: Int, sessions: Int,
       recovered: Boolean,
-      version: String = BuildInfo.version, built: String = BuildInfo.buildTime,
-      pid: String = Manager.pid.id
+      users   : Int    = User.Repository.size(),
+      notes   : Int    = Note.Repository.size(),
+      sessions: Int    = Session.size(),
+      version : String = BuildInfo.version,
+      built   : String = BuildInfo.buildTime,
+      persistenceId: String = Manager.pid.id
   ) extends SpikeSerializable
-  object Info {
-    def apply(recovered: Boolean): Info = new Info(User.Repository.size(), Note.Repository.size(), Session.size(), recovered)
-  }
   final case class Checked(ok: Boolean) extends SpikeSerializable
 }

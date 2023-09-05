@@ -9,6 +9,9 @@ ThisBuild / semanticdbEnabled          := true
 ThisBuild / semanticdbVersion          := "4.7.8"
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
 
+ThisBuild / scapegoatVersion             := "2.1.2"
+ThisBuild / scapegoatDisabledInspections := Seq("FindDotIsDefined")
+
 ThisBuild / Test / logBuffered := false
 ThisBuild / Test / parallelExecution := false
 

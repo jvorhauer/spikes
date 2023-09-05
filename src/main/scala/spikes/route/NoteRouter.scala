@@ -11,7 +11,7 @@ import spikes.model.{Command, Comment, Note, User}
 import spikes.validate.Validation.validated
 
 
-final case class NoteRouter()(implicit system: ActorSystem[?]) extends Router {
+final class NoteRouter(implicit system: ActorSystem[?]) extends Router {
 
   import akka.actor.typed.scaladsl.AskPattern.{Askable, schedulerFromActorSystem}
 
@@ -103,4 +103,8 @@ final case class NoteRouter()(implicit system: ActorSystem[?]) extends Router {
         }
       )
     }
+}
+
+object NoteRouter {
+  def apply()(implicit system: ActorSystem[?]): NoteRouter = new NoteRouter()
 }

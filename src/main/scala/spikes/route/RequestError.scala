@@ -1,3 +1,3 @@
 package spikes.route
 
-case class RequestError(message: String)
+final case class RequestError(message: String)

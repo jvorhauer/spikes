@@ -26,8 +26,6 @@ import scala.concurrent.duration.DurationInt
 object Spikes {
 
   val cfg: Config = ConfigFactory.defaultApplication()
-  println(s"cfg: spikes.token.expires?: ${cfg.hasPath("spikes.token.expires")} = ${cfg.getValue("spikes.token.expires")} hours")
-
   implicit val session: DBSession = init
 
   def main(args: Array[String]): Unit = {
@@ -42,6 +40,7 @@ object Spikes {
 
   def apply(port: Int = 8080): Behavior[Nothing] = Behaviors.setup[Nothing] { ctx =>
     implicit val system = ctx.system
+    implicit val ec = system.executionContext
 
     val manager = ctx.spawn(Manager(), "manager")
     ctx.spawn(SessionReaper(manager, 1.minute), "session-reaper")
@@ -52,7 +51,7 @@ object Spikes {
         concat(UserRouter(manager).route, InfoRouter(manager).route, NoteRouter().route, SessionRouter().route)
       }
     }
-    Http(system).newServerAt("0.0.0.0", port).bind(routes)
+    Http(system).newServerAt("0.0.0.0", port).bind(routes).map(_.addToCoordinatedShutdown(hardTerminationDeadline = 10.seconds))
     Behaviors.empty
   }
 

@@ -76,7 +76,7 @@ lazy val root = (project in file("."))
       "org.owasp.encoder" % "encoder"          % "1.2.3",
       "org.yaml"          % "snakeyaml"        % "2.2",
       "ch.qos.logback"    % "logback-classic"  % "1.4.11",
-      "com.h2database"    % "h2"               % "2.2.220",
+      "com.h2database"    % "h2"               % "2.2.222",
       "com.zaxxer"        % "HikariCP"         % "5.0.1",
       "io.sentry"         % "sentry"           % versions.sentry,
       "io.sentry"         % "sentry-logback"   % versions.sentry,

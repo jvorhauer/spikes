@@ -52,7 +52,7 @@ final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSy
         },
         get {
           concat(
-            path(pULID) { id =>
+            path(pTSID) { id =>
               User.Repository.find(id) match {
                 case Some(us) => complete(OK, User.Response(us).asJson)
                 case None => notFound

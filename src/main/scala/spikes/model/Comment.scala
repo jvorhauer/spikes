@@ -2,6 +2,7 @@ package spikes.model
 
 import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
+import io.hypersistence.tsid.TSID
 import io.scalaland.chimney.dsl.TransformerOps
 import scalikejdbc.*
 import spikes.model
@@ -9,14 +10,13 @@ import spikes.model.Comment.CommentId
 import spikes.model.Note.NoteId
 import spikes.model.User.UserId
 import spikes.validate.Validation.*
-import wvlet.airframe.ulid.ULID
 
 
 final case class Comment(id: CommentId, title: String, body: String)
 
 object Comment {
 
-  type CommentId = ULID
+  type CommentId = SPID
   type Reply = StatusReply[Note.Response]
   type ReplyTo = ActorRef[Reply]
 
@@ -63,10 +63,10 @@ object Comment {
   object Entity extends SQLSyntaxSupport[Entity] {
     override val tableName = "comments"
     def apply(rs: WrappedResultSet) = new Entity(
-      ULID(rs.string("id")),
-      ULID(rs.string("writer")),
-      ULID(rs.string("note_id")),
-      rs.stringOpt("parent").map(ULID(_)),
+      TSID.from(rs.long("id")),
+      TSID.from(rs.long("writer")),
+      TSID.from(rs.long("note_id")),
+      rs.longOpt("parent").map(TSID.from),
       rs.string("title"),
       rs.string("body"),
       rs.stringOpt("color"),
@@ -107,10 +107,10 @@ object Comment {
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists comments (
-         id char(26) not null primary key,
-         writer char(26) not null,
-         note_id char(26) not null,
-         parent char(26),
+         id bigint not null primary key,
+         writer bigint not null,
+         note_id bigint not null,
+         parent bigint,
          title varchar(255) not null,
          body varchar(1024) not null,
          color varchar(6),

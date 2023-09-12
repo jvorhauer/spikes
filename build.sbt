@@ -1,7 +1,6 @@
-import sbt.Keys.libraryDependencies
 import sbtrelease.ReleaseStateTransformations._
 
-ThisBuild / scalaVersion           := "2.13.11"
+ThisBuild / scalaVersion           := "2.13.12"
 ThisBuild / organization           := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 
@@ -9,8 +8,8 @@ ThisBuild / semanticdbEnabled          := true
 ThisBuild / semanticdbVersion          := "4.7.8"
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
 
-ThisBuild / scapegoatVersion             := "2.1.2"
-ThisBuild / scapegoatDisabledInspections := Seq("FindDotIsDefined")
+//ThisBuild / scapegoatVersion             := "2.1.2"
+//ThisBuild / scapegoatDisabledInspections := Seq("FindDotIsDefined")
 
 ThisBuild / Test / logBuffered := false
 ThisBuild / Test / parallelExecution := false
@@ -19,9 +18,9 @@ val versions = new {
   val akka = "2.8.4"
   val http = "10.5.2"
   val kamon = "2.6.3"
-  val scalaTest = "3.2.16"
+  val scalaTest = "3.2.17"
   val jdbc = "4.0.0"
-  val sentry = "6.28.0"
+  val sentry = "6.29.0"
 }
 
 resolvers ++= Seq(
@@ -65,7 +64,7 @@ lazy val root = (project in file("."))
     ).map(_ % "test") ++ Seq(
       "io.circe"           %% "circe-generic"                 % "0.14.6",
       "de.heikoseeberger"  %% "akka-http-circe"               % "1.39.2",
-      "org.wvlet.airframe" %% "airframe-ulid"                 % "23.8.6",
+      "org.typelevel"      %% "jawn-parser"                   % "1.5.1",
       "io.altoo"           %% "akka-kryo-serialization-typed" % "2.5.1",
       "io.lemonlabs"       %% "scala-uri"                     % "4.0.3",
       "org.scalikejdbc"    %% "scalikejdbc"                   % versions.jdbc,
@@ -74,15 +73,16 @@ lazy val root = (project in file("."))
       "io.scalaland"       %% "chimney"                       % "0.7.5",
       "ch.megard"          %% "akka-http-cors"                % "1.2.0",
     ) ++ Seq(
-      "com.datastax.oss"  % "java-driver-core" % "4.17.0",
-      "io.netty"          % "netty-handler"    % "4.1.97.Final",
-      "org.owasp.encoder" % "encoder"          % "1.2.3",
-      "org.yaml"          % "snakeyaml"        % "2.2",
-      "ch.qos.logback"    % "logback-classic"  % "1.4.11",
-      "com.h2database"    % "h2"               % "2.2.222",
-      "com.zaxxer"        % "HikariCP"         % "5.0.1",
-      "io.sentry"         % "sentry"           % versions.sentry,
-      "io.sentry"         % "sentry-logback"   % versions.sentry,
+      "com.datastax.oss"  % "java-driver-core"   % "4.17.0",
+      "io.netty"          % "netty-handler"      % "4.1.97.Final",
+      "org.owasp.encoder" % "encoder"            % "1.2.3",
+      "org.yaml"          % "snakeyaml"          % "2.2",
+      "ch.qos.logback"    % "logback-classic"    % "1.4.11",
+      "com.h2database"    % "h2"                 % "2.2.222",
+      "com.zaxxer"        % "HikariCP"           % "5.0.1",
+      "io.sentry"         % "sentry"             % versions.sentry,
+      "io.sentry"         % "sentry-logback"     % versions.sentry,
+      "io.hypersistence"  % "hypersistence-tsid" % "2.1.1"
     ) ++ Seq(
       "io.kamon" %% "kamon-bundle"       % versions.kamon,
       "io.kamon" %% "kamon-apm-reporter" % versions.kamon,

@@ -7,13 +7,13 @@ import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect, RetentionCriteria}
 import akka.persistence.typed.{PersistenceId, RecoveryFailed, SnapshotFailed}
 import com.typesafe.config.{Config, ConfigFactory}
+import io.hypersistence.tsid.TSID
 import io.scalaland.chimney.dsl.TransformerOps
 import org.owasp.encoder.Encode
 import scalikejdbc.*
 import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.behavior.Manager.lookup
 import spikes.validate.Validation.{ErrorInfo, validate}
-import wvlet.airframe.ulid.ULID
 
 import java.time.temporal.TemporalAmount
 import java.time.{LocalDate, LocalDateTime}
@@ -28,7 +28,7 @@ object User {
   val key: ServiceKey[Command] = ServiceKey("User")
   val tag = "user"
 
-  type UserId = ULID
+  type UserId = SPID
   type ReplyTo = ActorRef[StatusReply[User.Response]]
   type ReplyListTo = ActorRef[StatusReply[List[User.Response]]]
   type ReplyTokenTo = ActorRef[StatusReply[OAuthToken]]
@@ -39,9 +39,9 @@ object User {
 
   final case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
     override def validated: Set[ErrorInfo] = Set(validate("name", name), validate("email", email), validate("password", password), validate("born", born)).flatten
-    def asCmd(replyTo: ReplyTo): Create = Create(ULID.newULID, Encode.forHtml(name), email, hash(password), born, bio.map(Encode.forHtml), replyTo)
+    def asCmd(replyTo: ReplyTo): Create = Create(next, Encode.forHtml(name), email, hash(password), born, bio.map(Encode.forHtml), replyTo)
   }
-  final case class Put(id: ULID, name: Option[String], password: Option[String], born: Option[LocalDate], bio: Option[String] = None) extends Request {
+  final case class Put(id: UserId, name: Option[String], password: Option[String], born: Option[LocalDate], bio: Option[String] = None) extends Request {
     override def validated: Set[ErrorInfo] = Set(name.flatMap(validate("name", _)), password.flatMap(validate("password", _)), born.flatMap(validate("born", _))).flatten
     def asCmd(replyTo: ReplyTo): Update = Update(id, name.map(Encode.forHtml), password.map(hash), born, bio.map(Encode.forHtml), replyTo)
   }
@@ -51,7 +51,7 @@ object User {
   }
 
 
-  final case class Create(id: ULID, name: String, email: String, password: String, born: LocalDate, bio: Option[String], replyTo: ReplyTo) extends Command {
+  final case class Create(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String], replyTo: ReplyTo) extends Command {
     def asEvent: Created = this.into[User.Created].transform
   }
   final case class Update(id: UserId, name: Option[String], password: Option[String], born: Option[LocalDate], bio: Option[String], replyTo: ReplyTo) extends Command {
@@ -76,7 +76,7 @@ object User {
     override val tableName = "users"
 
     def apply(rs: WrappedResultSet): User.State = new User.State(
-      ULID(rs.string("id")),
+      TSID.from(rs.long("id")),
       rs.string("name"),
       rs.string("email"),
       rs.string("password"),
@@ -100,7 +100,7 @@ object User {
 
 
   def apply(state: User.State): Behavior[Command] = Behaviors.setup { ctx =>
-    val pid: PersistenceId = PersistenceId("user", state.id.toString())
+    val pid: PersistenceId = PersistenceId("user", state.id.toString)
     implicit val ec: ExecutionContext = ctx.executionContext
 
     ctx.system.receptionist.tell(Receptionist.Register(User.key, ctx.self))
@@ -205,10 +205,10 @@ object User {
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists users (
-      id char(26) not null primary key,
-      name varchar(255) not null,
+      id bigint not null primary key,
+      name varchar(1024) not null,
       email varchar(1024) not null,
-      password varchar(1024) not null,
+      password varchar(64) not null,
       born date not null,
       bio varchar(4096)
     )""".execute,

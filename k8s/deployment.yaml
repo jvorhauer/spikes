@@ -14,6 +14,12 @@ spec:
       containers:
         - name: spikes
           image: ghcr.io/jvorhauer/spikes:1.1.9
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
           env:
             - name: ASTRA_USERNAME
               valueFrom:

@@ -2,8 +2,8 @@ package spikes.behavior
 
 import akka.actor.typed.scaladsl.{Behaviors, TimerScheduler}
 import akka.actor.typed.{ActorRef, Behavior}
+import io.hypersistence.tsid.TSID
 import spikes.model.{Command, Event}
-import wvlet.airframe.ulid.ULID
 
 import scala.concurrent.duration.FiniteDuration
 
@@ -11,7 +11,7 @@ object SessionReaper {
   def apply(target: ActorRef[Command], after: FiniteDuration): Behavior[Command] = Behaviors.withTimers(new SessionReaper(_, target, after).idle())
 
   final case class Reap(replyTo: ActorRef[Command]) extends Command
-  final case class Reaped(id: ULID, eligibel: Int) extends Event
+  final case class Reaped(id: TSID, eligibel: Int) extends Event
   case object Done extends Command
   case object Timeout extends Command
 }

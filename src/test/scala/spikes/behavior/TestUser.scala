@@ -1,12 +1,11 @@
 package spikes.behavior
 
-import spikes.model.today
-import wvlet.airframe.ulid.ULID
+import spikes.model.{next, today}
 
 import java.time.LocalDate
 
 trait TestUser {
-  val ulid = ULID.newULID
+  val id = next
   val name = "Tester"
   val email = "tester@test.er"
   val password = "Welkom123!"

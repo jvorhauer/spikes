@@ -13,8 +13,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import scalikejdbc.{AutoSession, DBSession}
 import spikes.behavior.SessionReaper.{Reap, Reaped}
 import spikes.build.BuildInfo
-import spikes.model.{Command, Event, Note, Session, SpikeSerializable, User}
-import wvlet.airframe.ulid.ULID
+import spikes.model.{Command, Event, Note, SPID, Session, SpikeSerializable, User, next}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
@@ -33,9 +32,9 @@ object Manager {
 
   def lookup(str: String, key: ServiceKey[Command])(implicit system: ActorSystem[Nothing]): LookupResult =
     system.receptionist.ask(Find(key)).map(_.serviceInstances(key).find(_.path.name.contains(str)))
-  def lookup(id: ULID, ctx: ActorContext[Command])                          : LookupResult = lookup(id)(ctx.system)
-  def lookup(id: ULID)(implicit system: ActorSystem[Nothing])               : LookupResult = lookup(id.toString, User.key)
-  def lookup(id: ULID, key: ServiceKey[Command], ctx: ActorContext[Command]): LookupResult = lookup(id.toString, key)(ctx.system)
+  def lookup(id: SPID, ctx: ActorContext[Command])                          : LookupResult = lookup(id)(ctx.system)
+  def lookup(id: SPID)(implicit system: ActorSystem[Nothing])               : LookupResult = lookup(id.toString, User.key)
+  def lookup(id: SPID, key: ServiceKey[Command], ctx: ActorContext[Command]): LookupResult = lookup(id.toString, key)(ctx.system)
 
 
   def apply(state: Manager.State = Manager.State(0)): Behavior[Command] = Behaviors.setup { ctx =>
@@ -59,7 +58,7 @@ object Manager {
         case 0     => Effect.reply(replyTo)(SessionReaper.Done)
         case count =>
           ctx.log.info(s"Reap: $count")
-          Effect.persist(Reaped(ULID.newULID, count)).thenReply(replyTo)(_ => SessionReaper.Done)
+          Effect.persist(Reaped(next, count)).thenReply(replyTo)(_ => SessionReaper.Done)
       }
     }
 

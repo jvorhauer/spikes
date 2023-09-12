@@ -7,7 +7,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
 import spikes.build.BuildInfo
-import spikes.model.{Command, Event, RichULID, User, next, today}
+import spikes.model.{Command, Event, RichTSID, User, next, today}
 import spikes.{Spikes, SpikesConfig}
 
 

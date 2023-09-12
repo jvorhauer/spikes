@@ -55,7 +55,7 @@ final class NoteRouter(implicit system: ActorSystem[?]) extends Router {
             (path("mine") & authenticateOAuth2Async("spikes", auth)) { us =>
               complete(OK, Note.Repository.list(us.id).map(_.asResponse).asJson)
             },
-            path(pULID) { noteId =>
+            path(pTSID) { noteId =>
               Note.Repository.find(noteId) match {
                 case Some(note) => complete(OK, note.asResponse.asJson)
                 case None => complete(NotFound, RequestError(s"No note for $noteId").asJson)
@@ -69,7 +69,7 @@ final class NoteRouter(implicit system: ActorSystem[?]) extends Router {
             },
           )
         },
-        (delete & path(pULID)) { noteId =>
+        (delete & path(pTSID)) { noteId =>
           authenticateOAuth2Async("spikes", auth) { us =>
             onSuccess(lookup(us.id, User.key)) {
               case oar: Option[ActorRef[Command]] => oar match {
@@ -83,7 +83,7 @@ final class NoteRouter(implicit system: ActorSystem[?]) extends Router {
             }
           }
         },
-        (post & path(pULID / "comments")) { noteId =>
+        (post & path(pTSID / "comments")) { noteId =>
           authenticateOAuth2Async("spikes", auth) { us =>
             entity(as[Comment.Post]) {
               validated(_) { cp =>

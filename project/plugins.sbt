@@ -9,5 +9,5 @@ addSbtPlugin("org.scoverage"          % "sbt-scoverage"        % "2.0.8")
 addSbtPlugin("org.scalameta"          % "sbt-scalafmt"         % "2.4.6")
 addSbtPlugin("com.eed3si9n"           % "sbt-buildinfo"        % "0.11.0")
 addSbtPlugin("com.artima.supersafe"   % "sbtplugin"            % "1.1.12")
-addSbtPlugin("com.sksamuel.scapegoat" % "sbt-scapegoat"        % "1.2.0")
+//addSbtPlugin("com.sksamuel.scapegoat" % "sbt-scapegoat"        % "1.2.0")
 addDependencyTreePlugin

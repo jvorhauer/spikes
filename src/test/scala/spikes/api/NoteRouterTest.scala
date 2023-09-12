@@ -10,6 +10,7 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
+import io.hypersistence.tsid.TSID
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
@@ -18,14 +19,13 @@ import spikes.model.{Access, Command, Note, OAuthToken, Status, User, next, now}
 import spikes.route.{NoteRouter, UserRouter}
 import spikes.validate.Validation
 import spikes.{Spikes, SpikesTestBase, model}
-import wvlet.airframe.ulid.ULID
 
 import scala.util.Try
 
 class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRouteTest with TestUser with BeforeAndAfterEach {
 
-  implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
-  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
+  implicit val idEncoder: Encoder[TSID] = Encoder.encodeString.contramap[TSID](_.toString)
+  implicit val idDecoder: Decoder[TSID] = Decoder.decodeString.emapTry(str => Try(TSID.from(str)))
   implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status)
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status)
   implicit val accEncoder : Encoder[Access.Value] = Encoder.encodeEnumeration(Access)
@@ -80,7 +80,7 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
     }
 
     val rnp = Note.Post("title", "body", now.plusDays(7))
-    var noteId: ULID = ULID.newULID
+    var noteId: TSID = next
     Post("/notes", rnp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
       status should be (StatusCodes.Created)
       header("Location") should not be empty

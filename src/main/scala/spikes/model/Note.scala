@@ -6,6 +6,7 @@ import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
 import akka.persistence.typed.{PersistenceId, RecoveryFailed, SnapshotSelectionCriteria}
+import io.hypersistence.tsid.TSID
 import io.scalaland.chimney.dsl.TransformerOps
 import org.scalactic.TypeCheckedTripleEquals.*
 import scalikejdbc.*
@@ -14,7 +15,6 @@ import spikes.model.Access.Access
 import spikes.model.Status.Status
 import spikes.model.User.UserId
 import spikes.validate.Validation.{ErrorInfo, validate}
-import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
 import scala.concurrent.duration.DurationInt
@@ -22,7 +22,7 @@ import scala.concurrent.duration.DurationInt
 
 object Note {
 
-  type NoteId = ULID
+  type NoteId = SPID
   type Reply = StatusReply[Note.Response]
   type ReplyToActor = ActorRef[Reply]
 
@@ -32,8 +32,8 @@ object Note {
 
   final case class Post(title: String, body: String, due: LocalDateTime, status: Status = Status.New, access: Access = Access.Public) extends Request {
     override lazy val validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("due", due)).flatten
-    def asCmd(owner: ULID, replyTo: ActorRef[StatusReply[Note.Response]]): Create = {
-      val id = ULID.newULID
+    def asCmd(owner: UserId, replyTo: ActorRef[StatusReply[Note.Response]]): Create = {
+      val id = next
       val et = encode(title)
       Note.Create(id, owner, et, encode(body), makeslug(id, et), due, status, access, replyTo)
     }
@@ -45,8 +45,8 @@ object Note {
       Note.Update(id, owner, et, encode(body), makeslug(id, et), due, status, access, replyTo)
     }
   }
-  final case class Delete(id: ULID) extends Request {
-    def asCmd(owner: ULID, replyTo: ActorRef[StatusReply[Note.Response]]): Remove = Note.Remove(id, owner, replyTo)
+  final case class Delete(id: NoteId) extends Request {
+    def asCmd(owner: UserId, replyTo: ActorRef[StatusReply[Note.Response]]): Remove = Note.Remove(id, owner, replyTo)
   }
 
 
@@ -66,19 +66,19 @@ object Note {
       replyTo: ReplyToActor) extends Command {
     def asEvent: Updated = this.transformInto[Updated]
   }
-  final case class Remove(id: ULID, owner: ULID, replyTo: ActorRef[StatusReply[Note.Response]]) extends Command {
+  final case class Remove(id: NoteId, owner: UserId, replyTo: ActorRef[StatusReply[Note.Response]]) extends Command {
     def asEvent: Removed = this.transformInto[Removed]
   }
 
 
   sealed trait NoteEvent extends Event
 
-  final case class Created(id: ULID, owner: ULID, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent
-  final case class Updated(id: ULID, owner: ULID, title: String, body: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent
-  final case class Removed(id: ULID, owner: ULID) extends NoteEvent
+  final case class Created(id: NoteId, owner: UserId, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent
+  final case class Updated(id: NoteId, owner: UserId, title: String, body: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent
+  final case class Removed(id: NoteId, owner: UserId) extends NoteEvent
 
   final case class Response(
-      id: ULID, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access, comments: List[Comment.Response] = List.empty
+      id: NoteId, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access, comments: List[Comment.Response] = List.empty
   ) extends ResponseT
 
   final case class State(
@@ -96,8 +96,8 @@ object Note {
   object State extends SQLSyntaxSupport[State] {
     override val tableName = "notes"
     def apply(rs: WrappedResultSet) = new State(
-      ULID(rs.string("id")),
-      ULID(rs.string("owner")),
+      TSID.from(rs.long("id")),
+      TSID.from(rs.long("owner")),
       rs.string("title"),
       rs.string("body"),
       rs.string("slug"),
@@ -116,7 +116,7 @@ object Note {
 
 
   def apply(state: Note.State): Behavior[Command] = Behaviors.setup { ctx =>
-    val pid: PersistenceId = PersistenceId("note", state.id.toString())
+    val pid: PersistenceId = PersistenceId("note", state.id.toString)
 
     ctx.system.receptionist.tell(Receptionist.Register(Note.key, ctx.self))
 
@@ -188,7 +188,7 @@ object Note {
     def find(id: NoteId): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id)).map(State(_)).single.apply()
     def exists(id: NoteId): Boolean = find(id).isDefined
     def find(slug: String): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.slug, slug)).map(State(_)).single.apply()
-    def find(id: NoteId, owner: UserId): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id).and.eq(cols.owner, owner.toString)).map(State(_)).single.apply()
+    def find(id: NoteId, owner: UserId): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id).and.eq(cols.owner, owner)).map(State(_)).single.apply()
 
     def list(limit: Int = 10, offset: Int = 0): List[Note.State] = withSQL(select.from(State as n).limit(limit).offset(offset)).map(State(_)).list.apply()
     def list(owner: UserId): List[Note.State] = withSQL(select.from(State as n).where.eq(cols.owner, owner)).map(State(_)).list.apply()
@@ -200,8 +200,8 @@ object Note {
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists notes (
-      id char(26) not null primary key,
-      owner char(26) not null,
+      id bigint not null primary key,
+      owner bigint not null,
       title varchar(255) not null,
       body varchar(1024) not null,
       slug varchar(255) not null,

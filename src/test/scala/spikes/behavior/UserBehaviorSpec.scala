@@ -7,7 +7,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
-import spikes.model.{Access, Command, Event, Note, OAuthToken, RichULID, Session, Status, User, hash, next, now, today}
+import spikes.model.{Access, Command, Event, Note, OAuthToken, RichTSID, Session, Status, User, hash, next, now, today}
 import spikes.{Spikes, SpikesConfig}
 
 

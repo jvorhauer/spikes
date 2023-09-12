@@ -1,9 +1,9 @@
 package spikes.model
 
-import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
+import io.hypersistence.tsid.TSID
 import scalikejdbc.*
+import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.model.User.UserId
-import wvlet.airframe.ulid.ULID
 
 import java.time.LocalDateTime
 
@@ -39,7 +39,7 @@ object Session extends SQLSyntaxSupport[Session] {
 
   def reapable(): List[Session] = withSQL(select.from(Session as s).where.lt(cols.expires, now)).map(Session(_)).list.apply()
 
-  def apply(rs: WrappedResultSet): Session = new Session(ULID(rs.string("id")), rs.string("token"), rs.localDateTime("expires"))
+  def apply(rs: WrappedResultSet): Session = new Session(TSID.from(rs.long("id")), rs.string("token"), rs.localDateTime("expires"))
 
   final case class Response(id: UserId, expires: LocalDateTime) extends ResponseT
   object Response {
@@ -48,10 +48,10 @@ object Session extends SQLSyntaxSupport[Session] {
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists sessions (
-         id char(26) not null primary key,
+         id bigint not null primary key,
          token varchar(255) not null,
          expires timestamp not null
        )""".execute,
-    sql"""create unique index if not exists sessions_token_idx on sessions (token)""".execute
+    sql"create unique index if not exists sessions_token_idx on sessions (token)".execute
   )
 }

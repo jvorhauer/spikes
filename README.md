@@ -53,6 +53,7 @@ The `validator` and the `reply to requestor` is the reason for the Request inste
   * [Kryo](https://github.com/altoo-ag/akka-kryo-serialization) for serialization
   * [Cassandra for Akka persistence](https://doc.akka.io/docs/akka-persistence-cassandra/current/index.html)
 * [ULIDs](https://wvlet.org/airframe/docs/airframe-ulid) for unique, sortable IDs
+* [TSID](https://github.com/vladmihalcea/hypersistence-tsid/tree/master): faster and less resource consuming replacement for ULID
 * [Chimney](https://scalalandio.github.io/chimney/) for case class transformations
 * [Scalactic](https://www.javadoc.io/doc/org.scalactic/scalactic_2.13/latest/org/scalactic/index.html) for triple equals with type safety
 * [Scala URI](https://index.scala-lang.org/lemonlabsuk/scala-uri) to validate URLs
@@ -73,6 +74,7 @@ See [Implementing µ-services with Akka](https://developer.lightbend.com/docs/ak
 * [AirFrame ULID](https://wvlet.org/airframe/docs/airframe-ulid)
 * [Circe and ULID](https://circe.github.io/circe/codecs/custom-codecs.html)
 * [Complete Example](https://blog.rockthejvm.com/akka-cassandra-project/)
+* [TSID](https://vladmihalcea.com/uuid-database-primary-key/); very interesting: both UUID and ULID are too long and slow, use TSID instead.
 
 ### Infrastructure
 

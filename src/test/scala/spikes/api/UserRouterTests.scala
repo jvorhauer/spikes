@@ -10,22 +10,22 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import io.circe.{Decoder, Encoder}
+import io.hypersistence.tsid.TSID
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
-import spikes.{Spikes, SpikesTestBase}
 import spikes.behavior.{Manager, TestUser}
 import spikes.model.*
 import spikes.route.{RequestError, UserRouter}
 import spikes.validate.Validation
-import wvlet.airframe.ulid.ULID
+import spikes.{Spikes, SpikesTestBase}
 
 import scala.util.Try
 
 class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRouteTest with TestUser with BeforeAndAfterEach {
 
-  implicit val ulidEncoder: Encoder[ULID] = Encoder.encodeString.contramap[ULID](_.toString())
-  implicit val ulidDecoder: Decoder[ULID] = Decoder.decodeString.emapTry(str => Try(ULID.fromString(str)))
+  implicit val idEncoder: Encoder[TSID] = Encoder.encodeString.contramap[TSID](_.toString)
+  implicit val idDecoder: Decoder[TSID] = Decoder.decodeString.emapTry(str => Try(TSID.from(str)))
   implicit val statEncoder: Encoder[Status.Value] = Encoder.encodeEnumeration(Status) // for Note
   implicit val statDecoder: Decoder[Status.Value] = Decoder.decodeEnumeration(Status) // for Note
 

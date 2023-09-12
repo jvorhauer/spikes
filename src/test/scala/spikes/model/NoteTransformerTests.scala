@@ -5,7 +5,6 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.pattern.StatusReply
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import wvlet.airframe.ulid.ULID
 
 class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
 
@@ -22,7 +21,7 @@ class NoteTransformerTests extends AnyFlatSpec with Matchers with ScalatestRoute
   }
 
   "Note.Command" should "transform into Note.Created" in {
-    val id  = ULID.newULID
+    val id  = next
     val cmd = Note.Create(id, next, "title", "body", "slug", now, Status.Completed, Access.Public, probe)
     val evt = cmd.asEvent
     evt.id should be (id)

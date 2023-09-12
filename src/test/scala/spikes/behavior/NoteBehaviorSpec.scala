@@ -10,7 +10,6 @@ import scalikejdbc.DBSession
 import spikes.model.Note.NoteId
 import spikes.model.{Access, Command, Comment, Event, Note, Status, User, hash, next, now, today}
 import spikes.{Spikes, SpikesConfig}
-import wvlet.airframe.ulid.ULID
 
 
 class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with AnyWordSpecLike with Matchers with BeforeAndAfterEach {
@@ -20,7 +19,7 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   private val uc = User.Created(next, "Test", "test@miruvor.nl", hash("Welkom123!"), today.minusYears(23), None)
   private val user: User.State = User.Repository.save(uc)
   private val esbtkUser = EventSourcedBehaviorTestKit[Command, Event, User.State](system, User(user))
-  private val noteId: NoteId = ULID.newULID
+  private val noteId: NoteId = next
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()

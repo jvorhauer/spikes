@@ -9,7 +9,7 @@ import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.security.{MessageDigest, SecureRandom}
 import java.time.format.DateTimeFormatter
-import java.time.{Instant, LocalDate, LocalDateTime, ZoneId}
+import java.time.{LocalDate, LocalDateTime, ZoneId}
 import java.util.Locale
 
 package object model {
@@ -50,7 +50,6 @@ package object model {
 
   private val idFactory: TSID.Factory = TSID.Factory.builder()
     .withRandom(SecureRandom.getInstance("SHA1PRNG", "SUN"))
-    .withCustomEpoch(Instant.parse("2023-04-01T00:00:00.000Z"))
     .withNodeBits(8)
     .withNode(InetAddress.getLocalHost.getAddress()(3).toInt & 0xFF).build()
   def next: TSID = idFactory.generate()

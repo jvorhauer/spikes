@@ -5,10 +5,11 @@ import org.owasp.encoder.Encode
 import scalikejdbc.ParameterBinderFactory
 import spikes.validate.Validation.ErrorInfo
 
+import java.net.InetAddress
 import java.nio.charset.StandardCharsets
-import java.security.MessageDigest
+import java.security.{MessageDigest, SecureRandom}
 import java.time.format.DateTimeFormatter
-import java.time.{LocalDate, LocalDateTime, ZoneId}
+import java.time.{Instant, LocalDate, LocalDateTime, ZoneId}
 import java.util.Locale
 
 package object model {
@@ -47,7 +48,12 @@ package object model {
   def today: LocalDate = LocalDate.now()
   val DTF: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
-  def next = TSID.Factory.getTsid256
+  private val idFactory: TSID.Factory = TSID.Factory.builder()
+    .withRandom(SecureRandom.getInstance("SHA1PRNG", "SUN"))
+    .withCustomEpoch(Instant.parse("2023-04-01T00:00:00.000Z"))
+    .withNodeBits(8)
+    .withNode(InetAddress.getLocalHost.getAddress()(3)).build()
+  def next: TSID = idFactory.generate()
 
   implicit class RichTSID(private val self: TSID) extends AnyVal {
     def created: LocalDateTime = LocalDateTime.ofInstant(self.getInstant, ZoneId.of("UTC"))

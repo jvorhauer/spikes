@@ -200,11 +200,11 @@ object Note {
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists notes (
-      id bigint not null primary key,
+      id bigint primary key,
       owner bigint not null,
       title varchar(255) not null,
       body varchar(1024) not null,
-      slug varchar(255) not null,
+      slug varchar(255) unique not null,
       due timestamp,
       status int,
       access int

@@ -107,7 +107,7 @@ object Comment {
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists comments (
-         id bigint not null primary key,
+         id bigint primary key,
          writer bigint not null,
          note_id bigint not null,
          parent bigint,

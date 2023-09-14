@@ -205,9 +205,9 @@ object User {
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists users (
-      id bigint not null primary key,
+      id bigint primary key,
       name varchar(1024) not null,
-      email varchar(1024) not null,
+      email varchar(1024) unique not null,
       password varchar(64) not null,
       born date not null,
       bio varchar(4096)

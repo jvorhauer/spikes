@@ -52,7 +52,7 @@ package object model {
     .withRandom(SecureRandom.getInstance("SHA1PRNG", "SUN"))
     .withCustomEpoch(Instant.parse("2023-04-01T00:00:00.000Z"))
     .withNodeBits(8)
-    .withNode(InetAddress.getLocalHost.getAddress()(3)).build()
+    .withNode(InetAddress.getLocalHost.getAddress()(3).toInt & 0xFF).build()
   def next: TSID = idFactory.generate()
 
   implicit class RichTSID(private val self: TSID) extends AnyVal {

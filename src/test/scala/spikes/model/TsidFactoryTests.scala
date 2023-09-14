@@ -5,7 +5,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
 import java.time.ZoneId
-import java.time.temporal.TemporalField
 
 class TsidFactoryTests extends AnyWordSpecLike with Matchers {
 
@@ -34,6 +33,7 @@ class TsidFactoryTests extends AnyWordSpecLike with Matchers {
       val in = id.getInstant
       val nu = now
       val cet = in.atZone(ZoneId.of("CET"))
+      println(s"nu: $nu, cet: $cet")
       cet.getYear should be (nu.getYear)
       cet.getMonthValue should be (nu.getMonthValue)
       cet.getDayOfMonth should be (nu.getDayOfMonth)

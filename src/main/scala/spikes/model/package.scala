@@ -9,7 +9,7 @@ import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.security.{MessageDigest, SecureRandom}
 import java.time.format.DateTimeFormatter
-import java.time.{LocalDate, LocalDateTime, ZoneId}
+import java.time.{LocalDate, LocalDateTime, ZoneId, ZonedDateTime}
 import java.util.Locale
 
 package object model {
@@ -44,8 +44,10 @@ package object model {
   def hash(s: String): String = toHex(md.digest(s.getBytes(StandardCharsets.UTF_8)))
   def hash(tsid: TSID): String = hash(tsid.toString)
   def encode(s: String): String = Encode.forHtmlContent(s)
-  def now: LocalDateTime = LocalDateTime.now()
-  def today: LocalDate = LocalDate.now()
+
+  val zone: ZoneId = ZoneId.of("CET")
+  def now: LocalDateTime = ZonedDateTime.now(zone).toLocalDateTime
+  def today: LocalDate = LocalDate.now(zone)
   val DTF: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
 
   private val idFactory: TSID.Factory = TSID.Factory.builder()
@@ -55,7 +57,7 @@ package object model {
   def next: TSID = idFactory.generate()
 
   implicit class RichTSID(private val self: TSID) extends AnyVal {
-    def created: LocalDateTime = LocalDateTime.ofInstant(self.getInstant, ZoneId.of("UTC"))
+    def created: LocalDateTime = LocalDateTime.ofInstant(self.getInstant, zone)
     def hashed: String = hash(self.toString)
   }
 

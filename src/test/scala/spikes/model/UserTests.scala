@@ -7,7 +7,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import spikes.behavior.TestUser
 
-import java.time.{LocalDateTime, ZoneId}
+import java.time.LocalDateTime
 import scala.collection.immutable.HashSet
 import scala.concurrent.ExecutionContextExecutor
 
@@ -74,7 +74,7 @@ class UserTests extends AnyFlatSpec with ScalatestRouteTest with Matchers with T
     assert(evt.name === cmd.name)
     assert(evt.id === cmd.id)
     assert(evt.email === cmd.email)
-    assert(evt.id.created === LocalDateTime.ofInstant(evt.id.getInstant, ZoneId.of("UTC")))
+    assert(evt.id.created === LocalDateTime.ofInstant(evt.id.getInstant, zone))
     assert(evt.born === cmd.born && evt.born === born)
     assert(evt.password === cmd.password)
   }

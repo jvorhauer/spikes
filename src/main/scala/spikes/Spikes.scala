@@ -15,7 +15,7 @@ import kamon.Kamon
 import scalikejdbc.*
 import spikes.behavior.{Manager, SessionReaper}
 import spikes.build.BuildInfo
-import spikes.model.{Comment, Note, Session, Tag, User}
+import spikes.model.{Comment, Note, Relation, Session, Tag, User}
 import spikes.route.*
 import spikes.validate.Validation
 
@@ -69,7 +69,7 @@ object Spikes {
     ConnectionPool.singleton(new DataSourceConnectionPool(dataSource))
     implicit val dbSession: DBSession = AutoSession
 
-    (User.ddl ++ Session.ddl ++ Note.ddl ++ Comment.ddl ++ Tag.ddl).foreach(_.apply()(dbSession))
+    (User.ddl ++ Session.ddl ++ Note.ddl ++ Comment.ddl ++ Tag.ddl ++ Relation.ddl).foreach(_.apply()(dbSession))
 
     dbSession
   }

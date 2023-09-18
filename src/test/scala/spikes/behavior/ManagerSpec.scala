@@ -7,7 +7,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
 import spikes.build.BuildInfo
-import spikes.model.{Command, Event, RichTSID, User, next, today}
+import spikes.model.{Command, Event, RichTSID, Tag, User, next, today}
 import spikes.{Spikes, SpikesConfig}
 
 
@@ -91,6 +91,34 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
       )
       res1.reply.isSuccess should be (true)
       res1.reply.getValue should be (true)
+    }
+
+    "CUD a tag" in {
+      val id = next
+      val res1 = esbtkManager.runCommand[StatusReply[Tag.Response]](
+        replyTo => Tag.Create(id, "test title", "FF00FF", replyTo)
+      )
+      res1.reply.isSuccess should be(true)
+      val created = res1.reply.getValue
+      created.id should be (id)
+      created.title should be ("test title")
+      created.color should be ("FF00FF")
+
+      val res2 = esbtkManager.runCommand[StatusReply[Tag.Response]](
+        replyTo => Tag.Update(id, "other title", "00FF00", replyTo)
+      )
+      res2.reply.isSuccess should be (true)
+      val updated = res2.reply.getValue
+      updated.id should be (id)
+      updated.title should be ("other title")
+      updated.color should be ("00FF00")
+    }
+
+    "Reap Sessions" in {
+      val res1 = esbtkManager.runCommand[Command](
+        replyTo => SessionReaper.Reap(replyTo)
+      )
+      res1.reply should be (SessionReaper.Done)
     }
   }
 

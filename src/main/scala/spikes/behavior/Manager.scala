@@ -7,7 +7,7 @@ import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
 import akka.actor.typed.{ActorRef, ActorSystem, Behavior, SupervisorStrategy}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, RetentionCriteria}
-import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed, SnapshotFailed}
+import akka.persistence.typed.{PersistenceId, RecoveryCompleted, RecoveryFailed}
 import akka.util.Timeout
 import com.typesafe.config.{Config, ConfigFactory}
 import scalikejdbc.{AutoSession, DBSession}
@@ -108,7 +108,6 @@ object Manager {
           ctx.log.info(s"recovery completed: ${state.users} users")
           recovered = true
         case (_, rf: RecoveryFailed) => ctx.log.error("recovery failed", rf.failure)
-        case (_, sf: SnapshotFailed) => ctx.log.error("snapshot failed", sf.failure)
       }
   }
 

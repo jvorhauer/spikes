@@ -15,7 +15,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
 import spikes.behavior.{Manager, TestUser}
-import spikes.model.{Access, Command, Note, OAuthToken, Status, User, next, now}
+import spikes.model.{Access, Command, Note, OAuthToken, Session, Status, User, next, now}
 import spikes.route.{NoteRouter, UserRouter}
 import spikes.validate.Validation
 import spikes.{Spikes, SpikesTestBase, model}
@@ -138,9 +138,12 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
     }
   }
 
-  override def afterAll(): Unit = testKit.shutdownTestKit()
-
-  override def beforeEach(): Unit = {
+  override def afterAll(): Unit = {
+    Session.removeAll()
+    Note.removeAll()
     User.removeAll()
+    testKit.shutdownTestKit()
   }
+
+  override def beforeEach(): Unit = User.removeAll()
 }

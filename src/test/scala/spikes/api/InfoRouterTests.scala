@@ -3,31 +3,37 @@ package spikes.api
 import akka.actor.testkit.typed.scaladsl.ActorTestKit
 import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCodes
-import akka.http.scaladsl.server.Directives.handleRejections
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
+import io.circe.{Decoder, Encoder}
 import io.circe.generic.auto.*
+import io.hypersistence.tsid.TSID
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
 import spikes.behavior.Manager.Info
 import spikes.{Spikes, SpikesTestBase}
 import spikes.behavior.{Manager, TestUser}
-import spikes.model.Command
-import spikes.route.InfoRouter
+import spikes.model.{Command, Session}
+import spikes.route.{InfoRouter, SessionRouter}
 import spikes.validate.Validation
+
+import scala.util.Try
 
 class InfoRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRouteTest with TestUser with BeforeAndAfterEach {
 
   implicit val session: DBSession = Spikes.init
+  implicit val idEncoder: Encoder[TSID] = Encoder.encodeString.contramap[TSID](_.toString)
+  implicit val idDecoder: Decoder[TSID] = Decoder.decodeString.emapTry(str => Try(TSID.from(str)))
 
   val testKit: ActorTestKit = ActorTestKit(cfg)
   implicit val ts: ActorSystem[Nothing] = testKit.internalSystem
   val manager: ActorRef[Command] = testKit.spawn(Manager(), "manager-test-actor")
 
   val route: Route = handleRejections(Validation.rejectionHandler) {
-      InfoRouter(manager).route
+      concat(InfoRouter(manager).route, SessionRouter().route)
   }
 
   "Get Info" should "respond with system info" in {
@@ -56,6 +62,13 @@ class InfoRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
   "Check" should "be ok" in {
     Get("/check") ~> route ~> check {
       status should be(StatusCodes.OK)
+    }
+  }
+
+  "List with Sessions" should "be empty" in {
+    Get("/sessions") ~> route ~> check {
+      status should be(StatusCodes.OK)
+      responseAs[List[Session.Response]] should have size 0
     }
   }
 }

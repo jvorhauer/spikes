@@ -72,8 +72,8 @@ class TagRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRout
   }
 
   override def afterEach(): Unit = {
-    User.removeAll()
     Session.removeAll()
+    User.removeAll()
   }
   override def afterAll(): Unit = testKit.shutdownTestKit()
 }

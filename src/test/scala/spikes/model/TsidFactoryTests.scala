@@ -4,8 +4,6 @@ import io.hypersistence.tsid.TSID
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 
-import java.time.ZoneId
-
 class TsidFactoryTests extends AnyWordSpecLike with Matchers {
 
   val max = 100000
@@ -31,9 +29,10 @@ class TsidFactoryTests extends AnyWordSpecLike with Matchers {
     "instant is today" in {
       val id = next
       val in = id.getInstant
+      val cet = in.atZone(zone)
+
       val nu = now
-      val cet = in.atZone(ZoneId.of("CET"))
-      println(s"nu: $nu, cet: $cet")
+
       cet.getYear should be (nu.getYear)
       cet.getMonthValue should be (nu.getMonthValue)
       cet.getDayOfMonth should be (nu.getDayOfMonth)

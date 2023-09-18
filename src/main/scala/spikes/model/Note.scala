@@ -12,6 +12,7 @@ import org.scalactic.TypeCheckedTripleEquals.*
 import scalikejdbc.*
 import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.model.Access.Access
+import spikes.model.Note.NoteId
 import spikes.model.Status.Status
 import spikes.model.User.UserId
 import spikes.validate.Validation.{ErrorInfo, validate}
@@ -20,15 +21,81 @@ import java.time.LocalDateTime
 import scala.concurrent.duration.DurationInt
 
 
-object Note {
+final case class Note(
+    id: NoteId, owner: UserId,
+    title: String, body: String, slug: String,
+    due: LocalDateTime,
+    status: Status, access: Access
+) extends SpikeSerializable {
+  def toResponse: Note.Response = this.into[Note.Response]
+    .withFieldComputed(_.comments, _ => Comment.onNote(id).map(_.toResponse))
+    .transform
+  def remove(): Unit = Note.remove(id)
+}
+
+object Note extends SQLSyntaxSupport[Note] {
 
   type NoteId = SPID
   type Reply = StatusReply[Note.Response]
   type ReplyToActor = ActorRef[Reply]
 
+  implicit val session: DBSession = AutoSession
+  override val tableName = "notes"
   val key: ServiceKey[Command] = ServiceKey("Note")
 
   def name(user: UserId, id: NoteId, slug: String): String = s"note-$user-$id-$slug"
+
+  def apply(rs: WrappedResultSet) = new Note(
+    TSID.from(rs.long("id")),
+    TSID.from(rs.long("owner")),
+    rs.string("title"),
+    rs.string("body"),
+    rs.string("slug"),
+    rs.localDateTime("due"),
+    Status.apply(rs.int("status")),
+    Access.apply(rs.int("access"))
+  )
+  def apply(nc: Note.Created) = new Note(nc.id, nc.owner, nc.title, nc.body, nc.slug, nc.due, nc.status, nc.access)
+
+  private val n = Note.syntax("n")
+  private val cols = Note.column
+  def save(nc: Note.Created): Note = {
+    withSQL {
+      insert.into(Note).namedValues(
+        cols.id -> nc.id,
+        cols.owner -> nc.owner,
+        cols.title -> nc.title,
+        cols.body -> nc.body,
+        cols.slug -> nc.slug,
+        cols.due -> nc.due,
+        cols.status -> nc.status.id,
+        cols.access -> nc.access.id
+      )
+    }.update.apply()
+    Note(nc)
+  }
+  def save(nu: Note.Updated): Option[Int] = find(nu.id).map(state => withSQL {
+    update(Note).set(
+      cols.title -> nu.title,
+      cols.body -> nu.body,
+      cols.due -> nu.due,
+      cols.status -> nu.status.id,
+      cols.access -> nu.access.id
+    ).where.eq(cols.id, state.id)
+  }.update.apply()).orElse(None)
+
+  def find(id: NoteId): Option[Note] = withSQL(select.from(Note as n).where.eq(cols.id, id)).map(Note(_)).single.apply()
+  def exists(id: NoteId): Boolean = find(id).isDefined
+  def find(slug: String): Option[Note] = withSQL(select.from(Note as n).where.eq(cols.slug, slug)).map(Note(_)).single.apply()
+  def find(id: NoteId, owner: UserId): Option[Note] = withSQL(select.from(Note as n).where.eq(cols.id, id).and.eq(cols.owner, owner)).map(Note(_)).single.apply()
+
+  def list(limit: Int = 10, offset: Int = 0): List[Note] = withSQL(select.from(Note as n).limit(limit).offset(offset)).map(Note(_)).list.apply()
+  def list(owner: UserId): List[Note] = withSQL(select.from(Note as n).where.eq(cols.owner, owner)).map(Note(_)).list.apply()
+  def size: Int = withSQL(select(distinct(count(cols.id))).from(Note as n)).map(_.int(1)).single.apply().getOrElse(0)
+
+  def remove(id: NoteId): Boolean = withSQL(delete.from(Note).where.eq(cols.id, id)).update.apply() === 1
+  def removeAll(): Unit = withSQL(delete.from(Note)).update.apply()
+
 
   final case class Post(title: String, body: String, due: LocalDateTime, status: Status = Status.New, access: Access = Access.Public) extends Request {
     override lazy val validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("due", due)).flatten
@@ -73,41 +140,17 @@ object Note {
 
   sealed trait NoteEvent extends Event
 
-  final case class Created(id: NoteId, owner: UserId, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent
-  final case class Updated(id: NoteId, owner: UserId, title: String, body: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent
+  final case class Created(id: NoteId, owner: UserId, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent {
+    def save: Note = Note.save(this)
+  }
+  final case class Updated(id: NoteId, owner: UserId, title: String, body: String, due: LocalDateTime, status: Status, access: Access) extends NoteEvent {
+    def save: Boolean = Note.save(this).isDefined
+  }
   final case class Removed(id: NoteId, owner: UserId) extends NoteEvent
 
   final case class Response(
       id: NoteId, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access, comments: List[Comment.Response] = List.empty
   ) extends ResponseT
-
-  final case class State(
-      id: NoteId,
-      owner: UserId,
-      title: String,
-      body: String,
-      slug: String,
-      due: LocalDateTime,
-      status: Status,
-      access: Access
-  ) extends Entity {
-    lazy val asResponse: Response = Response(id, title, body, slug, due, status, access, Comment.Repository.onNote(id).map(_.asResponse))
-  }
-  object State extends SQLSyntaxSupport[State] {
-    override val tableName = "notes"
-    def apply(rs: WrappedResultSet) = new State(
-      TSID.from(rs.long("id")),
-      TSID.from(rs.long("owner")),
-      rs.string("title"),
-      rs.string("body"),
-      rs.string("slug"),
-      rs.localDateTime("due"),
-      Status.apply(rs.int("status")),
-      Access.apply(rs.int("access"))
-    )
-
-    def apply(nc: Note.Created) = new State(nc.id, nc.owner, nc.title, nc.body, nc.slug, nc.due, nc.status, nc.access)
-  }
 
   private def clean(s: String): String = s.trim.toLowerCase.replaceAll("[^ a-z0-9]", "").replaceAll(" ", "-")
 
@@ -115,36 +158,43 @@ object Note {
   def makeslug(id: NoteId, t: String): String = makeslug(id.created, t)
 
 
-  def apply(state: Note.State): Behavior[Command] = Behaviors.setup { ctx =>
+  def apply(state: Note): Behavior[Command] = Behaviors.setup { ctx =>
     val pid: PersistenceId = PersistenceId("note", state.id.toString)
 
     ctx.system.receptionist.tell(Receptionist.Register(Note.key, ctx.self))
 
-    val commandHandler: (Note.State, Command) => ReplyEffect[Event, Note.State] = (_, cmd) => cmd match {
-      case nu: Note.Update => Effect.persist(nu.asEvent).thenReply(nu.replyTo)(state => StatusReply.success(state.asResponse))
-      case nr: Note.Remove => Effect.persist(nr.asEvent).thenReply(nr.replyTo)(state => StatusReply.success(state.asResponse))
+    val commandHandler: (Note, Command) => ReplyEffect[Event, Note] = (_, cmd) => cmd match {
+      case nu: Note.Update => Effect.persist(nu.asEvent).thenReply(nu.replyTo)(state => StatusReply.success(state.toResponse))
+      case nr: Note.Remove => Effect.persist(nr.asEvent).thenReply(nr.replyTo)(state => StatusReply.success(state.toResponse))
 
-      case cc: Comment.Create => if (User.Repository.exists(cc.writer) && Note.Repository.exists(cc.noteId)) {
-        Effect.persist(cc.toEvent).thenReply(cc.replyTo)(_ => StatusReply.success(state.asResponse))
+      case cc: Comment.Create => if (User.exists(cc.writer) && Note.exists(cc.noteId)) {
+        Effect.persist(cc.toEvent).thenReply(cc.replyTo)(_ => StatusReply.success(state.toResponse))
       } else
         Effect.reply(cc.replyTo)(StatusReply.error("context for comment not complete"))
+      case cu: Comment.Update => Comment.find(cu.id) match {
+        case Some(_) => Effect.persist(cu.toEvent).thenReply(cu.replyTo)(note => StatusReply.success(note.toResponse))
+        case None => Effect.reply(cu.replyTo)(StatusReply.error(s"comment with id ${cu.id} not found"))
+      }
     }
 
-    val eventHandler: (Note.State, Event) => Note.State = (state, evt) => evt match {
+    val eventHandler: (Note, Event) => Note = (state, evt) => evt match {
       case nu: Note.Updated =>
-        Note.Repository.save(nu)
+        nu.save
         state.copy(title = nu.title, body = nu.body, due = nu.due, status = nu.status, access = nu.access)
       case nr: Note.Removed =>
-        Note.Repository.remove(nr.id)
+        Note.remove(nr.id)
         ctx.system.receptionist.tell(Receptionist.Deregister(Note.key, ctx.self))
         state
+
       case cc: Comment.Created =>
-        Comment.Repository.save(cc)
+        cc.save
         state
-      case _ => state
+      case cu: Comment.Updated =>
+        cu.save
+        state
     }
 
-    EventSourcedBehavior.withEnforcedReplies[Command, Event, Note.State](pid, state, commandHandler, eventHandler)
+    EventSourcedBehavior.withEnforcedReplies[Command, Event, Note](pid, state, commandHandler, eventHandler)
       .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
       .withRetention(RetentionCriteria.disabled)
       .withRecovery(Recovery.withSnapshotSelectionCriteria(SnapshotSelectionCriteria.none))
@@ -152,50 +202,6 @@ object Note {
       .receiveSignal {
         case (_, RecoveryFailed(t)) => ctx.log.error(s"recovery of note $pid failed", t)
       }
-  }
-
-  object Repository {
-
-    implicit val session: DBSession = AutoSession
-
-    private val n = Note.State.syntax("n")
-    private val cols = Note.State.column
-    def save(nc: Note.Created): Note.State = {
-      withSQL {
-        insert.into(Note.State).namedValues(
-          cols.id -> nc.id,
-          cols.owner -> nc.owner,
-          cols.title -> nc.title,
-          cols.body -> nc.body,
-          cols.slug -> nc.slug,
-          cols.due -> nc.due,
-          cols.status -> nc.status.id,
-          cols.access -> nc.access.id
-        )
-      }.update.apply()
-      Note.State(nc)
-    }
-    def save(nu: Note.Updated): Option[Int] = find(nu.id).map(state => withSQL {
-      update(State).set(
-        cols.title -> nu.title,
-        cols.body -> nu.body,
-        cols.due -> nu.due,
-        cols.status -> nu.status.id,
-        cols.access -> nu.access.id
-      ).where.eq(cols.id, state.id)
-    }.update.apply()).orElse(None)
-
-    def find(id: NoteId): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id)).map(State(_)).single.apply()
-    def exists(id: NoteId): Boolean = find(id).isDefined
-    def find(slug: String): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.slug, slug)).map(State(_)).single.apply()
-    def find(id: NoteId, owner: UserId): Option[Note.State] = withSQL(select.from(State as n).where.eq(cols.id, id).and.eq(cols.owner, owner)).map(State(_)).single.apply()
-
-    def list(limit: Int = 10, offset: Int = 0): List[Note.State] = withSQL(select.from(State as n).limit(limit).offset(offset)).map(State(_)).list.apply()
-    def list(owner: UserId): List[Note.State] = withSQL(select.from(State as n).where.eq(cols.owner, owner)).map(State(_)).list.apply()
-    def size(): Int = withSQL(select(distinct(count(cols.id))).from(State as n)).map(_.int(1)).single.apply().getOrElse(0)
-
-    def remove(id: NoteId): Boolean = withSQL(delete.from(Note.State).where.eq(cols.id, id)).update.apply() === 1
-    def removeAll(): Unit = withSQL(delete.from(Note.State)).update.apply()
   }
 
   val ddl: Seq[SQLExecution] = Seq(

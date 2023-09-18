@@ -141,6 +141,6 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
   override def afterAll(): Unit = testKit.shutdownTestKit()
 
   override def beforeEach(): Unit = {
-    User.Repository.removeAll()
+    User.removeAll()
   }
 }

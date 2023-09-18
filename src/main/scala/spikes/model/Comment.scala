@@ -4,21 +4,77 @@ import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
 import io.hypersistence.tsid.TSID
 import io.scalaland.chimney.dsl.TransformerOps
+import org.scalactic.TypeCheckedTripleEquals.*
 import scalikejdbc.*
-import spikes.model
 import spikes.model.Comment.CommentId
 import spikes.model.Note.NoteId
 import spikes.model.User.UserId
 import spikes.validate.Validation.*
 
 
-final case class Comment(id: CommentId, title: String, body: String)
+final case class Comment(
+    id: CommentId, writer: UserId, noteId: NoteId, parent: Option[CommentId] = None,
+    title: String, body: String, color: Option[String], stars: Int = 0
+) extends SpikeSerializable {
+  def toResponse: Comment.Response = this.transformInto[Comment.Response]
+}
 
-object Comment {
+object Comment extends SQLSyntaxSupport[Comment] {
+
+  implicit val session: DBSession = AutoSession
+  private val c = Comment.syntax("c")
+  private val cols = Comment.column
+
+  override val tableName = "comments"
 
   type CommentId = SPID
   type Reply = StatusReply[Note.Response]
   type ReplyTo = ActorRef[Reply]
+
+  def apply(cc: Comment.Created) = new Comment(cc.id, cc.writer, cc.noteId, cc.parent, cc.title, cc.body, cc.color, cc.stars)
+  def apply(rs: WrappedResultSet) = new Comment(
+    TSID.from(rs.long("id")),
+    TSID.from(rs.long("writer")),
+    TSID.from(rs.long("note_id")),
+    rs.longOpt("parent").map(TSID.from),
+    rs.string("title"),
+    rs.string("body"),
+    rs.stringOpt("color"),
+    rs.int("stars")
+  )
+
+  def save(cc: Comment.Created): Comment = {
+    withSQL {
+      insert.into(Comment).namedValues(
+        cols.id -> cc.id,
+        cols.writer -> cc.writer,
+        cols.noteId -> cc.noteId,
+        cols.parent -> cc.parent,
+        cols.title -> cc.title,
+        cols.body -> cc.body,
+        cols.color -> cc.color,
+        cols.stars -> cc.stars
+      )
+    }.update.apply()
+    Comment(cc)
+  }
+  def save(cu: Comment.Updated): Option[Comment] = find(cu.id).map { state =>
+    withSQL {
+      update(Comment).set(
+        cols.title -> cu.title,
+        cols.body -> cu.body,
+        cols.color -> cu.color,
+        cols.stars -> cu.stars
+      ).where.eq(cols.id, state.id)
+    }.update.apply()
+    Comment(state.id, state.writer, state.noteId, state.parent, cu.title, cu.body, cu.color, cu.stars)
+  }
+
+  def find(id: CommentId): Option[Comment] = withSQL(select.from(Comment as c).where.eq(cols.id, id)).map(Comment(_)).single.apply()
+  def onNote(noteId: NoteId): List[Comment] = withSQL(select.from(Comment as c).where.eq(cols.noteId, noteId)).map(Comment(_)).list.apply()
+  def byWriter(userId: UserId): List[Comment] = withSQL(select.from(Comment as c).where.eq(cols.writer, userId)).map(Comment(_)).list.apply()
+  def remove(id: CommentId): Boolean = withSQL(delete.from(Comment).where.eq(cols.id, id)).update.apply() === 1
+
 
   final case class Post(noteId: NoteId, title: String, body: String, color: Option[String] = None, stars: Int = 0, parent: Option[CommentId] = None) extends Request {
     override def validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("color", color), validate("stars", stars)).flatten
@@ -50,60 +106,18 @@ object Comment {
   final case class Created(
       id: CommentId, writer: UserId, noteId: NoteId, parent: Option[CommentId], title: String, body: String, color: Option[String], stars: Int = 0
   ) extends Event {
-    def toState: Entity = this.into[Comment.Entity].transform
+    def toState: Comment = this.into[Comment].transform
+    def save: Comment = Comment.save(this)
   }
-  final case class Updated(id: CommentId, title: String, body: String, color: Option[String], stars: Int) extends Event
+  final case class Updated(id: CommentId, title: String, body: String, color: Option[String], stars: Int) extends Event {
+    def save: Boolean = Comment.save(this).isDefined
+  }
   final case class Removed(id: CommentId) extends Event
-
-  final case class Entity(
-      id: CommentId, writer: UserId, noteId: NoteId, parent: Option[CommentId] = None, title: String, body: String, color: Option[String], stars: Int = 0
-  ) extends model.Entity {
-    lazy val asResponse: Response = this.transformInto[Response]
-  }
-  object Entity extends SQLSyntaxSupport[Entity] {
-    override val tableName = "comments"
-    def apply(rs: WrappedResultSet) = new Entity(
-      TSID.from(rs.long("id")),
-      TSID.from(rs.long("writer")),
-      TSID.from(rs.long("note_id")),
-      rs.longOpt("parent").map(TSID.from),
-      rs.string("title"),
-      rs.string("body"),
-      rs.stringOpt("color"),
-      rs.int("stars")
-    )
-    def apply(cc: Comment.Created) = new Entity(cc.id, cc.writer, cc.noteId, cc.parent, cc.title, cc.body, cc.color, cc.stars)
-  }
 
   final case class Response(
       id: CommentId, writer: UserId, noteId: NoteId, parent: Option[CommentId], title: String, body: String, color: Option[String], stars: Int = 0
   ) extends ResponseT
 
-
-  object Repository {
-    implicit val session: DBSession = AutoSession
-    private val c = Comment.Entity.syntax("c")
-    private val cols = Comment.Entity.column
-
-    def save(cc: Comment.Created): Comment.Entity = {
-      withSQL {
-        insert.into(Comment.Entity).namedValues(
-          cols.id -> cc.id,
-          cols.writer -> cc.writer,
-          cols.noteId -> cc.noteId,
-          cols.parent -> cc.parent,
-          cols.title -> cc.title,
-          cols.body -> cc.body,
-          cols.color -> cc.color,
-          cols.stars -> cc.stars
-        )
-      }.update.apply()
-      Comment.Entity(cc)
-    }
-
-    def onNote(noteId: NoteId): List[Comment.Entity] = withSQL(select.from(Entity as c).where.eq(cols.noteId, noteId)).map(Comment.Entity(_)).list.apply()
-    def byWriter(userId: UserId): List[Comment.Entity] = withSQL(select.from(Entity as c).where.eq(cols.writer, userId)).map(Comment.Entity(_)).list.apply()
-  }
 
   val ddl: Seq[SQLExecution] = Seq(
     sql"""create table if not exists comments (

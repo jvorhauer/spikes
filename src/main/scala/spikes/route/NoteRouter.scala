@@ -53,17 +53,17 @@ final class NoteRouter(implicit system: ActorSystem[?]) extends Router {
         get {
           concat(
             (path("mine") & authenticateOAuth2Async("spikes", auth)) { us =>
-              complete(OK, Note.Repository.list(us.id).map(_.asResponse).asJson)
+              complete(OK, Note.list(us.id).map(_.toResponse).asJson)
             },
             path(pTSID) { noteId =>
-              Note.Repository.find(noteId) match {
-                case Some(note) => complete(OK, note.asResponse.asJson)
+              Note.find(noteId) match {
+                case Some(note) => complete(OK, note.toResponse.asJson)
                 case None => complete(NotFound, RequestError(s"No note for $noteId").asJson)
               }
             },
             path(Segment) { slug =>
-              Note.Repository.find(slug) match {
-                case Some(note) => complete(OK, note.asResponse.asJson)
+              Note.find(slug) match {
+                case Some(note) => complete(OK, note.toResponse.asJson)
                 case None => complete(NotFound, RequestError(s"No note for $slug").asJson)
               }
             },

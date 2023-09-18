@@ -53,19 +53,19 @@ final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSy
         get {
           concat(
             path(pTSID) { id =>
-              User.Repository.find(id) match {
+              User.find(id) match {
                 case Some(us) => complete(OK, User.Response(us).asJson)
                 case None => notFound
               }
             },
             (path("me") & authenticateOAuth2Async("spikes", auth)) { us =>
-              User.Repository.find(us.id) match {
+              User.find(us.id) match {
                 case Some(us) => complete(OK, User.Response(us).asJson)
                 case None => notFound
               }
             },
             (pathEndOrSingleSlash & parameters("start".as[Int].optional, "count".as[Int].optional)) { (start, count) =>
-              complete(OK, User.Repository.list(count.getOrElse(10), start.getOrElse(0)).map(User.Response(_)).asJson)
+              complete(OK, User.list(count.getOrElse(10), start.getOrElse(0)).map(User.Response(_)).asJson)
             }
           )
         },

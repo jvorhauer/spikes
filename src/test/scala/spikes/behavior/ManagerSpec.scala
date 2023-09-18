@@ -20,7 +20,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     esbtkManager.clear()
-    User.Repository.removeAll()
+    User.removeAll()
   }
 
   "The Manager" should {
@@ -42,10 +42,10 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
         Manager.Info(recovered = true, users = 1, notes = 0, sessions = 0)
       )
 
-      val r3 = User.Repository.find(id)
+      val r3 = User.find(id)
       r3 should not be empty
 
-      User.Repository.size() should be (1)
+      User.size should be (1)
     }
 
     "reject already added user" in {
@@ -97,6 +97,6 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
   override def afterAll(): Unit = {
     super.afterAll()
     system.terminate()
-    User.Repository.removeAll()
+    User.removeAll()
   }
 }

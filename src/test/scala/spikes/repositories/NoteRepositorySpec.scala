@@ -17,27 +17,27 @@ class NoteRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAft
   "A Note.Repository" should {
     "create a new Note" in {
       val nc = Note.Created(next, next, "test", "body", s"$prefix-test", now.plusDays(5), Status.ToDo, Access.Public)
-      val r1 = Note.Repository.save(nc)
+      val r1 = nc.save
       r1.id should be (nc.id)
 
-      val r2 = Note.Repository.find(nc.id)
+      val r2 = Note.find(nc.id)
       r2 should not be empty
       r2.get.id should be (nc.id)
       r2.get.title should be ("test")
 
-      val r5 = Note.Repository.find(nc.slug)
+      val r5 = Note.find(nc.slug)
       r5 should not be empty
       r5.get.id should be (nc.id)
 
-      val r3 = Note.Repository.list()
+      val r3 = Note.list()
       r3 should have size 1
 
-      val r4 = Note.Repository.remove(nc.id)
+      val r4 = Note.remove(nc.id)
       r4 should be (true)
 
-      Note.Repository.size() should be (0)
+      Note.size should be (0)
     }
   }
 
-  override def beforeEach(): Unit = Note.Repository.removeAll()
+  override def beforeEach(): Unit = Note.removeAll()
 }

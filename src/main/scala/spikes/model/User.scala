@@ -5,7 +5,7 @@ import akka.actor.typed.scaladsl.Behaviors
 import akka.actor.typed.{ActorRef, Behavior, SupervisorStrategy}
 import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffect, RetentionCriteria}
-import akka.persistence.typed.{PersistenceId, RecoveryFailed, SnapshotFailed}
+import akka.persistence.typed.{PersistenceId, RecoveryFailed}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.hypersistence.tsid.TSID
 import io.scalaland.chimney.dsl.TransformerOps
@@ -13,6 +13,7 @@ import org.owasp.encoder.Encode
 import scalikejdbc.*
 import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.behavior.Manager.lookup
+import spikes.model.User.UserId
 import spikes.validate.Validation.{ErrorInfo, validate}
 
 import java.time.temporal.TemporalAmount
@@ -20,7 +21,18 @@ import java.time.{LocalDate, LocalDateTime}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
 
-object User {
+final case class User(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None, notes: Int = 0) extends SpikeSerializable {
+  def toResponse: User.Response = this.into[User.Response].withFieldComputed(_.joined, _ => id.created).transform
+  def remove(): Unit = User.remove(id)
+}
+
+object User extends SQLSyntaxSupport[User] {
+
+  override val tableName = "users"
+  implicit val session: DBSession = AutoSession
+
+  private val u = User.syntax("u")
+  private val cols = User.column
 
   private val cfg: Config = ConfigFactory.defaultApplication()
   private val expire: TemporalAmount = cfg.getTemporal("spikes.token.expires")
@@ -36,6 +48,46 @@ object User {
   type ReplyAnyTo = ActorRef[StatusReply[Any]]
 
   def name(id: UserId, email: String): String = s"user-$id-$email"
+
+  def apply(rs: WrappedResultSet): User = new User(
+    TSID.from(rs.long("id")),
+    rs.string("name"),
+    rs.string("email"),
+    rs.string("password"),
+    rs.localDate("born"),
+    rs.stringOpt("bio")
+  )
+  def apply(uc: User.Created): User = new User(uc.id, uc.name, uc.email, uc.password, uc.born, uc.bio)
+
+  def save(uc: User.Created): User = {
+    withSQL(insert.into(User).namedValues(
+      cols.id -> uc.id,
+      cols.name -> uc.name,
+      cols.email -> uc.email,
+      cols.password -> uc.password,
+      cols.born -> uc.born,
+      cols.bio -> uc.bio)).update.apply()
+    User(uc)
+  }
+  def save(uu: User.Updated): Option[Int] = find(uu.id).map(us =>
+    withSQL(update(User).set(
+      cols.name -> uu.name.getOrElse(us.name),
+      cols.password -> uu.password.getOrElse(us.password),
+      cols.born -> uu.born.getOrElse(us.born),
+      cols.bio -> uu.bio
+    ).where.eq(cols.id, uu.id)).update.apply()
+  )
+
+  def find(id: UserId): Option[User] = withSQL(select.from(User as u).where.eq(cols.id, id)).map(User(_)).single.apply()
+  def exists(id: UserId): Boolean = find(id).isDefined
+  def find(email: String): Option[User] = withSQL(select.from(User as u).where.eq(cols.email, email)).map(User(_)).single.apply()
+  def exists(e: String, p: String): Boolean = withSQL(select.from(User as u).where.eq(cols.email, e).and.eq(cols.password, p)).map(User(_)).single.apply().isDefined
+  def list(limit: Int = 10, offset: Int = 0): List[User] = withSQL(select.from(User as u).limit(limit).offset(offset)).map(User(_)).list.apply()
+  def size: Int = withSQL(select(count(distinct(cols.id))).from(User as u)).map(_.int(1)).single.apply().getOrElse(0)
+
+  def remove(id: UserId): Unit = withSQL(delete.from(User as u).where.eq(cols.id, id)).update.apply()
+  def removeAll(): Unit = withSQL(delete.from(User)).update.apply()
+
 
   final case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
     override def validated: Set[ErrorInfo] = Set(validate("name", name), validate("email", email), validate("password", password), validate("born", born)).flatten
@@ -64,31 +116,20 @@ object User {
   final case class Logout(token: String, replyTo: ReplyAnyTo) extends Command
 
 
-  final case class Created(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends Event
-  final case class Updated(id: UserId, name: Option[String], password: Option[String], born: Option[LocalDate], bio: Option[String]) extends Event
+  final case class Created(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String]) extends Event {
+    def save: User = User.save(this)
+  }
+  final case class Updated(id: UserId, name: Option[String], password: Option[String], born: Option[LocalDate], bio: Option[String]) extends Event {
+    def save: Boolean = User.save(this).isDefined
+  }
   final case class Removed(id: UserId) extends Event
   final case class LoggedIn(id: UserId, expires: LocalDateTime) extends Event
   final case class LoggedOut(id: UserId) extends Event
 
 
-  final case class State(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None, notes: Int = 0) extends StateT with Entity
-  object State extends SQLSyntaxSupport[User.State] {
-    override val tableName = "users"
-
-    def apply(rs: WrappedResultSet): User.State = new User.State(
-      TSID.from(rs.long("id")),
-      rs.string("name"),
-      rs.string("email"),
-      rs.string("password"),
-      rs.localDate("born"),
-      rs.stringOpt("bio")
-    )
-    def apply(uc: User.Created): User.State = new User.State(uc.id, uc.name, uc.email, uc.password, uc.born, uc.bio)
-  }
-
   final case class Response(id: UserId, name: String, email: String, joined: LocalDateTime, born: LocalDate, bio: Option[String], notes: Int = 0) extends ResponseT
   object Response {
-    def apply(state: User.State): Response = state.into[Response]
+    def apply(state: User): Response = state.into[Response]
       .enableDefaultValues
       .withFieldComputed(_.joined, _.id.created)
       .transform
@@ -99,19 +140,19 @@ object User {
   }
 
 
-  def apply(state: User.State): Behavior[Command] = Behaviors.setup { ctx =>
+  def apply(state: User): Behavior[Command] = Behaviors.setup { ctx =>
     val pid: PersistenceId = PersistenceId("user", state.id.toString)
     implicit val ec: ExecutionContext = ctx.executionContext
 
     ctx.system.receptionist.tell(Receptionist.Register(User.key, ctx.self))
 
-    val commandHandler: (User.State, Command) => ReplyEffect[Event, User.State] = (state, cmd) => cmd match {
+    val commandHandler: (User, Command) => ReplyEffect[Event, User] = (state, cmd) => cmd match {
         case uc: User.Create => Effect.persist(uc.asEvent).thenReply(uc.replyTo)(upstate => StatusReply.success(Response(upstate)))
         case uu: User.Update => Effect.persist(uu.asEvent).thenReply(uu.replyTo)(upstate => StatusReply.success(Response(upstate)))
         case ur: User.Remove => Effect.persist(ur.asEvent).thenReply(ur.replyTo)(_ => StatusReply.success(Response(state)))
 
         case ul: User.Login =>
-          if (User.Repository.exists(ul.email, ul.password)) {
+          if (User.exists(ul.email, ul.password)) {
             Effect.persist(User.LoggedIn(state.id, now.plus(expire))).thenReply(ul.replyTo) { _ =>
               Session.find(state.id) match {
                 case Some(session) => StatusReply.success(session.asOAuthToken)
@@ -126,81 +167,44 @@ object User {
           case None => Effect.reply(ul.replyTo)(StatusReply.error("No Session"))
         }
 
-        case nc: Note.Create => Note.Repository.find(nc.slug) match {
+        case nc: Note.Create => Note.find(nc.slug) match {
           case Some(_) => Effect.reply(nc.replyTo)(StatusReply.error(s"Note with slug ${nc.slug} already exists"))
           case None    => Effect.persist(nc.asEvent).thenReply(nc.replyTo)(_ => StatusReply.success(nc.asResponse))
         }
-        case nr: Note.Remove => Note.Repository.find(nr.id, nr.owner) match {
-          case Some(_) => Effect.persist(nr.asEvent).thenRun((_: State) => lookup(nr.id, Note.key, ctx).map(_.foreach(_.tell(nr)))).thenNoReply()
+        case nr: Note.Remove => Note.find(nr.id, nr.owner) match {
+          case Some(_) => Effect.persist(nr.asEvent).thenRun((_: User) => lookup(nr.id, Note.key, ctx).map(_.foreach(_.tell(nr)))).thenNoReply()
           case None    => Effect.reply(nr.replyTo)(StatusReply.error(s"Note ${nr.id} could not be deleted"))
         }
       }
 
-    val eventHandler: (User.State, Event) => User.State = (state, evt) => evt match {
-        case uc: User.Created => User.State(uc)
-        case uu: User.Updated => User.Repository.save(uu).filter(_ > 0).flatMap(_ => User.Repository.find(uu.id)).getOrElse(state)
+    val eventHandler: (User, Event) => User = (state, evt) => evt match {
+        case uc: User.Created => User(uc)
+        case uu: User.Updated => User.save(uu).filter(_ > 0).flatMap(_ => User.find(uu.id)).getOrElse(state)
         case _: User.Removed =>
           ctx.system.receptionist.tell(Receptionist.Deregister(User.key, ctx.self))
           state
         case ul: User.LoggedIn  =>
-          User.Repository.find(ul.id).foreach(us => Session.save(us, ul.expires))
+          User.find(ul.id).foreach(us => Session.save(us, ul.expires))
           state
         case uo: User.LoggedOut =>
           Session.remove(uo.id)
           state
         case nc: Note.Created =>
-          ctx.spawn(Note(Note.Repository.save(nc)), Note.name(state.id, nc.id, nc.slug))
+          ctx.spawn(Note(Note.save(nc)), Note.name(state.id, nc.id, nc.slug))
           state.copy(notes = state.notes + 1)
         case nr: Note.Removed =>
           lookup(nr.id, Note.key, ctx).map(_.foreach(ctx.stop(_)))
-          Note.Repository.remove(nr.id)
+          Note.remove(nr.id)
           state.copy(notes = state.notes -1)
       }
 
-    EventSourcedBehavior.withEnforcedReplies[Command, Event, User.State](pid, state, commandHandler, eventHandler)
+    EventSourcedBehavior.withEnforcedReplies[Command, Event, User](pid, state, commandHandler, eventHandler)
       .onPersistFailure(SupervisorStrategy.restartWithBackoff(200.millis, 5.seconds, 0.1))
       .withRetention(RetentionCriteria.snapshotEvery(numberOfEvents = 100, keepNSnapshots = 2))
       .withTagger(_ => Set(User.tag))
       .receiveSignal {
         case (_, rf: RecoveryFailed) => ctx.log.error(s"recovery failed for user ${pid.id}", rf.failure)
-        case (_, sf: SnapshotFailed) => ctx.log.error(s"snapshot failed for user ${pid.id}", sf.failure)
       }
-  }
-
-  object Repository {
-    implicit val session: DBSession = AutoSession
-
-    private val u = User.State.syntax("u")
-    private val cols = User.State.column
-
-    def save(uc: User.Created): User.State = {
-      withSQL(insert.into(User.State).namedValues(
-        cols.id -> uc.id,
-        cols.name -> uc.name,
-        cols.email -> uc.email,
-        cols.password -> uc.password,
-        cols.born -> uc.born,
-        cols.bio -> uc.bio)).update.apply()
-      User.State(uc)
-    }
-    def save(uu: User.Updated): Option[Int] = find(uu.id).map(us =>
-      withSQL(update(User.State).set(
-        cols.name -> uu.name.getOrElse(us.name),
-        cols.password -> uu.password.getOrElse(us.password),
-        cols.born -> uu.born.getOrElse(us.born),
-        cols.bio -> uu.bio
-      ).where.eq(cols.id, uu.id)).update.apply()
-    )
-
-    def find(id: UserId): Option[State] = withSQL(select.from(State as u).where.eq(cols.id, id)).map(rs => State(rs)).single.apply()
-    def exists(id: UserId): Boolean = find(id).isDefined
-    def find(email: String): Option[State] = withSQL(select.from(State as u).where.eq(cols.email, email)).map(rs => State(rs)).single.apply()
-    def exists(e: String, p: String): Boolean = withSQL(select.from(State as u).where.eq(cols.email, e).and.eq(cols.password, p)).map(State(_)).single.apply().isDefined
-    def list(limit: Int = 10, offset: Int = 0): List[User.State] = withSQL(select.from(State as u).limit(limit).offset(offset)).map(State(_)).list.apply()
-    def size(): Int = withSQL(select(count(distinct(cols.id))).from(State as u)).map(_.int(1)).single.apply().getOrElse(0)
-
-    def remove(id: UserId): Unit = withSQL(delete.from(State as u).where.eq(cols.id, id)).update.apply()
-    def removeAll(): Unit = withSQL(delete.from(User.State)).update.apply()
   }
 
   val ddl: Seq[SQLExecution] = Seq(

@@ -17,15 +17,15 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   implicit val session: DBSession = Spikes.init
 
   private val uc = User.Created(next, "Test", "test@miruvor.nl", hash("Welkom123!"), today.minusYears(23), None)
-  private val user: User.State = User.Repository.save(uc)
-  private val esbtkUser = EventSourcedBehaviorTestKit[Command, Event, User.State](system, User(user))
+  private val user: User = User.save(uc)
+  private val esbtkUser = EventSourcedBehaviorTestKit[Command, Event, User](system, User(user))
   private val noteId: NoteId = next
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     esbtkUser.clear()
-    if (User.Repository.find(uc.id).isEmpty) {
-      User.Repository.save(uc)
+    if (User.find(uc.id).isEmpty) {
+      User.save(uc)
     }
   }
 
@@ -36,19 +36,19 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       )
       r1.reply.isSuccess should be (true)
 
-      var onote = Note.Repository.find(noteId)
+      var onote = Note.find(noteId)
       onote should not be empty
       var note = onote.get
       note.title should be ("test-title")
       note.id should be (noteId)
 
-      val esbtkNote = EventSourcedBehaviorTestKit[Command, Event, Note.State](system, Note(onote.get))
+      val esbtkNote = EventSourcedBehaviorTestKit[Command, Event, Note](system, Note(onote.get))
       val r2 = esbtkNote.runCommand[StatusReply[Note.Response]](
         replyTo => Note.Update(noteId, user.id, "updated", "updated body", "updated-slug", note.due, note.status, note.access, replyTo)
       )
       r2.reply.isSuccess should be (true)
 
-      onote = Note.Repository.find(noteId)
+      onote = Note.find(noteId)
       onote should not be empty
       note = onote.get
       note.title should be ("updated")
@@ -64,7 +64,7 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
   override def afterAll(): Unit = {
     super.afterAll()
-    Note.Repository.removeAll()
-    User.Repository.removeAll()
+    Note.removeAll()
+    User.removeAll()
   }
 }

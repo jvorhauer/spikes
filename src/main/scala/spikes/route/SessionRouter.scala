@@ -13,7 +13,7 @@ final class SessionRouter(implicit system: ActorSystem[?]) extends Router {
 
   val route: Route = pathPrefix("sessions") {
     (get & pathEndOrSingleSlash) {
-      complete(OK, Session.list().map(Session.Response(_)).asJson)
+      complete(OK, Session.list.map(Session.Response(_)).asJson)
     }
   }
 }

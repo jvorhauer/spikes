@@ -11,17 +11,17 @@ class CommentRepositorySpec extends Specification {
 
   "Comment Repository" should {
     "list by note id" in new AutoRollback {
-      val comments = Comment.Repository.onNote(next)
+      val comments = Comment.onNote(next)
       comments.size must beEqualTo(0)
     }
 
     "save and list a new Comment" in new AutoRollback {
       val cc = Comment.Created(next, next, next, None, "title", "body", None, 3)
-      val r1 = Comment.Repository.save(cc)
+      val r1 = cc.save
       r1.title must beEqualTo ("title")
 
-      Comment.Repository.onNote(cc.noteId) must haveSize (1)
-      Comment.Repository.byWriter(cc.writer) must haveSize (1)
+      Comment.onNote(cc.noteId) must haveSize (1)
+      Comment.byWriter(cc.writer) must haveSize (1)
     }
   }
 }

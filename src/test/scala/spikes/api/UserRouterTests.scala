@@ -155,7 +155,13 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
     }
   }
 
+  "Route Tags" should "create a new Tag" in {
+    Tag.Post("test tag", "BBDB9B")  // color is Granny Smith Apple :-)
+    Post("/tags")
+
+  }
+
 
   override def afterAll(): Unit = testKit.shutdownTestKit()
-  override def beforeEach(): Unit = User.Repository.removeAll()
+  override def beforeEach(): Unit = User.removeAll()
 }

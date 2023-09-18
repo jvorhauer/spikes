@@ -24,10 +24,6 @@ package object model {
 
   trait Command extends SpikeSerializable
 
-  trait Entity extends SpikeSerializable {
-    def id: SPID
-  }
-
   trait Event extends SpikeSerializable {
     def id: SPID
   }

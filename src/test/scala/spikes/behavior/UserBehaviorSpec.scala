@@ -16,21 +16,21 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   implicit val session: DBSession = Spikes.init
 
   private val uc = User.Created(next, "Test", "test@miruvor.nl", hash("Welkom123!"), today.minusYears(23), None)
-  private val user: User.State = User.Repository.save(uc)
-  private val esbtkUser = EventSourcedBehaviorTestKit[Command, Event, User.State](system, User(user))
+  private val user: User = User.save(uc)
+  private val esbtkUser = EventSourcedBehaviorTestKit[Command, Event, User](system, User(user))
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
     esbtkUser.clear()
-    if (User.Repository.find(uc.id).isEmpty) {
-      User.Repository.save(uc)
+    if (User.find(uc.id).isEmpty) {
+      User.save(uc)
     }
   }
 
   "A User" should {
 
     "have been created" in {
-      val r1 = User.Repository.find(user.id)
+      val r1 = User.find(user.id)
       r1 should not be empty
     }
 
@@ -43,7 +43,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
         User.Response(user.id, "Updated", "test@miruvor.nl", user.id.created, today.minusYears(32), Some("bio"))
       )
 
-      val r3 = User.Repository.find(user.id)
+      val r3 = User.find(user.id)
       r3 should not be empty
       r3.get.id should be (user.id)
       r3.get.name should be ("Updated")
@@ -100,10 +100,10 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       res1.reply.getValue.slug should endWith("my-first-test-title")
       val id = res1.reply.getValue.id
 
-      val ns = Note.Repository.find(id)
+      val ns = Note.find(id)
       ns should not be empty
 
-      val nso = Note.Repository.find(id, uc.id)
+      val nso = Note.find(id, uc.id)
       nso should not be empty
 
       val nr = esbtkUser.runCommand[StatusReply[Note.Response]](
@@ -114,7 +114,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
     "not add a Note twice" in {
 
-      Note.Repository.removeAll()
+      Note.removeAll()
 
       val noteId = next
       val title = "my first test title"
@@ -130,7 +130,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       )
       res2.reply.isSuccess should be(false)
 
-      val res3 = Note.Repository.find(noteId)
+      val res3 = Note.find(noteId)
       res3 should not be empty
     }
   }
@@ -138,7 +138,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   override def afterAll(): Unit = {
     super.afterAll()
     system.terminate()
-    Note.Repository.removeAll()
-    User.Repository.removeAll()
+    Note.removeAll()
+    User.removeAll()
   }
 }

@@ -13,7 +13,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import scalikejdbc.{AutoSession, DBSession}
 import spikes.behavior.SessionReaper.{Reap, Reaped}
 import spikes.build.BuildInfo
-import spikes.model.{Command, Event, Note, SPID, Session, SpikeSerializable, User, next}
+import spikes.model.{Command, Event, Note, SPID, Session, SpikeSerializable, Tag, User, next}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
@@ -37,24 +37,37 @@ object Manager {
   def lookup(id: SPID, key: ServiceKey[Command], ctx: ActorContext[Command]): LookupResult = lookup(id.toString, key)(ctx.system)
 
 
-  def apply(state: Manager.State = Manager.State(0)): Behavior[Command] = Behaviors.setup { ctx =>
+  def apply(state: Manager.State = Manager.State(0, 0)): Behavior[Command] = Behaviors.setup { ctx =>
     var recovered: Boolean = false
 
     val commandHandler: (Manager.State, Command) => Effect[Event, Manager.State] = (_, cmd) => cmd match {
-      case uc: User.Create => User.Repository.find(uc.email) match {
+      case uc: User.Create => User.find(uc.email) match {
         case Some(_) => Effect.reply(uc.replyTo)(StatusReply.error(s"email ${uc.email} already in use"))
         case None    => Effect.persist(uc.asEvent).thenRun(_ => lookup(uc.id, ctx).map(_.foreach(_.tell(uc))))
       }
-      case ur: User.Remove => User.Repository.find(ur.id) match {
+      case ur: User.Remove => User.find(ur.id) match {
         case Some(_) => Effect.persist(ur.asEvent).thenRun(_ => lookup(ur.id, ctx).map(_.foreach(_.tell(ur))))
         case None    => Effect.reply(ur.replyTo)(StatusReply.error(s"user with id ${ur.id} not found"))
+      }
+
+      case tc: Tag.Create => Tag.find(tc.title) match {
+        case Some(_) => Effect.reply(tc.replyTo)(StatusReply.error(s"tag with title ${tc.title} already exists"))
+        case None => Effect.persist(tc.toEvent).thenReply(tc.replyTo)(_ => StatusReply.success(tc.toResponse))
+      }
+      case tu: Tag.Update => Tag.find(tu.id) match {
+        case Some(_) => Effect.persist(tu.toEvent).thenReply(tu.replyTo)(_ => StatusReply.success(tu.toResponse))
+        case None => Effect.reply(tu.replyTo)(StatusReply.error(s"tag with id ${tu.id} not found, so not updated"))
+      }
+      case tr: Tag.Remove => Tag.find(tr.id) match {
+        case Some(t) => Effect.persist(tr.toEvent).thenReply(tr.replyTo)(_ => StatusReply.success(t.toResponse))
+        case None => Effect.reply(tr.replyTo)(StatusReply.error(s"tag with id ${tr.id} not found, so not deleted"))
       }
 
       case GetInfo(replyTo) => Effect.reply(replyTo)(StatusReply.success(Info(recovered)))
       case IsReady(replyTo) => Effect.reply(replyTo)(StatusReply.success(recovered))
       case Check(replyTo)   => Effect.reply(replyTo)(StatusReply.success(Checked(check(ctx.system))))
 
-      case Reap(replyTo)    => Session.expired() match {
+      case Reap(replyTo)    => Session.expired match {
         case 0     => Effect.reply(replyTo)(SessionReaper.Done)
         case count =>
           ctx.log.info(s"Reap: $count")
@@ -64,12 +77,23 @@ object Manager {
 
     val eventHandler: (Manager.State, Event) => Manager.State = (state, evt) => evt match {
       case uc: User.Created =>
-        ctx.spawn(User(User.Repository.save(uc)), User.name(uc.id, uc.email))
+        ctx.spawn(User(User.save(uc)), User.name(uc.id, uc.email))
         state.copy(users = state.users + 1)
       case ur: User.Removed =>
         lookup(ur.id, ctx).map(_.foreach(ctx.stop(_)))
-        User.Repository.remove(ur.id)
+        User.remove(ur.id)
         state.copy(users = state.users - 1)
+
+      case tc: Tag.Created =>
+        tc.save
+        state.copy(tags = state.tags + 1)
+      case tu: Tag.Updated =>
+        tu.save
+        state
+      case tr: Tag.Removed =>
+        Tag.remove(tr.id)
+        state.copy(tags = state.tags - 1)
+
       case _: Reaped =>
         Session.reap()
         state
@@ -89,11 +113,11 @@ object Manager {
   }
 
   def check(implicit system: ActorSystem[Nothing]): Boolean = {
-    User.Repository.list(limit = Int.MaxValue).forall(us => Await.result(lookup(us.id.toString, User.key), 100.millis).isDefined) &&
-    Note.Repository.list(limit = Int.MaxValue).forall(ns => Await.result(lookup(ns.id.toString, Note.key), 100.millis).isDefined)
+    User.list(limit = Int.MaxValue).forall(us => Await.result(lookup(us.id.toString, User.key), 100.millis).isDefined) &&
+    Note.list(limit = Int.MaxValue).forall(ns => Await.result(lookup(ns.id.toString, Note.key), 100.millis).isDefined)
   }
 
-  final case class State(users: Int) extends SpikeSerializable
+  final case class State(users: Int, tags: Int) extends SpikeSerializable
 
   final case class Check  (replyTo: ActorRef[StatusReply[Checked]]) extends Command
   final case class GetInfo(replyTo: ActorRef[StatusReply[Info]])    extends Command
@@ -101,9 +125,10 @@ object Manager {
 
   final case class Info(
       recovered: Boolean,
-      users   : Int    = User.Repository.size(),
-      notes   : Int    = Note.Repository.size(),
-      sessions: Int    = Session.size(),
+      users   : Int    = User.size,
+      notes   : Int    = Note.size,
+      sessions: Int    = Session.size,
+      tags    : Int    = 0,
       version : String = BuildInfo.version,
       built   : String = BuildInfo.buildTime,
       persistenceId: String = Manager.pid.id

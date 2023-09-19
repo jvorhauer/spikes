@@ -19,14 +19,6 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   private val user: User = User.save(uc)
   private val esbtkUser = EventSourcedBehaviorTestKit[Command, Event, User](system, User(user))
 
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
-    esbtkUser.clear()
-    if (User.find(uc.id).isEmpty) {
-      User.save(uc)
-    }
-  }
-
   "A User" should {
 
     "have been created" in {
@@ -113,9 +105,6 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
     }
 
     "not add a Note twice" in {
-
-      Note.removeAll()
-
       val noteId = next
       val title = "my first test title"
       val res1 = esbtkUser.runCommand[StatusReply[Note.Response]](
@@ -135,10 +124,18 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
     }
   }
 
+  override protected def beforeEach(): Unit = {
+    esbtkUser.clear()
+    Note.list(Int.MaxValue).foreach(_.remove())
+    if (User.find(uc.id).isEmpty) {
+      User.save(uc)
+    }
+  }
+
   override def afterAll(): Unit = {
     super.afterAll()
     system.terminate()
-    Note.removeAll()
-    User.removeAll()
+    Note.list(Int.MaxValue).foreach(_.remove())
+    User.list(Int.MaxValue).foreach(_.remove())
   }
 }

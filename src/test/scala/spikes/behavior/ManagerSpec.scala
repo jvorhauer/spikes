@@ -7,7 +7,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
 import spikes.build.BuildInfo
-import spikes.model.{Command, Event, RichTSID, Tag, User, next, today}
+import spikes.model.{Command, Event, RichTSID, Session, Tag, User, next, now, today}
 import spikes.{Spikes, SpikesConfig}
 
 
@@ -19,8 +19,8 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
 
   override protected def beforeEach(): Unit = {
     super.beforeEach()
+    gc()
     esbtkManager.clear()
-    User.removeAll()
   }
 
   "The Manager" should {
@@ -94,6 +94,9 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
     }
 
     "CUD a tag" in {
+
+      val start = Tag.size
+
       val id = next
       val res1 = esbtkManager.runCommand[StatusReply[Tag.Response]](
         replyTo => Tag.Create(id, "test title", "FF00FF", replyTo)
@@ -112,6 +115,17 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
       updated.id should be (id)
       updated.title should be ("other title")
       updated.color should be ("00FF00")
+
+      val res3 = esbtkManager.runCommand[StatusReply[Tag.Response]](
+        replyTo => Tag.Remove(id, replyTo)
+      )
+      res3.reply.isSuccess should be (true)
+      val deleted = res3.reply.getValue
+      deleted.id should be (id)
+      deleted.title should be ("other title")
+      deleted.color should be ("00FF00")
+
+      Tag.size should be (start)
     }
 
     "Reap Sessions" in {
@@ -119,12 +133,26 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
         replyTo => SessionReaper.Reap(replyTo)
       )
       res1.reply should be (SessionReaper.Done)
+
+      val user = User(next, "session test name", "test@test.er", "Welkom123!", today.minusYears(33), None)
+      Session.save(user, now.minusSeconds(1))
+      val res2 = esbtkManager.runCommand[Command](
+        replyTo => SessionReaper.Reap(replyTo)
+      )
+      res2.reply should be (SessionReaper.Done)
+      Session.size should be (0)
     }
   }
 
   override def afterAll(): Unit = {
     super.afterAll()
     system.terminate()
-    User.removeAll()
+    gc()
+  }
+
+  private def gc() = {
+    User.list(Int.MaxValue).foreach(_.remove())
+    Tag.list.foreach(_.remove())
+    Session.list.foreach(_.remove())
   }
 }

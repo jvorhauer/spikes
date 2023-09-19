@@ -94,7 +94,6 @@ object Note extends SQLSyntaxSupport[Note] {
   def size: Int = withSQL(select(distinct(count(cols.id))).from(Note as n)).map(_.int(1)).single.apply().getOrElse(0)
 
   def remove(id: NoteId): Boolean = withSQL(delete.from(Note).where.eq(cols.id, id)).update.apply() === 1
-  def removeAll(): Unit = withSQL(delete.from(Note)).update.apply()
 
 
   final case class Post(title: String, body: String, due: LocalDateTime, status: Status = Status.New, access: Access = Access.Public) extends Request {

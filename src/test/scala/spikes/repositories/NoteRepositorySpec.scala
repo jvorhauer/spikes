@@ -1,6 +1,6 @@
 package spikes.repositories
 
-import org.scalatest.BeforeAndAfterEach
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
@@ -8,7 +8,7 @@ import spikes.Spikes
 import spikes.model.{Access, Note, Status, next, now, today}
 
 
-class NoteRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAfterEach {
+class NoteRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAfterEach with BeforeAndAfterAll {
 
   private val prefix = s"${today.getYear}${today.getMonthValue}${today.getDayOfMonth}"
 
@@ -39,5 +39,6 @@ class NoteRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAft
     }
   }
 
-  override def beforeEach(): Unit = Note.removeAll()
+  override def beforeEach(): Unit = Note.list(Int.MaxValue).foreach(_.remove())
+  override def afterAll(): Unit = beforeEach()
 }

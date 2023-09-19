@@ -1,6 +1,6 @@
 package spikes.repositories
 
-import org.scalatest.BeforeAndAfterEach
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import scalikejdbc.DBSession
@@ -9,12 +9,12 @@ import spikes.model.Note.makeslug
 import spikes.model.{Access, Note, Status, User, next, now, today}
 
 
-class UserRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAfterEach {
+class UserRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAfterEach with BeforeAndAfterAll {
 
   implicit val session: DBSession = Spikes.init
 
   override def beforeEach(): Unit = {
-    User.removeAll()
+    User.list(Int.MaxValue).foreach(_.remove())
   }
 
   "A User Repository" should {
@@ -69,5 +69,9 @@ class UserRepositorySpec extends AnyWordSpecLike with Matchers with BeforeAndAft
       r4 should not be empty
       r4.get.id should be (r2.owner)
     }
+  }
+
+  override def afterAll(): Unit = {
+    User.list(Int.MaxValue).foreach(_.remove())
   }
 }

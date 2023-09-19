@@ -139,11 +139,15 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
   }
 
   override def afterAll(): Unit = {
-    Session.removeAll()
-    Note.removeAll()
-    User.removeAll()
+    gc()
     testKit.shutdownTestKit()
   }
 
-  override def beforeEach(): Unit = User.removeAll()
+  override def beforeEach(): Unit = gc()
+
+  private def gc(): Unit = {
+    Session.list.foreach(_.remove())
+    Note.list(Int.MaxValue).foreach(_.remove())
+    User.list(Int.MaxValue).foreach(_.remove())
+  }
 }

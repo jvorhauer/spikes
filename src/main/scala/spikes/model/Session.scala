@@ -10,6 +10,7 @@ import java.time.LocalDateTime
 final case class Session(id: UserId, token: String, expires: LocalDateTime) extends SpikeSerializable {
   lazy val asOAuthToken: OAuthToken = OAuthToken(token, id)
   def isValid(t: String): Boolean = token.contentEquals(t) && expires.isAfter(now)
+  def remove(): Unit = Session.remove(id)
 }
 
 object Session extends SQLSyntaxSupport[Session] {
@@ -38,7 +39,6 @@ object Session extends SQLSyntaxSupport[Session] {
   def expired: Int = withSQL(select(count(distinct(cols.id))).from(Session as s).where.lt(cols.expires, now)).map(_.int(1)).single.apply().getOrElse(0)
   def reap(): Unit = withSQL(delete.from(Session as s).where.lt(cols.expires, now)).update.apply()
   def reapable: List[Session] = withSQL(select.from(Session as s).where.lt(cols.expires, now)).map(Session(_)).list.apply()
-  def removeAll(): Unit = withSQL(delete.from(Session as s)).update.apply()
 
   def apply(rs: WrappedResultSet): Session = new Session(TSID.from(rs.long("id")), rs.string("token"), rs.localDateTime("expires"))
 

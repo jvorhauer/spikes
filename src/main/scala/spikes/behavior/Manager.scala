@@ -127,7 +127,7 @@ object Manager {
       users   : Int    = User.size,
       notes   : Int    = Note.size,
       sessions: Int    = Session.size,
-      tags    : Int    = 0,
+      tags    : Int    = Tag.size,
       version : String = BuildInfo.version,
       built   : String = BuildInfo.buildTime,
       persistenceId: String = Manager.pid.id

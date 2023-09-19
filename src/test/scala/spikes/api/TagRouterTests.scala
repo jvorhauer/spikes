@@ -71,9 +71,15 @@ class TagRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRout
     }
   }
 
-  override def afterEach(): Unit = {
-    Session.removeAll()
-    User.removeAll()
+  override def beforeEach(): Unit = gc()
+  override def afterAll(): Unit = {
+    testKit.shutdownTestKit()
+    gc()
   }
-  override def afterAll(): Unit = testKit.shutdownTestKit()
+
+  private def gc(): Unit = {
+    Session.list.foreach(s => s.remove())
+    User.list(limit = Int.MaxValue).foreach(u => u.remove())
+    Tag.list.foreach(tag => tag.remove())
+  }
 }

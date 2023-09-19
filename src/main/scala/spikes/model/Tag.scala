@@ -5,6 +5,7 @@ import akka.pattern.StatusReply
 import io.hypersistence.tsid.TSID
 import io.scalaland.chimney.dsl.TransformerOps
 import scalikejdbc.*
+import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.model.Tag.TagID
 import spikes.validate.Validation.{ErrorInfo, validate}
 
@@ -34,6 +35,7 @@ object Tag extends SQLSyntaxSupport[Tag] {
   def find(id: TagID): Option[Tag] = withSQL(select.from(Tag as t).where.eq(cols.id, id)).map(Tag(_)).single.apply()
   def find(title: String): Option[Tag] = withSQL(select.from(Tag as t).where.eq(cols.title, title)).map(Tag(_)).single.apply()
   def list: List[Tag] = withSQL(select.from(Tag as t)).map(Tag(_)).list.apply()
+  def size: Int = withSQL(select(count(distinct(cols.id))).from(Tag as t)).map(_.int(1)).single.apply().getOrElse(0)
 
   def remove(id: TagID): Unit = withSQL(delete.from(Tag).where.eq(cols.id, id)).update.apply()
 

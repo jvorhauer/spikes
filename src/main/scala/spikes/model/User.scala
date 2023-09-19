@@ -82,11 +82,11 @@ object User extends SQLSyntaxSupport[User] {
   def exists(id: UserId): Boolean = find(id).isDefined
   def find(email: String): Option[User] = withSQL(select.from(User as u).where.eq(cols.email, email)).map(User(_)).single.apply()
   def exists(e: String, p: String): Boolean = withSQL(select.from(User as u).where.eq(cols.email, e).and.eq(cols.password, p)).map(User(_)).single.apply().isDefined
+
   def list(limit: Int = 10, offset: Int = 0): List[User] = withSQL(select.from(User as u).limit(limit).offset(offset)).map(User(_)).list.apply()
   def size: Int = withSQL(select(count(distinct(cols.id))).from(User as u)).map(_.int(1)).single.apply().getOrElse(0)
 
   def remove(id: UserId): Unit = withSQL(delete.from(User as u).where.eq(cols.id, id)).update.apply()
-  def removeAll(): Unit = withSQL(delete.from(User)).update.apply()
 
 
   final case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {

@@ -21,14 +21,6 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   private val esbtkUser = EventSourcedBehaviorTestKit[Command, Event, User](system, User(user))
   private val noteId: NoteId = next
 
-  override protected def beforeEach(): Unit = {
-    super.beforeEach()
-    esbtkUser.clear()
-    if (User.find(uc.id).isEmpty) {
-      User.save(uc)
-    }
-  }
-
   "A User" should {
     "be able to create a Note" in {
       val r1 = esbtkUser.runCommand[StatusReply[Note.Response]](
@@ -64,7 +56,16 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
   override def afterAll(): Unit = {
     super.afterAll()
-    Note.removeAll()
-    User.removeAll()
+    Note.list(Int.MaxValue).foreach(_.remove())
+    User.list(Int.MaxValue).foreach(_.remove())
+  }
+
+  override protected def beforeEach(): Unit = {
+    super.beforeEach()
+    Note.list(Int.MaxValue).foreach(_.remove())
+    esbtkUser.clear()
+    if (User.find(uc.id).isEmpty) {
+      User.save(uc)
+    }
   }
 }

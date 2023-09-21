@@ -12,7 +12,7 @@ ThisBuild / Test / logBuffered := false
 ThisBuild / Test / parallelExecution := false
 
 val versions = new {
-  val akka = "2.8.4"
+  val akka = "2.8.5"
   val http = "10.5.2"
   val kamon = "2.6.3"
   val scalaTest = "3.2.17"

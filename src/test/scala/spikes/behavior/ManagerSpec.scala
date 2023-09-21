@@ -14,7 +14,6 @@ import spikes.{Spikes, SpikesConfig}
 class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with AnyWordSpecLike with BeforeAndAfterEach {
 
   implicit val session: DBSession = Spikes.init
-
   private val esbtkManager = EventSourcedBehaviorTestKit[Command, Event, Manager.State](system, Manager())
 
   override protected def beforeEach(): Unit = {
@@ -27,20 +26,16 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
     "add a User" in {
       val id = next
       val res1 = esbtkManager.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, replyTo)
+        User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, _)
       )
       res1.reply.isSuccess should be (true)
       res1.reply.getValue should ===(
         User.Response(id, "Test", "test@miruvor.nl", id.created, today.minusYears(21), None)
       )
 
-      val res2 = esbtkManager.runCommand[StatusReply[Manager.Info]](
-        replyTo => Manager.GetInfo(replyTo)
-      )
+      val res2 = esbtkManager.runCommand[StatusReply[Manager.Info]](Manager.GetInfo)
       res2.reply.isSuccess should be(true)
-      res2.reply.getValue should ===(
-        Manager.Info(recovered = true, users = 1, notes = 0, sessions = 0)
-      )
+      res2.reply.getValue should ===(Manager.Info(recovered = true, users = 1, notes = 0, sessions = 0))
 
       val r3 = User.find(id)
       r3 should not be empty
@@ -51,11 +46,11 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
     "reject already added user" in {
       val id = next
       val res1 = esbtkManager.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, replyTo)
+        User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, _)
       )
       res1.reply.isSuccess should be(true)
       val res2 = esbtkManager.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Other", "test@miruvor.nl", "Welkom123!", today.minusYears(32), Some("Hello"), replyTo)
+        User.Create(id, "Other", "test@miruvor.nl", "Welkom123!", today.minusYears(32), Some("Hello"), _)
       )
       res2.reply.isSuccess should be(false)
     }
@@ -63,7 +58,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
     "delete a user" in {
       val id = next
       val res1 = esbtkManager.runCommand[StatusReply[User.Response]](
-        replyTo => User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, replyTo)
+        User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, _)
       )
       res1.reply.isSuccess should be(true)
       val res2 = esbtkManager.runCommand[StatusReply[User.Response]](
@@ -74,9 +69,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
         User.Response(id, "Test", "test@miruvor.nl", id.created, today.minusYears(21), None)
       )
 
-      val res3 = esbtkManager.runCommand[StatusReply[Manager.Info]](
-        replyTo => Manager.GetInfo(replyTo)
-      )
+      val res3 = esbtkManager.runCommand[StatusReply[Manager.Info]](Manager.GetInfo)
       res3.reply.isSuccess should be(true)
       val info = res3.reply.getValue
       info.users should be (0)
@@ -86,9 +79,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
     }
 
     "provide readiness" in {
-      val res1 = esbtkManager.runCommand[StatusReply[Boolean]](
-        replyTo => Manager.IsReady(replyTo)
-      )
+      val res1 = esbtkManager.runCommand[StatusReply[Boolean]](Manager.IsReady)
       res1.reply.isSuccess should be (true)
       res1.reply.getValue should be (true)
     }
@@ -98,27 +89,21 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
       val start = Tag.size
 
       val id = next
-      val res1 = esbtkManager.runCommand[StatusReply[Tag.Response]](
-        replyTo => Tag.Create(id, "test title", "FF00FF", replyTo)
-      )
+      val res1 = esbtkManager.runCommand[StatusReply[Tag.Response]](Tag.Create(id, "test title", "FF00FF", _))
       res1.reply.isSuccess should be(true)
       val created = res1.reply.getValue
       created.id should be (id)
       created.title should be ("test title")
       created.color should be ("FF00FF")
 
-      val res2 = esbtkManager.runCommand[StatusReply[Tag.Response]](
-        replyTo => Tag.Update(id, "other title", "00FF00", replyTo)
-      )
+      val res2 = esbtkManager.runCommand[StatusReply[Tag.Response]](Tag.Update(id, "other title", "00FF00", _))
       res2.reply.isSuccess should be (true)
       val updated = res2.reply.getValue
       updated.id should be (id)
       updated.title should be ("other title")
       updated.color should be ("00FF00")
 
-      val res3 = esbtkManager.runCommand[StatusReply[Tag.Response]](
-        replyTo => Tag.Remove(id, replyTo)
-      )
+      val res3 = esbtkManager.runCommand[StatusReply[Tag.Response]](Tag.Remove(id, _))
       res3.reply.isSuccess should be (true)
       val deleted = res3.reply.getValue
       deleted.id should be (id)
@@ -129,9 +114,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
     }
 
     "Reap Sessions" in {
-      val res1 = esbtkManager.runCommand[Command](
-        replyTo => SessionReaper.Reap(replyTo)
-      )
+      val res1 = esbtkManager.runCommand[Command](SessionReaper.Reap)
       res1.reply should be (SessionReaper.Done)
 
       val user = User(next, "session test name", "test@test.er", "Welkom123!", today.minusYears(33), None)
@@ -147,6 +130,7 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
   override def afterAll(): Unit = {
     super.afterAll()
     system.terminate()
+    session.close()
     gc()
   }
 

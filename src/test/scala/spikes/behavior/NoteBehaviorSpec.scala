@@ -24,7 +24,7 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
   "A User" should {
     "be able to create a Note" in {
       val r1 = esbtkUser.runCommand[StatusReply[Note.Response]](
-        replyTo => Note.Create(noteId, user.id, "test-title", "test-body", "test-slug", now.plusDays(7), Status.Doing, Access.Public, replyTo)
+        Note.Create(noteId, user.id, "test-title", "test-body", "test-slug", now.plusDays(7), Status.Doing, Access.Public, _)
       )
       r1.reply.isSuccess should be (true)
 
@@ -36,7 +36,7 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
       val esbtkNote = EventSourcedBehaviorTestKit[Command, Event, Note](system, Note(onote.get))
       val r2 = esbtkNote.runCommand[StatusReply[Note.Response]](
-        replyTo => Note.Update(noteId, user.id, "updated", "updated body", "updated-slug", note.due, note.status, note.access, replyTo)
+        Note.Update(noteId, user.id, "updated", "updated body", "updated-slug", note.due, note.status, note.access, _)
       )
       r2.reply.isSuccess should be (true)
 
@@ -46,7 +46,7 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       note.title should be ("updated")
 
       val r3 = esbtkNote.runCommand[StatusReply[Note.Response]](
-        replyTo => Comment.Create(next, user.id, note.id, None, "test comment", "test body for comment", None, 5, replyTo)
+        Comment.Create(next, user.id, note.id, None, "test comment", "test body for comment", None, 5, _)
       )
       r3.reply.isSuccess should be (true)
       val nr = r3.reply.getValue
@@ -58,6 +58,7 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
     super.afterAll()
     Note.list(Int.MaxValue).foreach(_.remove())
     User.list(Int.MaxValue).foreach(_.remove())
+    session.close()
   }
 
   override protected def beforeEach(): Unit = {

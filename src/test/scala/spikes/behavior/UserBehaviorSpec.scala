@@ -28,7 +28,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
     "be updatable" in {
       val res1 = esbtkUser.runCommand[StatusReply[User.Response]](
-        replyTo => User.Update(user.id, Some("Updated"), Some("NotWelkom123!"), Some(today.minusYears(32)), Some("bio"), replyTo)
+        User.Update(user.id, Some("Updated"), Some("NotWelkom123!"), Some(today.minusYears(32)), Some("bio"), _)
       )
       res1.reply.isSuccess should be (true)
       res1.reply.getValue should ===(
@@ -43,14 +43,14 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       r3.get.bio should be (Some("bio"))
 
       val r4 = esbtkUser.runCommand[StatusReply[User.Response]](
-        replyTo => User.Update(user.id, Some(user.name), Some(hash("Welkom123!")), Some(user.born), user.bio, replyTo)
+        User.Update(user.id, Some(user.name), Some(hash("Welkom123!")), Some(user.born), user.bio, _)
       )
       r4.reply.isSuccess should be (true)
       val r5 = r4.reply.getValue
       r5.name should be (user.name)
 
       val res2 = esbtkUser.runCommand[StatusReply[User.Response]](
-        replyTo => User.Update(user.id, Some("Vlad"), None, None, None, replyTo)
+        User.Update(user.id, Some("Vlad"), None, None, None, _)
       )
       res2.reply.isSuccess should be (true)
       val r6 = res2.reply.getValue
@@ -63,7 +63,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
     "login and get a token" in {
 
       val res2 = esbtkUser.runCommand[StatusReply[OAuthToken]](
-        replyTo => User.Login(user.email, hash("Welkom123!"), replyTo)
+        User.Login(user.email, hash("Welkom123!"), _)
       )
       res2.reply.isSuccess should be(true)
       res2.reply.getValue.id should ===(user.id)
@@ -75,7 +75,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       res3.get.token should ===(token)
 
       val res4 = esbtkUser.runCommand[StatusReply[Any]](
-        replyTo => User.Logout(token, replyTo)
+        User.Logout(token, _)
       )
       res4.reply.isSuccess should be (true)
 
@@ -85,7 +85,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
 
     "add a Note" in {
       val res1 = esbtkUser.runCommand[StatusReply[Note.Response]](
-        replyTo => Note.Post("my first test title", "test body", now.plusDays(5)).asCmd(user.id, replyTo)
+        Note.Post("my first test title", "test body", now.plusDays(5)).asCmd(user.id, _)
       )
       res1.reply.isSuccess should be (true)
       res1.reply.getValue.title should be ("my first test title")
@@ -99,7 +99,7 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       nso should not be empty
 
       val nr = esbtkUser.runCommand[StatusReply[Note.Response]](
-        replyTo => Note.Delete(id).asCmd(uc.id, replyTo)
+        Note.Delete(id).asCmd(uc.id, _)
       )
       nr.reply.isSuccess should be (true)
     }
@@ -108,14 +108,12 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       val noteId = next
       val title = "my first test title"
       val res1 = esbtkUser.runCommand[StatusReply[Note.Response]](
-        replyTo => Note.Create(
-          noteId, user.id, title, "test body", Note.makeslug(noteId, title), now.plusDays(5), Status.ToDo, Access.Public, replyTo
-        )
+        Note.Create(noteId, user.id, title, "test body", Note.makeslug(noteId, title), now.plusDays(5), Status.ToDo, Access.Public, _)
       )
       res1.reply.isSuccess should be(true)
 
       val res2 = esbtkUser.runCommand[StatusReply[Note.Response]](
-        replyTo => Note.Post(title, "second test body", now.plusDays(6)).asCmd(user.id, replyTo)
+        Note.Post(title, "second test body", now.plusDays(6)).asCmd(user.id, _)
       )
       res2.reply.isSuccess should be(false)
 
@@ -137,5 +135,6 @@ class UserBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
     system.terminate()
     Note.list(Int.MaxValue).foreach(_.remove())
     User.list(Int.MaxValue).foreach(_.remove())
+    session.close()
   }
 }

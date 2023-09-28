@@ -48,7 +48,10 @@ final case class UserRouter(manager: ActorRef[Command])(implicit system: ActorSy
           }
         },
         (delete & pathEndOrSingleSlash & authenticateOAuth2Async("spikes", auth)) { us =>
-          replier(manager.ask(User.Remove(us.id, _)), Accepted)
+          onSuccess(manager.ask(User.Remove(us.id, _))) {
+            case sur if sur.isSuccess => complete(OK)
+            case sur => complete(BadRequest, RequestError(sur.getError.getMessage).asJson)
+          }
         },
         get {
           concat(

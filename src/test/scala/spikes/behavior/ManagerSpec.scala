@@ -61,13 +61,10 @@ class ManagerSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with An
         User.Create(id, "Test", "test@miruvor.nl", "Welkom123!", today.minusYears(21), None, _)
       )
       res1.reply.isSuccess should be(true)
-      val res2 = esbtkManager.runCommand[StatusReply[User.Response]](
+      val res2 = esbtkManager.runCommand[StatusReply[Any]](
         replyTo => User.Remove(id, replyTo)
       )
       res2.reply.isSuccess should be(true)
-      res2.reply.getValue should ===(
-        User.Response(id, "Test", "test@miruvor.nl", id.created, today.minusYears(21), None)
-      )
 
       val res3 = esbtkManager.runCommand[StatusReply[Manager.Info]](Manager.GetInfo)
       res3.reply.isSuccess should be(true)

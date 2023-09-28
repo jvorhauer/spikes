@@ -90,7 +90,7 @@ final class NoteRouter(implicit system: ActorSystem[?]) extends Router {
                 onSuccess(lookup(noteId, Note.key)) {
                   case oar: Option[ActorRef[Command]] => oar match {
                     case Some(ar) => onSuccess(ar.ask(cp.asCmd(us.id, _))) {
-                      case sur if sur.isSuccess => complete(OK, sur.getValue.asJson)
+                      case sur if sur.isSuccess => complete(Created, sur.getValue.asJson)
                       case sur => complete(BadRequest, RequestError(sur.getError.getMessage).asJson)
                     }
                     case None => badRequest

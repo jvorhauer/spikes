@@ -109,7 +109,7 @@ object User extends SQLSyntaxSupport[User] {
   final case class Update(id: UserId, name: Option[String], password: Option[String], born: Option[LocalDate], bio: Option[String], replyTo: ReplyTo) extends Command {
     def asEvent: Updated = this.into[User.Updated].transform
   }
-  final case class Remove(id: UserId, replyTo: ReplyTo) extends Command {
+  final case class Remove(id: UserId, replyTo: ReplyAnyTo) extends Command {
     def asEvent: Removed = this.into[User.Removed].transform
   }
   final case class Login(email: String, password: String, replyTo: ReplyTokenTo) extends Command
@@ -149,11 +149,15 @@ object User extends SQLSyntaxSupport[User] {
     val commandHandler: (User, Command) => ReplyEffect[Event, User] = (state, cmd) => cmd match {
         case uc: User.Create => Effect.persist(uc.asEvent).thenReply(uc.replyTo)(upstate => StatusReply.success(Response(upstate)))
         case uu: User.Update => Effect.persist(uu.asEvent).thenReply(uu.replyTo)(upstate => StatusReply.success(Response(upstate)))
-        case ur: User.Remove => Effect.persist(ur.asEvent).thenReply(ur.replyTo)(_ => StatusReply.success(Response(state)))
+        case ur: User.Remove =>
+          Effect.persist(ur.asEvent)
+            .thenRun((_: User) => lookup(ur.id, User.key, ctx).foreach(x => x.foreach(_.tell(ur))))
+            .thenReply(ur.replyTo)(_ => StatusReply.success("Ok"))
 
         case ul: User.Login =>
           if (User.exists(ul.email, ul.password)) {
-            Effect.persist(User.LoggedIn(state.id, now.plus(expire))).thenReply(ul.replyTo) { _ =>
+            val id = User.find(ul.email).getOrElse(state).id
+            Effect.persist(User.LoggedIn(id, now.plus(expire))).thenReply(ul.replyTo) { _ =>
               Session.find(state.id) match {
                 case Some(session) => StatusReply.success(session.asOAuthToken)
                 case None => StatusReply.error(s"${state.email} is authenticated but no session found")

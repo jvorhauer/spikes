@@ -15,7 +15,7 @@ import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
 import spikes.behavior.{Manager, TestUser}
-import spikes.model.{Access, Command, Note, OAuthToken, Session, Status, User, next, now}
+import spikes.model.{Access, Command, Comment, Note, OAuthToken, Session, Status, User, hash, next, now}
 import spikes.route.{NoteRouter, UserRouter}
 import spikes.validate.Validation
 import spikes.{Spikes, SpikesTestBase, model}
@@ -135,6 +135,53 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
 
     Get(s"/notes/${next}") ~> Route.seal(route) ~> check {
       status should be (StatusCodes.NotFound)
+    }
+
+    Get("/notes/missing-slug") ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.NotFound)
+    }
+  }
+
+  "Add a Comment to a Note" should "work" in {
+    val rcu = User.Post(name, "comment@test.er", password, born, Some("bio graphy"))
+    var user: Option[User.Response] = None
+    var location: String = "-"
+    Post("/users", rcu) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.Created
+      header("Location") should not be None
+      location = header("Location").map(_.value()).getOrElse("none")
+      user = Some(responseAs[User.Response])
+    }
+    user.isDefined shouldBe true
+    location shouldEqual s"/users/${user.get.id}"
+
+    Get(location) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      responseAs[User.Response].name shouldEqual name
+    }
+    User.exists(rcu.email, hash(rcu.password)) should be (true)
+
+    val rl = User.Authenticate(rcu.email, password)
+    var resp: Option[OAuthToken] = None
+    Post("/users/login", rl) ~> Route.seal(route) ~> check {
+      status shouldEqual StatusCodes.OK
+      resp = Some(responseAs[OAuthToken])
+    }
+    resp should not be empty
+    val token = resp.get.access_token
+
+    val rnp = Note.Post("title", "body", now.plusDays(7))
+    var noteId: TSID = next
+    Post("/notes", rnp) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.Created)
+      header("Location") should not be empty
+      location = header("Location").map(_.value()).getOrElse("none")
+      noteId = responseAs[Note.Response].id
+    }
+
+    val rnc = Comment.Post(noteId, "test comment", "test comment body", None, 5, None)
+    Post(s"/notes/$noteId/comments", rnc) ~> Authorization(OAuth2BearerToken(token)) ~> Route.seal(route) ~> check {
+      status should be(StatusCodes.Created)
     }
   }
 

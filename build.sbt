@@ -5,8 +5,9 @@ ThisBuild / organization           := "nl.miruvor"
 ThisBuild / versionPolicyIntention := Compatibility.BinaryAndSourceCompatible
 
 ThisBuild / semanticdbEnabled          := true
-ThisBuild / semanticdbVersion          := "4.7.8"
+ThisBuild / semanticdbVersion          := "4.8.9"
 ThisBuild / scalafixScalaBinaryVersion := "2.13"
+ThisBuild / scapegoatVersion           := "2.1.3"
 
 ThisBuild / Test / logBuffered := false
 ThisBuild / Test / parallelExecution := false
@@ -17,7 +18,7 @@ val versions = new {
   val kamon = "2.6.3"
   val scalaTest = "3.2.17"
   val jdbc = "4.0.0"
-  val sentry = "6.29.0"
+  val sentry = "6.30.0"
 }
 
 resolvers ++= Seq(
@@ -71,7 +72,7 @@ lazy val root = (project in file("."))
       "ch.megard"          %% "akka-http-cors"                % "1.2.0",
     ) ++ Seq(
       "com.datastax.oss"  % "java-driver-core"   % "4.17.0",
-      "io.netty"          % "netty-handler"      % "4.1.97.Final",
+      "io.netty"          % "netty-handler"      % "4.1.98.Final",
       "org.owasp.encoder" % "encoder"            % "1.2.3",
       "org.yaml"          % "snakeyaml"          % "2.2",
       "ch.qos.logback"    % "logback-classic"    % "1.4.11",

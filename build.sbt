@@ -13,12 +13,11 @@ ThisBuild / Test / logBuffered := false
 ThisBuild / Test / parallelExecution := false
 
 val versions = new {
-  val akka = "2.8.5"
-  val http = "10.5.2"
-  val kamon = "2.6.3"
+  val akka = "2.9.0"
+  val http = "10.6.0"
   val scalaTest = "3.2.17"
-  val jdbc = "4.0.0"
-  val sentry = "6.30.0"
+  val jdbc = "4.1.0"
+  val sentry = "6.33.1"
 }
 
 resolvers ++= Seq(
@@ -50,7 +49,7 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"  %% "akka-http"                  % versions.http,
       "com.typesafe"       %% "ssl-config-core"            % "0.6.1",
       "com.typesafe.akka"  %% "akka-persistence-typed"     % versions.akka,
-      "com.typesafe.akka"  %% "akka-persistence-cassandra" % "1.1.1",
+      "com.typesafe.akka"  %% "akka-persistence-cassandra" % "1.2.0",
     ) ++ Seq(
       "org.scalatest"       %% "scalatest"                % versions.scalaTest,
       "com.typesafe.akka"   %% "akka-actor-testkit-typed" % versions.akka,
@@ -58,32 +57,30 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"   %% "akka-persistence-testkit" % versions.akka,
       "com.typesafe.akka"   %% "akka-http-testkit"        % versions.http,
       "org.scalikejdbc"     %% "scalikejdbc-test"         % versions.jdbc,
-      "org.specs2"          %% "specs2-core"              % "4.20.2"
+      "org.specs2"          %% "specs2-core"              % "4.20.3"
     ).map(_ % "test") ++ Seq(
       "io.circe"           %% "circe-generic"                 % "0.14.6",
       "de.heikoseeberger"  %% "akka-http-circe"               % "1.39.2",
       "org.typelevel"      %% "jawn-parser"                   % "1.5.1",
-      "io.altoo"           %% "akka-kryo-serialization-typed" % "2.5.1",
+      "io.altoo"           %% "akka-kryo-serialization-typed" % "2.5.2",
       "io.lemonlabs"       %% "scala-uri"                     % "4.0.3",
       "org.scalikejdbc"    %% "scalikejdbc"                   % versions.jdbc,
       "org.scalikejdbc"    %% "scalikejdbc-config"            % versions.jdbc,
       "org.scalactic"      %% "scalactic"                     % versions.scalaTest,
-      "io.scalaland"       %% "chimney"                       % "0.7.5",
+      "io.scalaland"       %% "chimney"                       % "0.8.3",
       "ch.megard"          %% "akka-http-cors"                % "1.2.0",
     ) ++ Seq(
-      "com.datastax.oss"  % "java-driver-core"   % "4.17.0",
-      "io.netty"          % "netty-handler"      % "4.1.98.Final",
-      "org.owasp.encoder" % "encoder"            % "1.2.3",
-      "org.yaml"          % "snakeyaml"          % "2.2",
-      "ch.qos.logback"    % "logback-classic"    % "1.4.11",
-      "com.h2database"    % "h2"                 % "2.2.224",
-      "com.zaxxer"        % "HikariCP"           % "5.0.1",
-      "io.sentry"         % "sentry"             % versions.sentry,
-      "io.sentry"         % "sentry-logback"     % versions.sentry,
-      "io.hypersistence"  % "hypersistence-tsid" % "2.1.1"
-    ) ++ Seq(
-      "io.kamon" %% "kamon-bundle"       % versions.kamon,
-      "io.kamon" %% "kamon-apm-reporter" % versions.kamon,
+      "com.datastax.oss"       % "java-driver-core"   % "4.17.0",
+      "io.netty"               % "netty-handler"      % "4.1.101.Final",
+      "org.owasp.encoder"      % "encoder"            % "1.2.3",
+      "org.yaml"               % "snakeyaml"          % "2.2",
+      "ch.qos.logback"         % "logback-classic"    % "1.4.11",
+      "com.h2database"         % "h2"                 % "2.2.224",
+      "com.zaxxer"             % "HikariCP"           % "5.1.0",
+      "io.sentry"              % "sentry"             % versions.sentry,
+      "io.sentry"              % "sentry-logback"     % versions.sentry,
+      "io.hypersistence"       % "hypersistence-tsid" % "2.1.1",
+      "software.amazon.awssdk" % "s3"                 % "2.21.26"
     ),
     releaseProcess := Seq[ReleaseStep](
       checkSnapshotDependencies, inquireVersions,
@@ -91,7 +88,7 @@ lazy val root = (project in file("."))
       setReleaseVersion, commitReleaseVersion, tagRelease,
       setNextVersion, commitNextVersion, pushChanges
     ),
-    jibBaseImage := "eclipse-temurin:17-jre-alpine",
+    jibBaseImage := "eclipse-temurin:21-jre-alpine",
     jibRegistry := "ghcr.io",
     jibCustomRepositoryPath := Some("jvorhauer/spikes"),
     jibTcpPorts := List(8080),
@@ -104,3 +101,4 @@ lazy val root = (project in file("."))
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion, BuildInfoKey.action("buildTime") { java.time.LocalDateTime.now() }),
     buildInfoPackage := "spikes.build"
   )
+  .enablePlugins(JavaServerAppPackaging)

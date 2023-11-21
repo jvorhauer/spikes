@@ -11,13 +11,12 @@ import ch.megard.akka.http.cors.scaladsl.settings.CorsSettings
 import com.typesafe.config.{Config, ConfigFactory}
 import com.zaxxer.hikari.HikariDataSource
 import io.sentry.{Sentry, SentryOptions}
-import kamon.Kamon
 import scalikejdbc.*
 import spikes.behavior.{Manager, SessionReaper}
 import spikes.build.BuildInfo
 import spikes.model.{Comment, Note, Relation, Session, Tag, User}
 import spikes.route.*
-import spikes.validate.Validation
+import spikes.validate.Validator
 
 import javax.sql.DataSource
 import scala.concurrent.duration.DurationInt
@@ -29,7 +28,6 @@ object Spikes {
   implicit val session: DBSession = init
 
   def main(args: Array[String]): Unit = {
-    Kamon.init()
     Sentry.init((options: SentryOptions) => {
       options.setEnvironment("production")
       options.setDsn(System.getenv("SENTRY_DSN"))
@@ -46,7 +44,7 @@ object Spikes {
     ctx.spawn(SessionReaper(manager, 1.minute), "session-reaper")
 
     val settings = CorsSettings.defaultSettings.withAllowedOrigins(HttpOriginMatcher.*).withAllowedMethods(Seq(POST, GET, PUT, DELETE))
-    val routes = handleRejections(Validation.rejectionHandler) {
+    val routes = handleRejections(Validator.rejectionHandler) {
       cors(settings) {
         concat(UserRouter(manager).route, InfoRouter(manager).route, NoteRouter().route, SessionRouter().route)
       }

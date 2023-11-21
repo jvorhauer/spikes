@@ -13,7 +13,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import scalikejdbc.{AutoSession, DBSession}
 import spikes.behavior.SessionReaper.{Reap, Reaped}
 import spikes.build.BuildInfo
-import spikes.model.{Command, Event, Note, SPID, Session, SpikeSerializable, Tag, User, next}
+import spikes.model.{Command, Event, Note, SPID, Session, Tag, User, next}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
@@ -80,7 +80,7 @@ object Manager {
         ctx.spawn(User(User.save(uc)), User.name(uc.id, uc.email))
         state.copy(users = state.users + 1)
       case ur: User.Removed =>
-        lookup(ur.id, ctx).map(_.foreach(ctx.stop(_)))
+        lookup(ur.id, ctx).map(_.foreach(ctx.stop))
         User.remove(ur.id)
         state.copy(users = state.users - 1)
 
@@ -116,7 +116,7 @@ object Manager {
     Note.list(limit = Int.MaxValue).forall(ns => Await.result(lookup(ns.id.toString, Note.key), 100.millis).isDefined)
   }
 
-  final case class State(users: Int, tags: Int) extends SpikeSerializable
+  final case class State(users: Int, tags: Int) extends Serializable
 
   final case class Check  (replyTo: ActorRef[StatusReply[Checked]]) extends Command
   final case class GetInfo(replyTo: ActorRef[StatusReply[Info]])    extends Command
@@ -130,7 +130,7 @@ object Manager {
       tags    : Int    = Tag.size,
       version : String = BuildInfo.version,
       built   : String = BuildInfo.buildTime,
-      persistenceId: String = Manager.pid.id
-  ) extends SpikeSerializable
-  final case class Checked(ok: Boolean) extends SpikeSerializable
+      persid  : String = Manager.pid.id
+  ) extends Serializable
+  final case class Checked(ok: Boolean) extends Serializable
 }

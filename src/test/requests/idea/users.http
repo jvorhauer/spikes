@@ -4,13 +4,10 @@ Content-Type: application/json
 
 {"name": "Jurjen", "email": "jurjen@vorhauer.nl", "password": "Welkom123!", "born": "1967-04-01"}
 
-> {%  client.global.set("user_id", response.body.id); %}
-
 ### get-all-users
 GET {{ host }}/users
 
 ### get-jurjen
-# GET {{ host }}/users/{{ user_id }}
 GET {{ host }}/users/0DJNCXQFGD4M6
 
 ### login-jurjen
@@ -48,18 +45,19 @@ Content-Type: application/json
 
 {"name": "The Temp", "email": "temp@test.er", "password": "Welkom123!", "born": "2001-11-09", "bio": "bio test <h1>HALLO</h1>"}
 
-> {%client.global.set("temp_id", response.body.id); %}
-
-### get-temp-user
-GET {{ host }}/users/{{ temp_id }}
-
-### login-jurjen
+### login-temp
 POST {{ host }}/users/login
 Content-Type: application/json
 
 {"email": "temp@test.er", "password": "Welkom123!"}
 
-> {% client.global.set("temp_auth", response.body.access_token); %}
+> {%
+  client.global.set("temp_auth", response.body.access_token);
+  client.global.set("temp_id", response.body.id);
+%}
+
+### get-temp-user
+GET {{ host }}/users/{{ temp_id }}
 
 ### delete-temp-user
 DELETE {{ host }}/users

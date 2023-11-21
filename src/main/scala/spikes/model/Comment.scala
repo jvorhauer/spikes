@@ -3,19 +3,29 @@ package spikes.model
 import akka.actor.typed.ActorRef
 import akka.pattern.StatusReply
 import io.hypersistence.tsid.TSID
-import io.scalaland.chimney.dsl.TransformerOps
+import io.scalaland.chimney.dsl.*
 import org.scalactic.TypeCheckedTripleEquals.*
 import scalikejdbc.*
 import spikes.model.Comment.CommentId
+import spikes.model.Comment.Validation.CommentValidationError
 import spikes.model.Note.NoteId
 import spikes.model.User.UserId
-import spikes.validate.Validation.*
+import spikes.validate.Validator.ValidationError
+import spikes.validate.{Validated, Validator}
+
+import scala.util.matching.Regex
 
 
 final case class Comment(
-    id: CommentId, writer: UserId, noteId: NoteId, parent: Option[CommentId] = None,
-    title: String, body: String, color: Option[String], stars: Int = 0
-) extends SpikeSerializable {
+    id: CommentId,
+    writer: UserId,
+    noteId: NoteId,
+    parent: Option[CommentId] = None,
+    title: String,
+    body: String,
+    color: Option[String],
+    stars: Int = 0
+) extends Entity {
   def toResponse: Comment.Response = this.transformInto[Comment.Response]
 }
 
@@ -77,15 +87,39 @@ object Comment extends SQLSyntaxSupport[Comment] {
 
 
   final case class Post(noteId: NoteId, title: String, body: String, color: Option[String] = None, stars: Int = 0, parent: Option[CommentId] = None) extends Request {
-    override def validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("color", color), validate("stars", stars)).flatten
-    def asCmd(writer: UserId, replyTo: ReplyTo): Create = Create(next, writer, noteId, parent, encode(title), encode(body), color, stars, replyTo)
+    override def validated: Validated[CommentValidationError, Comment.Post] = Validator(this)
+      .satisfying(_.title.matches(Validation.title), Validation.Title(value = this.title))
+      .satisfying(_.body.matches(Validation.body), Validation.Body(value = this.body))
+      .satisfying(post => post.color.isEmpty || post.color.get.matches(Validation.color), Validation.Color(value = this.color.getOrElse("???")))
+      .satisfying(post => post.stars >= 0 && post.stars < 6, Validation.Stars(value = this.stars.toString))
+      .applied
+    def asCmd(writer: UserId, replyTo: ReplyTo): Create = Create(next, writer, noteId, parent, clean(title), clean(body), color, stars, replyTo)
   }
   final case class Put(id: CommentId, title: String, body: String, color: Option[String] = None, stars: Int = 0) extends Request {
-    override def validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("color", color), validate("stars", stars)).flatten
-    def asCmd(replyTo: ReplyTo): Update = Update(id, encode(title), encode(body), color, stars, replyTo)
+    override def validated: Validated[CommentValidationError, Comment.Put] = Validator(this)
+      .satisfying(_.title.matches(Validation.title), Validation.Title(value = this.title))
+      .satisfying(_.body.matches(Validation.body), Validation.Body(value = this.body))
+      .satisfying(post => post.color.isEmpty || post.color.get.matches(Validation.color), Validation.Color(value = this.color.getOrElse("???")))
+      .satisfying(post => post.stars >= 0 && post.stars < 6, Validation.Stars(value = this.stars.toString))
+      .applied
+    def asCmd(replyTo: ReplyTo): Update = Update(id, clean(title), clean(body), color, stars, replyTo)
   }
   final case class Delete(id: CommentId) extends Request {
     def asCmd(replyTo: ReplyTo): Remove = this.into[Remove].withFieldComputed(_.replyTo, _ => replyTo).transform
+  }
+
+  object Validation {
+    val title: Regex = "^[\\p{L}\\s\\d\\W]{1,255}$".r
+    val body: Regex = "^[\\p{L}\\s\\d\\W]+$".r
+    val color: Regex = "^[0-9A-Fa-f]{6}$".r
+
+    sealed trait CommentValidationError extends ValidationError {
+      override def entity: String = "Comment"
+    }
+    final case class Title(field: String = "title", value: String) extends CommentValidationError
+    final case class Body(field: String = "body", value: String) extends CommentValidationError
+    final case class Color(field: String = "color", value: String) extends CommentValidationError
+    final case class Stars(field: String = "stars", value: String, override val error: String = "must be between 0 and 5 inclusive") extends CommentValidationError
   }
 
   final case class Create(

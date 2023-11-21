@@ -7,10 +7,10 @@ metadata:
 spec:
   tls:
     - hosts:
-        - enna.miruvor.nl
+        - u4m1mbp22
       secretName: microbot-ingress-tls
   rules:
-    - host: enna.miruvor.nl
+    - host: u4m1mbp22
       http:
         paths:
           - backend:

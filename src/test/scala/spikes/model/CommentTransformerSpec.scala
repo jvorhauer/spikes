@@ -5,6 +5,7 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.pattern.StatusReply
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import spikes.validate.Validated.Passed
 
 class CommentTransformerSpec extends AnyWordSpecLike with Matchers with ScalatestRouteTest {
 
@@ -14,7 +15,7 @@ class CommentTransformerSpec extends AnyWordSpecLike with Matchers with Scalates
   "Comment Transformations" should {
     "Post to Command to Event to State to Response" in {
       val cpo = Comment.Post(next, "title", "body", Some("00FF00"), 4)
-      cpo.validated should be (empty)
+      cpo.validated should matchPattern { case Passed(_) => }
 
       val ccc = cpo.asCmd(next, probe)
       ccc.title should be("title")
@@ -39,7 +40,7 @@ class CommentTransformerSpec extends AnyWordSpecLike with Matchers with Scalates
 
     "Put to Command to Event" in {
       val cpu = Comment.Put(next, "title", "body", Some("FF00FF"), 2)
-      cpu.validated should be (empty)
+      cpu.validated should matchPattern { case Passed(_) => }
 
       val cuc = cpu.asCmd(probe)
       cuc.title should be ("title")

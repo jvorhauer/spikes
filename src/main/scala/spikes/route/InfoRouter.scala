@@ -5,6 +5,7 @@ import akka.http.scaladsl.model.StatusCodes.{BadRequest, OK, ServiceUnavailable}
 import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
+import io.circe.Json
 import io.circe.generic.auto.*
 import io.circe.syntax.*
 import spikes.behavior.Manager.{Check, Checked, GetInfo, Info, IsReady}
@@ -24,24 +25,24 @@ final case class InfoRouter(manager: ActorRef[Command])(implicit system: ActorSy
       },
       path("liveness") {
         complete(manager.ask(IsReady).map {
-          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> ProbeResult("UP").asJson
+          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> jsonify("status", "UP")
           case _ => ServiceUnavailable -> None.asJson
         })
       },
       path("readiness") {
         complete(manager.ask(IsReady).map {
-          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> ProbeResult("UP").asJson
+          case info: StatusReply[Boolean] if info.isSuccess && info.getValue => OK -> jsonify("status", "UP")
           case _ => ServiceUnavailable -> None.asJson
         })
       },
       path("check") {
         complete(manager.ask(Check).map {
-          case c: StatusReply[Checked] if c.isSuccess && c.getValue.ok => OK -> ProbeResult("OK").asJson
+          case c: StatusReply[Checked] if c.isSuccess && c.getValue.ok => OK -> jsonify("result", "OK")
           case _ => ServiceUnavailable -> None.asJson
         })
       }
     )
   }
-}
 
-final case class ProbeResult(status: String)
+  private val jsonify: (String, String) => Json = (key: String, value: String) => Json.obj((key, Json.fromString(value)))
+}

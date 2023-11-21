@@ -17,7 +17,7 @@ import scalikejdbc.DBSession
 import spikes.behavior.{Manager, TestUser}
 import spikes.model.{Command, Session, Tag, User, next, now, today}
 import spikes.route.{TagRouter, UserRouter}
-import spikes.validate.Validation
+import spikes.validate.Validator
 import spikes.{Spikes, SpikesTestBase}
 
 import scala.util.Try
@@ -33,7 +33,7 @@ class TagRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRout
   implicit val ts: ActorSystem[Nothing] = testKit.internalSystem
   val manager: ActorRef[Command] = testKit.spawn(Manager(), "manager-test-actor")
 
-  val route: Route = handleRejections(Validation.rejectionHandler) {
+  val route: Route = handleRejections(Validator.rejectionHandler) {
     concat(TagRouter(manager).route, UserRouter(manager).route)
   }
 

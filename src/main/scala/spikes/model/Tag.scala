@@ -7,10 +7,14 @@ import io.scalaland.chimney.dsl.TransformerOps
 import scalikejdbc.*
 import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.model.Tag.TagID
-import spikes.validate.Validation.{ErrorInfo, validate}
+import spikes.model.Tag.Validation.TagValidationError
+import spikes.validate.Validator.ValidationError
+import spikes.validate.{Validated, Validator}
+
+import scala.util.matching.Regex
 
 
-final case class Tag(id: TagID, title: String, color: String = "000000") extends SpikeSerializable {
+final case class Tag(id: TagID, title: String, color: String = "000000") extends Entity {
   def toResponse: Tag.Response = Tag.Response(id, title, color)
   def remove(): Unit = Tag.remove(id)
 }
@@ -41,15 +45,32 @@ object Tag extends SQLSyntaxSupport[Tag] {
 
 
   final case class Post(title: String, color: String = "000000") extends Request {
-    override def validated: Set[ErrorInfo] = Set(validate("title", title), validate("color", color)).flatten
+    override def validated: Validated[TagValidationError, Tag.Post] = Validator(this)
+      .satisfying(_.title.matches(Validation.title), Tag.Validation.Title(value = this.title))
+      .satisfying(_.color.matches(Validation.color), Tag.Validation.Color(value = this.color))
+      .applied
     def toCmd(replyTo: ReplyTo): Create = Create(next, title, color, replyTo)
   }
   final case class Put(id: TagID, title: String, color: String) extends Request {
-    override def validated: Set[ErrorInfo] = Set(validate("title", title), validate("color", color)).flatten
+    override def validated: Validated[TagValidationError, Tag.Put] = Validator(this)
+      .satisfying(_.title.matches(Validation.title), Tag.Validation.Title(value = this.title))
+      .satisfying(_.color.matches(Validation.color), Tag.Validation.Color(value = this.color))
+      .applied
     def toCmd(replyTo: ReplyTo): Update = Update(id, title, color, replyTo)
   }
   final case class Delete(id: TagID) extends Request {
     def toCmd(replyTo: ReplyTo): Remove = Remove(id, replyTo)
+  }
+
+  object Validation {
+    val title: Regex = "^[\\p{L}\\s\\d\\W]{1,255}$".r
+    val color: Regex = "^[0-9A-Fa-f]{6}$".r
+
+    sealed trait TagValidationError extends ValidationError {
+      override def entity: String = "Tag"
+    }
+    final case class Title(field: String = "title", value: String) extends TagValidationError
+    final case class Color(field: String = "color", value: String) extends TagValidationError
   }
 
   final case class Create(id: TagID, title: String, color: String, replyTo: ReplyTo) extends Command {

@@ -5,6 +5,7 @@ import akka.http.scaladsl.testkit.ScalatestRouteTest
 import akka.pattern.StatusReply
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
+import spikes.validate.Validated.Passed
 
 class TagTransformerTests extends AnyWordSpecLike with Matchers with ScalatestRouteTest {
 
@@ -14,7 +15,7 @@ class TagTransformerTests extends AnyWordSpecLike with Matchers with ScalatestRo
   "A Tag" should {
     "transform from Post to Create" in {
       val tp = Tag.Post("test tag")
-      tp.validated should be (empty)
+      tp.validated should matchPattern { case Passed(_) => }
 
       val cmd = tp.toCmd(probe.ref)
       cmd.title should be ("test tag")

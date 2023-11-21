@@ -6,8 +6,8 @@ import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import spikes.model.{Command, Tag}
-import spikes.validate.Validation.validated
+import spikes.model.*
+import spikes.validate.Validator.validated
 
 final case class TagRouter(ar: ActorRef[Command])(implicit system: ActorSystem[?]) extends Router {
 

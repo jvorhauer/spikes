@@ -17,7 +17,7 @@ import scalikejdbc.DBSession
 import spikes.behavior.{Manager, TestUser}
 import spikes.model.*
 import spikes.route.{RequestError, UserRouter}
-import spikes.validate.Validation
+import spikes.validate.Validator
 import spikes.{Spikes, SpikesTestBase}
 
 import scala.util.Try
@@ -34,7 +34,7 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
   val testKit: ActorTestKit = ActorTestKit(cfg)
   implicit val ts: ActorSystem[Nothing] = testKit.internalSystem
   val manager: ActorRef[Command] = testKit.spawn(Manager(), "manager-test-actor")
-  val route: Route = handleRejections(Validation.rejectionHandler) {
+  val route: Route = handleRejections(Validator.rejectionHandler) {
     UserRouter(manager).route
   }
   val path = "/users"
@@ -51,8 +51,9 @@ class UserRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
     Post(path, rcu) ~> Route.seal(route) ~> check {
       status shouldEqual StatusCodes.BadRequest
       header("Location") should be(None)
-      val res = responseAs[List[Validation.ErrorInfo]]
+      val res = responseAs[List[Validator.ErrorInfo]]
       res should have size 4
+      println(res)
     }
   }
 

@@ -4,13 +4,13 @@ import akka.actor.typed.{ActorRef, ActorSystem}
 import akka.http.scaladsl.model.StatusCode
 import akka.http.scaladsl.model.StatusCodes.*
 import akka.http.scaladsl.model.headers.Location
-import akka.http.scaladsl.server.Directives.{pathEndOrSingleSlash, *}
+import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.pattern.StatusReply
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import spikes.model.{Command, User}
-import spikes.validate.Validation.validated
+import spikes.model.*
+import spikes.validate.Validator.validated
 
 import scala.concurrent.Future
 

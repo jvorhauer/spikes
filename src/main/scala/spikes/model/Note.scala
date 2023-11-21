@@ -7,7 +7,7 @@ import akka.pattern.StatusReply
 import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, Recovery, ReplyEffect, RetentionCriteria}
 import akka.persistence.typed.{PersistenceId, RecoveryFailed, SnapshotSelectionCriteria}
 import io.hypersistence.tsid.TSID
-import io.scalaland.chimney.dsl.TransformerOps
+import io.scalaland.chimney.dsl.*
 import org.scalactic.TypeCheckedTripleEquals.*
 import scalikejdbc.*
 import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
@@ -15,10 +15,12 @@ import spikes.model.Access.Access
 import spikes.model.Note.NoteId
 import spikes.model.Status.Status
 import spikes.model.User.UserId
-import spikes.validate.Validation.{ErrorInfo, validate}
+import spikes.validate.*
+import spikes.validate.Validator.ValidationError
 
 import java.time.LocalDateTime
 import scala.concurrent.duration.DurationInt
+import scala.util.matching.Regex
 
 
 final case class Note(
@@ -26,7 +28,7 @@ final case class Note(
     title: String, body: String, slug: String,
     due: LocalDateTime,
     status: Status, access: Access
-) extends SpikeSerializable {
+) extends Entity {
   def toResponse: Note.Response = this.into[Note.Response]
     .withFieldComputed(_.comments, _ => Comment.onNote(id).map(_.toResponse))
     .transform
@@ -97,22 +99,42 @@ object Note extends SQLSyntaxSupport[Note] {
 
 
   final case class Post(title: String, body: String, due: LocalDateTime, status: Status = Status.New, access: Access = Access.Public) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("due", due)).flatten
+    override def validated: Validated[ValidationError, Note.Post] = Validator(this)
+      .satisfying(_.title.matches(Note.Validation.title), Note.Validation.Title(value = this.title))
+      .satisfying(_.body.matches(Note.Validation.body), Note.Validation.Body(value = this.body))
+      .satisfying(_.due.isAfter(LocalDateTime.now()), Note.Validation.Due(value = this.due.toString))
+      .applied
     def asCmd(owner: UserId, replyTo: ActorRef[StatusReply[Note.Response]]): Create = {
       val id = next
-      val et = encode(title)
-      Note.Create(id, owner, et, encode(body), makeslug(id, et), due, status, access, replyTo)
+      val et = clean(title)
+      Note.Create(id, owner, et, clean(body), makeslug(id, et), due, status, access, replyTo)
     }
   }
   final case class Put(id: NoteId, owner: UserId, title: String, body: String, due: LocalDateTime, status: Status, access: Access) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(validate("title", title), validate("body", body), validate("due", due)).flatten
+    override def validated: Validated[ValidationError, Note.Put] = Validator(this)
+      .satisfying(_.title.matches(Note.Validation.title), Note.Validation.Title(value = this.title))
+      .satisfying(_.body.matches(Note.Validation.body), Note.Validation.Body(value = this.body))
+      .satisfying(_.due.isAfter(LocalDateTime.now()), Note.Validation.Due(value = this.due.toString))
+      .applied
     def asCmd(replyTo: ReplyToActor): Note.Update = {
-      val et = encode(title)
-      Note.Update(id, owner, et, encode(body), makeslug(id, et), due, status, access, replyTo)
+      val et = clean(title)
+      Note.Update(id, owner, et, clean(body), makeslug(id, et), due, status, access, replyTo)
     }
   }
   final case class Delete(id: NoteId) extends Request {
     def asCmd(owner: UserId, replyTo: ActorRef[StatusReply[Note.Response]]): Remove = Note.Remove(id, owner, replyTo)
+  }
+
+  object Validation {
+    val title: Regex = "^[\\p{L}\\s\\d\\W]{1,255}$".r
+    val body: Regex = "^[\\p{L}\\s\\d\\W]+$".r
+
+    sealed trait NoteValidationError extends ValidationError {
+      override def entity = "Note"
+    }
+    final case class Title(field: String = "title", value: String) extends NoteValidationError
+    final case class Body(field: String = "body", value: String) extends NoteValidationError
+    final case class Due(field: String = "due", value: String) extends NoteValidationError
   }
 
 
@@ -151,9 +173,7 @@ object Note extends SQLSyntaxSupport[Note] {
       id: NoteId, title: String, body: String, slug: String, due: LocalDateTime, status: Status, access: Access, comments: List[Comment.Response] = List.empty
   ) extends ResponseT
 
-  private def clean(s: String): String = s.trim.toLowerCase.replaceAll("[^ a-z0-9]", "").replaceAll(" ", "-")
-
-  def makeslug(ldt: LocalDateTime, t: String): String = s"${DTF.format(ldt)}-${clean(t)}"
+  def makeslug(ldt: LocalDateTime, t: String): String = s"${DTF.format(ldt)}-${t.replaceAll("[^ a-z0-9]", "").replaceAll(" ", "-")}"
   def makeslug(id: NoteId, t: String): String = makeslug(id.created, t)
 
 

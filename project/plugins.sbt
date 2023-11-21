@@ -10,4 +10,5 @@ addSbtPlugin("org.scalameta"          % "sbt-scalafmt"           % "2.5.2")
 addSbtPlugin("com.eed3si9n"           % "sbt-buildinfo"          % "0.11.0")
 addSbtPlugin("com.artima.supersafe"   % "sbtplugin"              % "1.1.12")
 addSbtPlugin("com.sksamuel.scapegoat" % "sbt-scapegoat"          % "1.2.2")
+addSbtPlugin("com.github.sbt"         % "sbt-native-packager"    % "1.9.16")
 addDependencyTreePlugin

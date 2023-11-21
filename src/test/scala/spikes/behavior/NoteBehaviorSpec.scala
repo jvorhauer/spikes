@@ -14,7 +14,7 @@ import spikes.{Spikes, SpikesConfig}
 
 class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) with AnyWordSpecLike with Matchers with BeforeAndAfterEach {
 
-  implicit val session: DBSession = Spikes.init
+  implicit private val session: DBSession = Spikes.init
 
   private val uc = User.Created(next, "Test", "test@miruvor.nl", hash("Welkom123!"), today.minusYears(23), None)
   private val user: User = User.save(uc)
@@ -34,7 +34,7 @@ class NoteBehaviorSpec extends ScalaTestWithActorTestKit(SpikesConfig.config) wi
       note.title should be ("test-title")
       note.id should be (noteId)
 
-      val esbtkNote = EventSourcedBehaviorTestKit[Command, Event, Note](system, Note(onote.get))
+      val esbtkNote = EventSourcedBehaviorTestKit[Command, Event, Note](system, Note(note))
       val r2 = esbtkNote.runCommand[StatusReply[Note.Response]](
         Note.Update(noteId, user.id, "updated", "updated body", "updated-slug", note.due, note.status, note.access, _)
       )

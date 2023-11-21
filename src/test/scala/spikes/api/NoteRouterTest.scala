@@ -17,7 +17,7 @@ import scalikejdbc.DBSession
 import spikes.behavior.{Manager, TestUser}
 import spikes.model.{Access, Command, Comment, Note, OAuthToken, Session, Status, User, hash, next, now}
 import spikes.route.{NoteRouter, UserRouter}
-import spikes.validate.Validation
+import spikes.validate.Validator
 import spikes.{Spikes, SpikesTestBase, model}
 
 import scala.util.Try
@@ -37,7 +37,7 @@ class NoteRouterTest extends SpikesTestBase with ScalaFutures with ScalatestRout
   implicit val ts: ActorSystem[Nothing] = testKit.internalSystem
   val manager: ActorRef[Command] = testKit.spawn(Manager(), "manager-test-actor")
 
-  val route: Route = handleRejections(Validation.rejectionHandler) {
+  val route: Route = handleRejections(Validator.rejectionHandler) {
     concat(
       UserRouter(manager).route, NoteRouter().route
     )

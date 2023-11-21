@@ -8,7 +8,7 @@
 
   <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
-      <pattern>[%date{ISO8601, CET}] %level %logger [%marker] [%thread] - %msg [%traceID] [%mdc]%n</pattern>
+      <pattern>[%date{ISO8601, CET}] %level %logger [%marker] [%thread] - %msg [%mdc]%n</pattern>
     </encoder>
   </appender>
 

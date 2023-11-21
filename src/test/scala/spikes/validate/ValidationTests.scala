@@ -7,34 +7,23 @@ import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
 import io.circe.generic.auto.*
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
-import spikes.model.Request
-import spikes.validate.Validation.{ErrorInfo, ModelValidationRejection, validated}
+import spikes.model.{Request, ValidatableString}
+import spikes.validate.ValidationTests.{AuthorError, PagesError, TitleError}
+import spikes.validate.Validator.{ErrorInfo, RequestValidationRejection, ValidationError, validated}
 
-import java.time.LocalDate
+import scala.util.matching.Regex
 
 
 class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest {
+
+  val rtitle: Regex = "^[\\p{L}\\s\\d\\W]{1,255}$".r
+
   case class Book(title: String, author: String, pages: Int) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set(
-      Validation.validate(titleRule(title), title, "title"),
-      if (author.length > 3) None else Some(ErrorInfo("author", "author must be longer than 3")),
-      if (pages < 11) Some(ErrorInfo("pages", "page count must be greater than 10")) else None,
-    ).flatten
-  }
-
-  case class Improved(title: String, name: String, when: LocalDate) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set.apply(
-      Validation.validate(titleRule(title), title, "title"),
-      Validation.validate(nameRule(name), name, "name"),
-      Validation.validate(bornRule(when), when, "when")
-    ).flatten
-  }
-
-  case class Account(name: String, password: String) extends Request {
-    override lazy val validated: Set[ErrorInfo] = Set.apply(
-      Validation.validate(nameRule(name), name, "name"),
-      Validation.validate(passwordRule(password), password, "password")
-    ).flatten
+    override def validated: Validated[ValidationError, Book] = Validator(this)
+      .satisfying(_.title.matches(rtitle), TitleError(value = this.title))
+      .satisfying(_.author.length > 3, AuthorError(value = this.author))
+      .satisfying(_.pages > 11, PagesError(value = this.pages.toString))
+      .applied
   }
 
   val routes: Route = {
@@ -51,27 +40,20 @@ class ValidationTests extends AnyFlatSpec with Matchers with ScalatestRouteTest 
 
   "Invalid Book" should "return model validation rejection set" in {
     Post("/books", Book("", "", 5)) ~> routes ~> check {
-      assert(rejection === ModelValidationRejection(Set(
-        ErrorInfo("title", "\"\" is not a valid title"),
-        ErrorInfo("author", "author must be longer than 3"),
-        ErrorInfo("pages", "page count must be greater than 10")
+      assert(rejection === RequestValidationRejection(List(
+        ErrorInfo("Book.title", "invalid: <empty>"),
+        ErrorInfo("Book.author", "invalid: <empty>"),
+        ErrorInfo("Book.pages", "invalid: 5")
       )))
     }
   }
+}
 
-  "Improved" should "validate" in {
-    val when = LocalDate.now.minusYears(23)
-
-    Improved("title", "name", when).validated should have size 0
-    Improved("", "name", when).validated should have size 1
-    Improved("", "", when).validated should have size 2
-    Improved("", "", LocalDate.now).validated should have size 3
-
-    Improved("title", "Howdy 2", when).validated should have size 1
+object ValidationTests {
+  sealed trait BookValidationError extends ValidationError {
+    override def entity: String = "Book"
   }
-
-  "Password" should "validate" in {
-    Account("name", "Welkom123!").validated should have size 0
-    Account("nämé", "WasDah5#$").validated should have size 0
-  }
+  final case class TitleError(field: String = "title", value: String) extends BookValidationError
+  final case class AuthorError(field: String = "author", value: String) extends BookValidationError
+  final case class PagesError(field: String = "pages", value: String) extends BookValidationError
 }

@@ -13,10 +13,9 @@ object SpikesConfig {
         |      kryo = "io.altoo.akka.serialization.kryo.KryoSerializer"
         |    }
         |    serialization-bindings {
-        |        "spikes.model.package$SpikeSerializable" = kryo
+        |        "java.io.Serializable" = kryo
         |    }
         |  }
         |}""".stripMargin)
     .withFallback(EventSourcedBehaviorTestKit.config)
-
 }

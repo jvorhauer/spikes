@@ -7,18 +7,18 @@ import akka.http.scaladsl.server.Directives.*
 import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.testkit.ScalatestRouteTest
 import de.heikoseeberger.akkahttpcirce.FailFastCirceSupport.*
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.auto.*
+import io.circe.{Decoder, Encoder}
 import io.hypersistence.tsid.TSID
 import org.scalatest.BeforeAndAfterEach
 import org.scalatest.concurrent.ScalaFutures
 import scalikejdbc.DBSession
 import spikes.behavior.Manager.Info
-import spikes.{Spikes, SpikesTestBase}
 import spikes.behavior.{Manager, TestUser}
 import spikes.model.{Command, Session}
 import spikes.route.{InfoRouter, SessionRouter}
-import spikes.validate.Validation
+import spikes.validate.Validator
+import spikes.{Spikes, SpikesTestBase}
 
 import scala.util.Try
 
@@ -32,7 +32,7 @@ class InfoRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
   implicit val ts: ActorSystem[Nothing] = testKit.internalSystem
   val manager: ActorRef[Command] = testKit.spawn(Manager(), "manager-test-actor")
 
-  val route: Route = handleRejections(Validation.rejectionHandler) {
+  val route: Route = handleRejections(Validator.rejectionHandler) {
       concat(InfoRouter(manager).route, SessionRouter().route)
   }
 

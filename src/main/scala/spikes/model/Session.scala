@@ -7,7 +7,7 @@ import spikes.model.User.UserId
 
 import java.time.LocalDateTime
 
-final case class Session(id: UserId, token: String, expires: LocalDateTime) extends SpikeSerializable {
+final case class Session(id: UserId, token: String, expires: LocalDateTime) {
   lazy val asOAuthToken: OAuthToken = OAuthToken(token, id)
   def isValid(t: String): Boolean = token.contentEquals(t) && expires.isAfter(now)
   def remove(): Unit = Session.remove(id)

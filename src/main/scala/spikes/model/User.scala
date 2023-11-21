@@ -8,20 +8,30 @@ import akka.persistence.typed.scaladsl.{Effect, EventSourcedBehavior, ReplyEffec
 import akka.persistence.typed.{PersistenceId, RecoveryFailed}
 import com.typesafe.config.{Config, ConfigFactory}
 import io.hypersistence.tsid.TSID
-import io.scalaland.chimney.dsl.TransformerOps
-import org.owasp.encoder.Encode
+import io.scalaland.chimney.dsl.*
 import scalikejdbc.*
 import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.behavior.Manager.lookup
 import spikes.model.User.UserId
-import spikes.validate.Validation.{ErrorInfo, validate}
+import spikes.model.User.Validation.UserValidationError
+import spikes.validate.*
+import spikes.validate.Validator.ValidationError
 
 import java.time.temporal.TemporalAmount
 import java.time.{LocalDate, LocalDateTime}
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.DurationInt
+import scala.util.matching.Regex
 
-final case class User(id: UserId, name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None, notes: Int = 0) extends SpikeSerializable {
+final case class User(
+    id: UserId,
+    name: String,
+    email: String,
+    password: String,
+    born: LocalDate,
+    bio: Option[String] = None,
+    notes: Int = 0
+) extends Entity {
   def toResponse: User.Response = this.into[User.Response].withFieldComputed(_.joined, _ => id.created).transform
   def remove(): Unit = User.remove(id)
 }
@@ -90,16 +100,42 @@ object User extends SQLSyntaxSupport[User] {
 
 
   final case class Post(name: String, email: String, password: String, born: LocalDate, bio: Option[String] = None) extends Request {
-    override def validated: Set[ErrorInfo] = Set(validate("name", name), validate("email", email), validate("password", password), validate("born", born)).flatten
-    def asCmd(replyTo: ReplyTo): Create = Create(next, Encode.forHtml(name), email, hash(password), born, bio.map(Encode.forHtml), replyTo)
+    override def validated: Validated[UserValidationError, User.Post] = Validator(this)
+      .satisfying(_.name.matches(Validation.name), User.Validation.Name(value = this.name))
+      .satisfying(_.email.matches(Validation.email), User.Validation.Email(value = this.email))
+      .satisfying(_.password.matches(Validation.password), User.Validation.Password(value = this.password))
+      .satisfying(_.born.isBefore(LocalDate.now().minusYears(9)), User.Validation.TooYoung(value = this.born.toString))
+      .applied
+    def asCmd(replyTo: ReplyTo): Create = Create(next, clean(name), email, hash(password), born, bio.map(clean), replyTo)
   }
   final case class Put(id: UserId, name: Option[String], password: Option[String], born: Option[LocalDate], bio: Option[String] = None) extends Request {
-    override def validated: Set[ErrorInfo] = Set(name.flatMap(validate("name", _)), password.flatMap(validate("password", _)), born.flatMap(validate("born", _))).flatten
-    def asCmd(replyTo: ReplyTo): Update = Update(id, name.map(Encode.forHtml), password.map(hash), born, bio.map(Encode.forHtml), replyTo)
+    override def validated: Validated[UserValidationError, User.Put] = Validator(this)
+      .satisfying(put => put.name.isEmpty     || put.name.get.matches(Validation.name), User.Validation.Name(value = this.name.getOrElse("")))
+      .satisfying(put => put.password.isEmpty || put.password.get.matches(Validation.password), User.Validation.Password(value = this.password.getOrElse("")))
+      .satisfying(put => put.born.isEmpty     || put.born.get.isBefore(LocalDate.now().minusYears(9)), User.Validation.TooYoung(value = this.born.toString))
+      .applied
+    def asCmd(replyTo: ReplyTo): Update = Update(id, name.map(clean), password.map(hash), born, bio.map(clean), replyTo)
   }
   final case class Authenticate(email: String, password: String) extends Request {
-    override def validated: Set[ErrorInfo] = Set(validate("email", email), validate("password", password)).flatten
+    override def validated: Validated[UserValidationError, User.Authenticate] = Validator(this)
+      .satisfying(_.email.matches(Validation.email), User.Validation.Email(value = this.email))
+      .satisfying(_.password.matches(Validation.password), User.Validation.Password(value = this.password))
+      .applied
     def asCmd(replyTo: ReplyTokenTo): Login = Login(email, hash(password), replyTo)
+  }
+
+  object Validation {
+    val name: Regex = "^[\\p{L}\\s'-]+$".r
+    val email: Regex = "^([\\w-]+(?:\\.[\\w-]+)*)@\\w[\\w.-]+\\.[a-zA-Z]+$".r
+    val password: Regex = "^(?=.*?[A-Z])(?=.*?[a-z])(?=.*?[0-9])(?=.*?[#?!@$%^&*-]).{8,}$".r
+
+    sealed trait UserValidationError extends ValidationError {
+      override def entity: String = "User"
+    }
+    final case class Name(field: String = "name", value: String) extends UserValidationError
+    final case class Email(field: String = "email", value: String) extends UserValidationError
+    final case class Password(field: String = "password", value: String) extends UserValidationError
+    final case class TooYoung(field: String = "born", value: String, override val error: String = "too young") extends UserValidationError
   }
 
 
@@ -197,7 +233,7 @@ object User extends SQLSyntaxSupport[User] {
           ctx.spawn(Note(Note.save(nc)), Note.name(state.id, nc.id, nc.slug))
           state.copy(notes = state.notes + 1)
         case nr: Note.Removed =>
-          lookup(nr.id, Note.key, ctx).map(_.foreach(ctx.stop(_)))
+          lookup(nr.id, Note.key, ctx).map(_.foreach(ctx.stop))
           Note.remove(nr.id)
           state.copy(notes = state.notes -1)
       }
@@ -219,7 +255,7 @@ object User extends SQLSyntaxSupport[User] {
       password varchar(64) not null,
       born date not null,
       bio varchar(4096)
-    )""".execute,
-    sql"create unique index if not exists users_email_idx on users (email)".execute
-  )
+    )""",
+    sql"create unique index if not exists users_email_idx on users (email)"
+  ).map(_.execute)
 }

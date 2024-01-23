@@ -1,14 +1,23 @@
 package spikes.model
 
 import io.hypersistence.tsid.TSID
+import pdi.jwt.{JwtAlgorithm, JwtCirce, JwtClaim}
 import scalikejdbc.*
 import scalikejdbc.interpolation.SQLSyntax.{count, distinct}
 import spikes.model.User.UserId
 
-import java.time.LocalDateTime
+import java.time.{Instant, LocalDateTime}
 
 final case class Session(id: UserId, token: String, expires: LocalDateTime) {
+  private val key: String = "my-first-secret"
   lazy val asOAuthToken: OAuthToken = OAuthToken(token, id)
+  lazy val asJsonWebToken: String = {
+    val claim = JwtClaim(
+      expiration = Some(Instant.now().plusSeconds(157784760).getEpochSecond),
+      issuedAt = Some(Instant.now().getEpochSecond)
+    )
+    JwtCirce.encode(claim, key, JwtAlgorithm.HS256)
+  }
   def isValid(t: String): Boolean = token.contentEquals(t) && expires.isAfter(now)
   def remove(): Unit = Session.remove(id)
 }

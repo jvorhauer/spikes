@@ -13,8 +13,9 @@ import com.typesafe.config.{Config, ConfigFactory}
 import scalikejdbc.{AutoSession, DBSession}
 import spikes.behavior.SessionReaper.{Reap, Reaped}
 import spikes.build.BuildInfo
-import spikes.model.{Command, Event, Note, SPID, Session, Tag, User, next}
+import spikes.model.{Command, Event, Note, SPID, Session, Status, Tag, User, next}
 
+import scala.collection.immutable.SortedSet
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.DurationInt
 import scala.concurrent.{Await, Future}
@@ -66,6 +67,7 @@ object Manager {
       case GetInfo(replyTo) => Effect.reply(replyTo)(StatusReply.success(Info(recovered)))
       case IsReady(replyTo) => Effect.reply(replyTo)(StatusReply.success(recovered))
       case Check(replyTo)   => Effect.reply(replyTo)(StatusReply.success(Checked(check(ctx.system))))
+      case GetStati(replyTo) => Effect.reply(replyTo)(StatusReply.success(StatusValues()))
 
       case Reap(replyTo)    => Session.expired match {
         case 0     => Effect.reply(replyTo)(SessionReaper.Done)
@@ -133,4 +135,7 @@ object Manager {
       persid  : String = Manager.pid.id
   ) extends Serializable
   final case class Checked(ok: Boolean) extends Serializable
+
+  final case class GetStati(replyTo: ActorRef[StatusReply[StatusValues]]) extends Command
+  final case class StatusValues(stati: SortedSet[String] = Status.values.map(_.toString)) extends Serializable
 }

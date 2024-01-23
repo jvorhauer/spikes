@@ -71,4 +71,11 @@ class InfoRouterTests extends SpikesTestBase with ScalaFutures with ScalatestRou
       responseAs[List[Session.Response]] should have size 0
     }
   }
+
+  "List with Stati" should "have Status.values" in {
+    Get("/stati") ~> route ~> check {
+      status should be (StatusCodes.OK)
+      responseAs[List[String]] should have size 7
+    }
+  }
 }

@@ -2,6 +2,7 @@ package spikes
 
 import io.hypersistence.tsid.TSID
 import org.owasp.encoder.Encode
+import scalasql.core.TypeMapper
 import scalikejdbc.ParameterBinderFactory
 import spikes.validate.Validated
 import spikes.validate.Validated.Passed
@@ -10,6 +11,7 @@ import spikes.validate.Validator.ValidationError
 import java.net.InetAddress
 import java.nio.charset.StandardCharsets
 import java.security.{MessageDigest, SecureRandom}
+import java.sql.{JDBCType, PreparedStatement, ResultSet}
 import java.time.format.DateTimeFormatter
 import java.time.{LocalDate, LocalDateTime, ZoneId, ZonedDateTime}
 import java.util.Locale
@@ -68,5 +70,11 @@ package object model {
 
   implicit val tsidPBF: ParameterBinderFactory[TSID] = ParameterBinderFactory[TSID] {
     value => (stmt, idx) => stmt.setLong(idx, value.toLong)
+  }
+
+  implicit def tm: TypeMapper[TSID] = new TypeMapper[TSID] {
+    def jdbcType: JDBCType = JDBCType.BIGINT
+    def get(r: ResultSet, idx: Int): TSID = TSID.from(r.getLong(idx))
+    def put(r: PreparedStatement, idx: Int, v: TSID): Unit = r.setLong(idx, v.toLong)
   }
 }

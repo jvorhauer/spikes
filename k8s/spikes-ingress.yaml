@@ -4,7 +4,7 @@ metadata:
   name: spikes-ingress
 spec:
   rules:
-    - host: u4m1mbp22
+    - host: enna.miruvor.nl
       http:
         paths:
           - path: /

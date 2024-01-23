@@ -8,7 +8,7 @@ import akka.pattern.StatusReply
 import io.circe.Json
 import io.circe.generic.auto.*
 import io.circe.syntax.*
-import spikes.behavior.Manager.{Check, Checked, GetInfo, Info, IsReady}
+import spikes.behavior.Manager.{Check, Checked, GetInfo, GetStati, Info, IsReady, StatusValues}
 import spikes.model.Command
 
 final case class InfoRouter(manager: ActorRef[Command])(implicit system: ActorSystem[Nothing]) extends Router {
@@ -38,6 +38,12 @@ final case class InfoRouter(manager: ActorRef[Command])(implicit system: ActorSy
       path("check") {
         complete(manager.ask(Check).map {
           case c: StatusReply[Checked] if c.isSuccess && c.getValue.ok => OK -> jsonify("result", "OK")
+          case _ => ServiceUnavailable -> None.asJson
+        })
+      },
+      path("stati"){
+        complete(manager.ask(GetStati).map {
+          case c: StatusReply[StatusValues] if c.isSuccess => OK -> c.getValue.stati.asJson
           case _ => ServiceUnavailable -> None.asJson
         })
       }

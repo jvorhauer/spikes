@@ -18,10 +18,11 @@ val versions = new {
   val scalaTest = "3.2.17"
   val jdbc = "4.2.0"
   val sentry = "7.2.0"
-  val awssdk = "2.23.8"
+  val awssdk = "2.23.9"
   val logback = "1.4.14"
   val netty = "4.1.106.Final"
   val chimney = "0.8.5"
+  val specs2 = "4.20.5"
 }
 
 resolvers ++= Seq(
@@ -55,13 +56,13 @@ lazy val root = (project in file("."))
       "com.typesafe.akka"  %% "akka-persistence-typed"     % versions.akka,
       "com.typesafe.akka"  %% "akka-persistence-cassandra" % "1.2.0",
     ) ++ Seq(
-      "org.scalatest"       %% "scalatest"                % versions.scalaTest,
-      "com.typesafe.akka"   %% "akka-actor-testkit-typed" % versions.akka,
-      "com.typesafe.akka"   %% "akka-stream-testkit"      % versions.akka,
-      "com.typesafe.akka"   %% "akka-persistence-testkit" % versions.akka,
-      "com.typesafe.akka"   %% "akka-http-testkit"        % versions.http,
-      "org.scalikejdbc"     %% "scalikejdbc-test"         % versions.jdbc,
-      "org.specs2"          %% "specs2-core"              % "4.20.4"
+      "org.scalatest"      %% "scalatest"                % versions.scalaTest,
+      "com.typesafe.akka"  %% "akka-actor-testkit-typed" % versions.akka,
+      "com.typesafe.akka"  %% "akka-stream-testkit"      % versions.akka,
+      "com.typesafe.akka"  %% "akka-persistence-testkit" % versions.akka,
+      "com.typesafe.akka"  %% "akka-http-testkit"        % versions.http,
+      "org.scalikejdbc"    %% "scalikejdbc-test"         % versions.jdbc,
+      "org.specs2"         %% "specs2-core"              % versions.specs2,
     ).map(_ % "test") ++ Seq(
       "io.circe"             %% "circe-generic"                 % "0.14.6",
       "de.heikoseeberger"    %% "akka-http-circe"               % "1.39.2",
